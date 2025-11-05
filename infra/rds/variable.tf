@@ -26,13 +26,13 @@ variable "statistic_period" {
 
 variable "instances_dev" {
   default = {
-    one   = {}
+    one = {}
   }
 }
 
 variable "instances_prod" {
   default = {
-    one   = {}
-    two   = {}
+    one = {}
+    two = {}
   }
 }

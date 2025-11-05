@@ -190,17 +190,17 @@ resource "aws_cloudwatch_metric_alarm" "disk_write_iops" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "volume_read_iops" {
-  alarm_name                = "${var.env}-rds-DB-VolumeReadIOPs"
-  comparison_operator       = "GreaterThanThreshold"
-  evaluation_periods        = var.evaluation_period
-  metric_name               = "VolumeReadIOPs"
-  namespace                 = "AWS/RDS"
-  period                    = var.statistic_period
-  statistic                 = "Average"
-  threshold                 = "200"
-  alarm_description         = "Average database connections over last 10 minutes too high"
-  datapoints_to_alarm       = var.datapoints_to_alarm
-  alarm_actions             = [aws_sns_topic.SNS_alarm_notification.arn]
+  alarm_name          = "${var.env}-rds-DB-VolumeReadIOPs"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = var.evaluation_period
+  metric_name         = "VolumeReadIOPs"
+  namespace           = "AWS/RDS"
+  period              = var.statistic_period
+  statistic           = "Average"
+  threshold           = "200"
+  alarm_description   = "Average database connections over last 10 minutes too high"
+  datapoints_to_alarm = var.datapoints_to_alarm
+  alarm_actions       = [aws_sns_topic.SNS_alarm_notification.arn]
 
   dimensions = {
     DBClusterIdentifier = "common"
@@ -209,17 +209,17 @@ resource "aws_cloudwatch_metric_alarm" "volume_read_iops" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "volume_write_iops" {
-  alarm_name                = "${var.env}-rds-DB-VolumeWriteIOPS"
-  comparison_operator       = "GreaterThanThreshold"
-  evaluation_periods        = var.evaluation_period
-  metric_name               = "VolumeWriteIOPS"
-  namespace                 = "AWS/RDS"
-  period                    = var.statistic_period
-  statistic                 = "Average"
-  threshold                 = "100"
-  alarm_description         = "Average database connections over last 10 minutes too high"
-  datapoints_to_alarm       = var.datapoints_to_alarm
-  alarm_actions             = [aws_sns_topic.SNS_alarm_notification.arn]
+  alarm_name          = "${var.env}-rds-DB-VolumeWriteIOPS"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = var.evaluation_period
+  metric_name         = "VolumeWriteIOPS"
+  namespace           = "AWS/RDS"
+  period              = var.statistic_period
+  statistic           = "Average"
+  threshold           = "100"
+  alarm_description   = "Average database connections over last 10 minutes too high"
+  datapoints_to_alarm = var.datapoints_to_alarm
+  alarm_actions       = [aws_sns_topic.SNS_alarm_notification.arn]
 
   dimensions = {
     DBClusterIdentifier = "common"

@@ -3,35 +3,35 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "5.23.0" 
+      version = "5.23.0"
     }
     kubernetes = {
       source  = "hashicorp/kubernetes"
-      version = "2.36.0" 
+      version = "2.36.0"
     }
     helm = {
       source  = "hashicorp/helm"
-      version = "2.11.0" 
+      version = "2.11.0"
     }
     kubectl = {
       source  = "gavinbunney/kubectl"
-      version = "~> 1.14" 
+      version = "~> 1.14"
     }
     random = {
       source  = "hashicorp/random"
-      version = "3.5.1" 
+      version = "3.5.1"
     }
     tls = {
       source  = "hashicorp/tls"
-      version = "4.0.4" 
+      version = "4.0.4"
     }
     okta = {
       source  = "okta/okta"
-      version = "4.5.0" 
+      version = "4.5.0"
     }
     postgresql = {
       source  = "cyrilgdn/postgresql"
-      version = "1.21.0" 
+      version = "1.21.0"
     }
   }
 }

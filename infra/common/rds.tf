@@ -1,6 +1,6 @@
 module "postgresql" {
   source  = "terraform-aws-modules/rds-aurora/aws"
-  version = "8.5.0" 
+  version = "8.5.0"
 
   name           = "common"
   engine         = "aurora-postgresql"
@@ -12,10 +12,10 @@ module "postgresql" {
 
   iam_database_authentication_enabled = true
   #create_random_password              = false
-  manage_master_user_password         = false
-  database_name                       = "common"
-  master_username                     = "common"
-  master_password                     = random_password.password.result
+  manage_master_user_password = false
+  database_name               = "common"
+  master_username             = "common"
+  master_password             = random_password.password.result
 
 
   port = 5432
@@ -24,9 +24,9 @@ module "postgresql" {
   autoscaling_min_capacity = 1
   autoscaling_max_capacity = 2
 
-  vpc_id                  = module.vpc.vpc_id
-  subnets                 = module.vpc.private_subnets
-  create_db_subnet_group  = true
+  vpc_id                 = module.vpc.vpc_id
+  subnets                = module.vpc.private_subnets
+  create_db_subnet_group = true
   security_group_rules = {
     common_ip_ingress = {
       cidr_blocks = ["10.10.0.0/16"]
@@ -72,7 +72,7 @@ resource "aws_ssm_parameter" "db" {
 
 module "security_group_rds" {
   source  = "terraform-aws-modules/security-group/aws"
-  version = "5.1.0" 
+  version = "5.1.0"
 
   name   = "db-sg-module"
   vpc_id = module.vpc.vpc_id

@@ -13,7 +13,7 @@ data "aws_region" "current" {}
 data "aws_partition" "current" {}
 
 data "aws_route53_zone" "public" {
-  name = var.env == "prod" ? var.dns : data.terraform_remote_state.services.outputs.dns_name
+  name         = var.env == "prod" ? var.dns : data.terraform_remote_state.services.outputs.dns_name
   private_zone = false
 }
 

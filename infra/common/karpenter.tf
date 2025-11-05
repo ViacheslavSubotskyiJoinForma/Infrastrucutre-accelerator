@@ -1,6 +1,6 @@
 module "karpenter_irsa" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
-  version = "5.30.0"  
+  version = "5.30.0"
 
   role_name                          = "karpenter-controller-${local.cluster_name}"
   attach_karpenter_controller_policy = true

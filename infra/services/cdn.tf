@@ -20,7 +20,7 @@ module "company-logos-bucket" {
   server_side_encryption_configuration = {
     rule = {
       apply_server_side_encryption_by_default = {
-        sse_algorithm     = "AES256"
+        sse_algorithm = "AES256"
       }
     }
   }
@@ -33,15 +33,15 @@ module "company-logos-bucket" {
       max_age_seconds = 3000
     }
   ])
-  
+
   tags = local.tags
 }
 
 resource "aws_s3_object" "logos_icons" {
-    bucket   = module.company-logos-bucket.s3_bucket_id
-    acl      = "private"
-    key      = "company/icons/"
-    source   = "/dev/null"
+  bucket = module.company-logos-bucket.s3_bucket_id
+  acl    = "private"
+  key    = "company/icons/"
+  source = "/dev/null"
 }
 
 module "frontend-bucket" {
@@ -67,11 +67,11 @@ module "frontend-bucket" {
   server_side_encryption_configuration = {
     rule = {
       apply_server_side_encryption_by_default = {
-        sse_algorithm     = "AES256"
+        sse_algorithm = "AES256"
       }
     }
   }
-  
+
   tags = local.tags
 }
 
@@ -90,7 +90,7 @@ module "cdn" {
 
   create_origin_access_identity = true
   origin_access_identities = {
-    s3_bucket_one   = local.admin_url
+    s3_bucket_one = local.admin_url
   }
 
   origin = {
@@ -121,9 +121,9 @@ module "cdn" {
 
   ordered_cache_behavior = [
     {
-      path_pattern             = "/company/icons/*"
-      target_origin_id         = "s3_logos"
-      viewer_protocol_policy   = "redirect-to-https"
+      path_pattern           = "/company/icons/*"
+      target_origin_id       = "s3_logos"
+      viewer_protocol_policy = "redirect-to-https"
 
       allowed_methods          = ["GET", "HEAD", "OPTIONS"]
       cached_methods           = ["GET", "HEAD"]
@@ -142,9 +142,9 @@ module "cdn" {
 
   custom_error_response = [{
     error_caching_min_ttl = 10
-    error_code = 403
-    response_code = 200
-    response_page_path = "/"
+    error_code            = 403
+    response_code         = 200
+    response_page_path    = "/"
   }]
 
   depends_on = [
@@ -159,7 +159,7 @@ resource "aws_route53_record" "admin-record" {
   type    = "CNAME"
   zone_id = var.env == "prod" ? data.aws_route53_zone.public.zone_id : aws_route53_zone.public_dns.zone_id
   ttl     = 60
-  records = [ module.cdn.cloudfront_distribution_domain_name ]
+  records = [module.cdn.cloudfront_distribution_domain_name]
   depends_on = [
     module.cdn
   ]
@@ -170,18 +170,18 @@ resource "aws_route53_record" "logos-record" {
   type    = "CNAME"
   zone_id = var.env == "prod" ? data.aws_route53_zone.public.zone_id : aws_route53_zone.public_dns.zone_id
   ttl     = 60
-  records = [ module.cdn.cloudfront_distribution_domain_name ]
+  records = [module.cdn.cloudfront_distribution_domain_name]
   depends_on = [
     module.cdn
   ]
 }
 
 data "aws_iam_policy_document" "s3_policy" {
-  policy_id       = "PolicyForCloudFrontPrivateContent"
+  policy_id = "PolicyForCloudFrontPrivateContent"
   statement {
-    sid           = "1"
-    actions       = ["s3:GetObject"]
-    resources     = ["arn:aws:s3:::${module.frontend-bucket.s3_bucket_id}/*"]
+    sid       = "1"
+    actions   = ["s3:GetObject"]
+    resources = ["arn:aws:s3:::${module.frontend-bucket.s3_bucket_id}/*"]
 
     principals {
       type        = "AWS"
@@ -202,11 +202,11 @@ resource "aws_s3_bucket_policy" "frontend-bucket-policy" {
 }
 
 data "aws_iam_policy_document" "s3_policy_logos_cdn" {
-  policy_id       = "PolicyForCloudFrontCompanyLogos"
+  policy_id = "PolicyForCloudFrontCompanyLogos"
   statement {
-    sid           = "LogosBucketCDN"
-    actions       = ["s3:GetObject"]
-    resources     = ["arn:aws:s3:::${module.company-logos-bucket.s3_bucket_id}/*"]
+    sid       = "LogosBucketCDN"
+    actions   = ["s3:GetObject"]
+    resources = ["arn:aws:s3:::${module.company-logos-bucket.s3_bucket_id}/*"]
 
     principals {
       type        = "AWS"
@@ -214,9 +214,9 @@ data "aws_iam_policy_document" "s3_policy_logos_cdn" {
     }
   }
   statement {
-    sid           = "LogosBucket"
-    actions       = ["s3:*"]
-    resources     = [
+    sid     = "LogosBucket"
+    actions = ["s3:*"]
+    resources = [
       module.company-logos-bucket.s3_bucket_arn,
       "${module.company-logos-bucket.s3_bucket_arn}/*"
     ]

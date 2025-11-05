@@ -42,34 +42,34 @@ resource "aws_s3_bucket_acl" "sftp_bucket_acl" {
 }
 
 resource "aws_s3_object" "rdf" {
-    for_each = toset(var.user)
-    bucket   = aws_s3_bucket.sftp_bucket[each.key].id
-    acl      = "private"
-    key      = "upload/rdf/"
-    source   = "/dev/null"
+  for_each = toset(var.user)
+  bucket   = aws_s3_bucket.sftp_bucket[each.key].id
+  acl      = "private"
+  key      = "upload/rdf/"
+  source   = "/dev/null"
 }
 
 resource "aws_eip" "public_ip_sftp" {
-  count       = length(var.aws_subnet_ids)
+  count = length(var.aws_subnet_ids)
   #vpc         = true
-  tags        = var.tags
+  tags = var.tags
 }
 
 resource "aws_transfer_server" "sftp" {
-  endpoint_type            = "VPC"
-  security_policy_name     = "TransferSecurityPolicy-2020-06"
-  protocols                = ["SFTP"]
-  certificate              = data.aws_acm_certificate.issued.arn
-  identity_provider_type   = "SERVICE_MANAGED"
-  logging_role             = aws_iam_role.logging_role.arn
+  endpoint_type          = "VPC"
+  security_policy_name   = "TransferSecurityPolicy-2020-06"
+  protocols              = ["SFTP"]
+  certificate            = data.aws_acm_certificate.issued.arn
+  identity_provider_type = "SERVICE_MANAGED"
+  logging_role           = aws_iam_role.logging_role.arn
   endpoint_details {
-    address_allocation_ids = [for eip in aws_eip.public_ip_sftp: eip.id]
+    address_allocation_ids = [for eip in aws_eip.public_ip_sftp : eip.id]
     security_group_ids     = [var.security_group_ids]
     subnet_ids             = var.aws_subnet_ids
     vpc_id                 = var.vpc_id
   }
 
-  tags        = var.tags
+  tags = var.tags
 }
 
 resource "aws_secretsmanager_secret" "sftp_secret" {

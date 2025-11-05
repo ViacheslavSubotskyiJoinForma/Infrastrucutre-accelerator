@@ -53,12 +53,12 @@ variable "extra_cidr_block" {
 
 variable "vpn_env_group" {
   default = {
-    "dev-to-dev"     = {group_id = "<id>", cidr = "10.1.0.0/16"}, ## Access to DEV env dev group
-    "admin-to-dev"   = {group_id = "<id>", cidr = "10.1.0.0/16"}, ## Access to DEV env admin group
-    "dev-to-uat"     = {group_id = "<id>", cidr = "10.2.0.0/16"}, ## Access to UAT env dev group
-    "admin-to-uat"   = {group_id = "<id>", cidr = "10.2.0.0/16"}, ## Access to UAT env admin gro
-    "dev-to-prod"    = {group_id = "<id>", cidr = "10.3.0.0/16"}, ## Access to UAT env dev group
-    "admin-to-prod"  = {group_id = "<id>", cidr = "10.3.0.0/16"}, ## Access to UAT env admin gro
+    "dev-to-dev"    = { group_id = "<id>", cidr = "10.1.0.0/16" }, ## Access to DEV env dev group
+    "admin-to-dev"  = { group_id = "<id>", cidr = "10.1.0.0/16" }, ## Access to DEV env admin group
+    "dev-to-uat"    = { group_id = "<id>", cidr = "10.2.0.0/16" }, ## Access to UAT env dev group
+    "admin-to-uat"  = { group_id = "<id>", cidr = "10.2.0.0/16" }, ## Access to UAT env admin gro
+    "dev-to-prod"   = { group_id = "<id>", cidr = "10.3.0.0/16" }, ## Access to UAT env dev group
+    "admin-to-prod" = { group_id = "<id>", cidr = "10.3.0.0/16" }, ## Access to UAT env admin gro
   }
 }
 
@@ -74,17 +74,17 @@ variable "dev" {
 
 variable "retool_team" {
   default = {
-    "User7@ClientDomain.com" = {first_name = "<>", last_name = "<>"},
-    "User4@ClientDomain.com"    = {first_name = "<>", last_name = "<>"},
-    "User5@ClientDomain.com"      = {first_name = "<>", last_name = "<>"},
-    "User6@ClientDomain.com"       = {first_name = "<>", last_name = "<>"},
+    "User7@ClientDomain.com" = { first_name = "<>", last_name = "<>" },
+    "User4@ClientDomain.com" = { first_name = "<>", last_name = "<>" },
+    "User5@ClientDomain.com" = { first_name = "<>", last_name = "<>" },
+    "User6@ClientDomain.com" = { first_name = "<>", last_name = "<>" },
   }
 }
 
 variable "datapoints_to_alarm" {
-  type = string
+  type        = string
   description = "The number of datapoints that must be breaching to trigger the alarm"
-  default = "2"
+  default     = "2"
 }
 
 variable "evaluation_period" {

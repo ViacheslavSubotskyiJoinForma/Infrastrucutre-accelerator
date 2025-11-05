@@ -39,9 +39,9 @@ EOF
 }
 
 resource "aws_cloudwatch_event_target" "sns-guardduty" {
-  count       = var.env == "prod" ? 1 : 0
-  rule        = aws_cloudwatch_event_rule.gd-alert-rule[0].name
-  arn         = data.terraform_remote_state.monitoring.outputs.monitoring_sns_arn
-  target_id   = "SendToSNS"
-  depends_on  = [aws_cloudwatch_event_rule.gd-alert-rule[0]]
+  count      = var.env == "prod" ? 1 : 0
+  rule       = aws_cloudwatch_event_rule.gd-alert-rule[0].name
+  arn        = data.terraform_remote_state.monitoring.outputs.monitoring_sns_arn
+  target_id  = "SendToSNS"
+  depends_on = [aws_cloudwatch_event_rule.gd-alert-rule[0]]
 } 

@@ -1,6 +1,6 @@
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "5.1.2" 
+  version = "5.1.2"
 
   name = "vpc"
   cidr = "10.10.0.0/16"
@@ -13,11 +13,11 @@ module "vpc" {
   enable_nat_gateway = true
   enable_vpn_gateway = false
 
-  enable_dns_hostnames = true
-  enable_dns_support   = true
-  map_public_ip_on_launch = true
-  manage_default_network_acl = false
-  manage_default_route_table = false
+  enable_dns_hostnames          = true
+  enable_dns_support            = true
+  map_public_ip_on_launch       = true
+  manage_default_network_acl    = false
+  manage_default_route_table    = false
   manage_default_security_group = false
 
   # Flowlogs
@@ -42,7 +42,7 @@ module "vpc" {
 # VPC Peering Config
 module "vpc_dev_peering" {
   source  = "grem11n/vpc-peering/aws"
-  version = "6.0.0" 
+  version = "6.0.0"
 
   providers = {
     aws.this = aws
@@ -65,7 +65,7 @@ module "vpc_dev_peering" {
 
 module "vpc_uat_peering" {
   source  = "grem11n/vpc-peering/aws"
-  version = "6.0.0" 
+  version = "6.0.0"
 
   providers = {
     aws.this = aws
@@ -85,7 +85,7 @@ module "vpc_uat_peering" {
 
 module "vpc_prod_peering" {
   source  = "grem11n/vpc-peering/aws"
-  version = "6.0.0" 
+  version = "6.0.0"
 
   providers = {
     aws.this = aws

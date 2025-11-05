@@ -21,11 +21,11 @@ module "statement-bucket" {
 }
 
 data "aws_iam_policy_document" "s3_statement_policy" {
-  policy_id       = "PolicyForStatementBucket"
+  policy_id = "PolicyForStatementBucket"
   statement {
-    sid           = "StatementBucket"
-    actions       = ["s3:*"]
-    resources     = [
+    sid     = "StatementBucket"
+    actions = ["s3:*"]
+    resources = [
       module.statement-bucket.s3_bucket_arn,
       "${module.statement-bucket.s3_bucket_arn}/*"
     ]
@@ -50,7 +50,7 @@ resource "aws_s3_bucket_policy" "statement-bucket-policy" {
 
 resource "aws_s3_bucket_lifecycle_configuration" "statement-bucket-lifecycle" {
   bucket = module.statement-bucket.s3_bucket_id
-  
+
   rule {
     id = "DeleteExpiredFiles"
     expiration {
@@ -82,11 +82,11 @@ module "ClientDomain-company-census" {
 }
 
 data "aws_iam_policy_document" "s3_ClientDomain-company-census_policy" {
-  policy_id       = "PolicyForCensusBucket"
+  policy_id = "PolicyForCensusBucket"
   statement {
-    sid           = "CensusBucket"
-    actions       = ["s3:*"]
-    resources     = [
+    sid     = "CensusBucket"
+    actions = ["s3:*"]
+    resources = [
       module.ClientDomain-company-census.s3_bucket_arn,
       "${module.ClientDomain-company-census.s3_bucket_arn}/*"
     ]

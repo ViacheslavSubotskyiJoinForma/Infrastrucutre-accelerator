@@ -6,18 +6,18 @@ resource "aws_iam_role" "vanta-audit" {
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
-        {
-            "Effect": "Allow",
-            "Principal": {
-                "AWS": "arn:aws:iam::956993596390:root"
-            },
-            "Action": "sts:AssumeRole",
-            "Condition": {
-                "StringEquals": {
-                    "sts:ExternalId": "D9A26BA33889E1E"
-                }
-            }
+      {
+        "Effect" : "Allow",
+        "Principal" : {
+          "AWS" : "arn:aws:iam::956993596390:root"
+        },
+        "Action" : "sts:AssumeRole",
+        "Condition" : {
+          "StringEquals" : {
+            "sts:ExternalId" : "D9A26BA33889E1E"
+          }
         }
+      }
     ]
   })
 
@@ -25,38 +25,38 @@ resource "aws_iam_role" "vanta-audit" {
 }
 
 resource "aws_iam_policy" "vanta-additional-permissions" {
-  name        = "VantaAdditionalPermissions"
+  name = "VantaAdditionalPermissions"
 
   # Terraform's "jsonencode" function converts a
   # Terraform expression result to valid JSON syntax.
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
-        {
-        "Effect": "Allow",
-        "Action": [
-            "ecr:BatchGetRepositoryScanningConfiguration",
-            "ecr:DescribeImageScanFindings",
-            "ecr:DescribeImages",
-            "dynamodb:ListTagsOfResource",
-            "ecr:ListTagsForResource",
-            "inspector2:BatchGet*",
-            "inspector2:Get*",
-            "inspector2:Describe*",
-            "inspector2:List*",
-            "sqs:ListQueueTags"
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "ecr:BatchGetRepositoryScanningConfiguration",
+          "ecr:DescribeImageScanFindings",
+          "ecr:DescribeImages",
+          "dynamodb:ListTagsOfResource",
+          "ecr:ListTagsForResource",
+          "inspector2:BatchGet*",
+          "inspector2:Get*",
+          "inspector2:Describe*",
+          "inspector2:List*",
+          "sqs:ListQueueTags"
         ],
-        "Resource": "*"
-        },
-        {
-        "Effect": "Deny",
-        "Action": [
-            "datapipeline:EvaluateExpression",
-            "datapipeline:QueryObjects",
-            "rds:DownloadDBLogFilePortion"
+        "Resource" : "*"
+      },
+      {
+        "Effect" : "Deny",
+        "Action" : [
+          "datapipeline:EvaluateExpression",
+          "datapipeline:QueryObjects",
+          "rds:DownloadDBLogFilePortion"
         ],
-        "Resource": "*"
-        }
+        "Resource" : "*"
+      }
     ]
   })
 

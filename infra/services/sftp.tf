@@ -1,14 +1,14 @@
 resource "aws_security_group" "sftp_security_group" {
   #count              = (var.env == "prod" || var.env == "uat") ? 1 : 0
-  count              = var.env == "prod" ? 1 : 0
-  name               = "${var.env}-sftp-sg"
-  description        = "Managed by Terraform"
-  vpc_id             = data.terraform_remote_state.vpc.outputs.vpc_id
-       
+  count       = var.env == "prod" ? 1 : 0
+  name        = "${var.env}-sftp-sg"
+  description = "Managed by Terraform"
+  vpc_id      = data.terraform_remote_state.vpc.outputs.vpc_id
+
   ingress {
-    from_port        = 22
-    to_port          = 22
-    protocol         = "tcp"
+    from_port = 22
+    to_port   = 22
+    protocol  = "tcp"
 
     cidr_blocks = [
       "52.22.202.246/32",
@@ -19,10 +19,10 @@ resource "aws_security_group" "sftp_security_group" {
     ]
   }
   egress {
-    from_port        = 0
-    to_port          = 0
-    protocol         = "-1"
-    cidr_blocks      = ["0.0.0.0/0"]
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   tags = local.tags
@@ -40,15 +40,15 @@ module "sftp" {
   vpc_id             = data.terraform_remote_state.vpc.outputs.vpc_id
   kms_arn            = aws_kms_key.s3_key.arn
 
-  tags               = local.tags
+  tags = local.tags
 }
 
 resource "aws_s3_bucket_logging" "sftp-bucket-log" {
   #count              = (var.env == "prod" || var.env == "uat") ? 1 : 0
-  count              = var.env == "prod" ? 1 : 0
-  bucket             = module.sftp[0].bucket_id["source1"]
-  target_bucket      = aws_s3_bucket.log_bucket.id
-  target_prefix      = "sftp-bucket-source1-log/"
+  count         = var.env == "prod" ? 1 : 0
+  bucket        = module.sftp[0].bucket_id["source1"]
+  target_bucket = aws_s3_bucket.log_bucket.id
+  target_prefix = "sftp-bucket-source1-log/"
 }
 
 ##Applicable only for galilelo SFTP server and user

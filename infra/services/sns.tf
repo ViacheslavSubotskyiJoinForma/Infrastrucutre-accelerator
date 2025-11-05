@@ -12,27 +12,27 @@ resource "aws_sns_platform_application" "fcm_application" {
 }
 
 resource "aws_iam_role" "sns-success-feedback" {
-  name = "SNSSuccessFeedback"
-  assume_role_policy = "${file("${path.module}/templates/sns-assume.json")}"
-  tags = local.tags
+  name               = "SNSSuccessFeedback"
+  assume_role_policy = file("${path.module}/templates/sns-assume.json")
+  tags               = local.tags
 }
 
 resource "aws_iam_role" "sns-failure-feedback" {
-  name = "SNSFailureFeedback"
-  assume_role_policy = "${file("${path.module}/templates/sns-assume.json")}"
-  tags = local.tags
+  name               = "SNSFailureFeedback"
+  assume_role_policy = file("${path.module}/templates/sns-assume.json")
+  tags               = local.tags
 }
 
 resource "aws_iam_policy" "sns-failure-feedback-policy" {
-  name        = "SNSFailureFeedbackPolicy"
-  policy      = "${file("${path.module}/templates/sns-feedback.json")}"
-  tags        = local.tags
+  name   = "SNSFailureFeedbackPolicy"
+  policy = file("${path.module}/templates/sns-feedback.json")
+  tags   = local.tags
 }
 
 resource "aws_iam_policy" "sns-success-feedback-policy" {
-  name        = "SNSSuccessFeedbackPolicy"
-  policy      = "${file("${path.module}/templates/sns-feedback.json")}"
-  tags        = local.tags
+  name   = "SNSSuccessFeedbackPolicy"
+  policy = file("${path.module}/templates/sns-feedback.json")
+  tags   = local.tags
 }
 
 resource "aws_iam_policy_attachment" "sns-success-feedback-attach" {
@@ -48,7 +48,7 @@ resource "aws_iam_policy_attachment" "sns-failure-feedback-attach" {
 }
 
 resource "aws_sns_sms_preferences" "update_sms_prefs" {
-  delivery_status_success_sampling_rate  = 100
-  delivery_status_iam_role_arn           = aws_iam_role.sns-success-feedback.arn
-  default_sms_type                       = "Transactional"
+  delivery_status_success_sampling_rate = 100
+  delivery_status_iam_role_arn          = aws_iam_role.sns-success-feedback.arn
+  default_sms_type                      = "Transactional"
 }

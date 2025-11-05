@@ -11,7 +11,7 @@ resource "aws_route53_record" "amazonses_verification_record" {
 }
 
 resource "aws_ses_domain_dkim" "domain_dkim" {
-  domain = "${aws_ses_domain_identity.domain.domain}"
+  domain = aws_ses_domain_identity.domain.domain
 }
 
 resource "aws_route53_record" "amazonses_dkim_record" {
@@ -36,12 +36,12 @@ resource "aws_ses_receipt_rule" "store" {
   }
 
   s3_action {
-    bucket_name = var.bucket_name
+    bucket_name       = var.bucket_name
     object_key_prefix = "incoming"
-    position    = 2
+    position          = 2
   }
   depends_on = [
-      aws_ses_receipt_rule_set.default
+    aws_ses_receipt_rule_set.default
   ]
 }
 

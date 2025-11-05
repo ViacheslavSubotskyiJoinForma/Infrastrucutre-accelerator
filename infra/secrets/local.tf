@@ -1,17 +1,17 @@
 locals {
-  secrets       = "external-secrets"
-  partition     = data.aws_partition.current.partition
-  dns_name      = var.env == "prod" ? "${var.dns}" : "${var.env}.${var.dns}"
-  cors_url      = var.env == "dev" ? "http://localhost:3000,https://admin.${local.dns_name}" : "https://admin.${local.dns_name}"
+  secrets   = "external-secrets"
+  partition = data.aws_partition.current.partition
+  dns_name  = var.env == "prod" ? "${var.dns}" : "${var.env}.${var.dns}"
+  cors_url  = var.env == "dev" ? "http://localhost:3000,https://admin.${local.dns_name}" : "https://admin.${local.dns_name}"
   tags = {
     Environment = var.env
     Terraform   = "true"
     account     = local.partition
   }
-  secret_all    = {
-    "ClientDomain_DB_USER"                               = jsondecode(data.aws_secretsmanager_secret_version.rds_backend.secret_string)["username"],
-    "ClientDomain_DB_PASSWORD"                           = jsondecode(data.aws_secretsmanager_secret_version.rds_backend.secret_string)["password"],
-    "ClientDomain_DB_URL"                                = "jdbc:postgresql://${jsondecode(data.aws_secretsmanager_secret_version.rds_backend.secret_string)["endpoint"]}:${jsondecode(data.aws_secretsmanager_secret_version.rds_backend.secret_string)["port"]}/${jsondecode(data.aws_secretsmanager_secret_version.rds_backend.secret_string)["dbname"]}",
+  secret_all = {
+    "ClientDomain_DB_USER"                           = jsondecode(data.aws_secretsmanager_secret_version.rds_backend.secret_string)["username"],
+    "ClientDomain_DB_PASSWORD"                       = jsondecode(data.aws_secretsmanager_secret_version.rds_backend.secret_string)["password"],
+    "ClientDomain_DB_URL"                            = "jdbc:postgresql://${jsondecode(data.aws_secretsmanager_secret_version.rds_backend.secret_string)["endpoint"]}:${jsondecode(data.aws_secretsmanager_secret_version.rds_backend.secret_string)["port"]}/${jsondecode(data.aws_secretsmanager_secret_version.rds_backend.secret_string)["dbname"]}",
     "EMAIL_USER_POOL_ID"                             = data.terraform_remote_state.services.outputs.email_user_pool_id,
     "EMAIL_USER_POOL_CLIENT_ID"                      = data.terraform_remote_state.services.outputs.email_user_pool_id_client_id,
     "PHONE_USER_POOL_ID"                             = data.terraform_remote_state.services.outputs.phone_user_pool_id,
@@ -60,12 +60,12 @@ locals {
     "COMPANY_CENSUS_BUCKET_NAME"                     = "ClientDomain-company-census-${var.env}",
     "COMPANY_LOGO_BUCKET_NAME"                       = "ClientDomain-company-logos-${var.env}",
   }
-  secret_dev    = {
-    "MIDDLE_MONTH_PAYMENT_DAY"                       = "15",
-    "ClientDomain_STATEMENT_DAYS-AMOUNT"                 = "5",
-    "NEAREST_LAST_PAYROLL_DATE"                      = "2023-02-22",
-    "NEAREST_NEXT_PAYROLL_DATE"                      = "2023-02-24"
+  secret_dev = {
+    "MIDDLE_MONTH_PAYMENT_DAY"           = "15",
+    "ClientDomain_STATEMENT_DAYS-AMOUNT" = "5",
+    "NEAREST_LAST_PAYROLL_DATE"          = "2023-02-22",
+    "NEAREST_NEXT_PAYROLL_DATE"          = "2023-02-24"
 
   }
-  secret_megre    = var.env == "dev" ? merge(local.secret_all, local.secret_dev) : local.secret_all
+  secret_megre = var.env == "dev" ? merge(local.secret_all, local.secret_dev) : local.secret_all
 }

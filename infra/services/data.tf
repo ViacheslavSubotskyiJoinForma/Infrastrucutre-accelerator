@@ -101,7 +101,7 @@ data "aws_cloudfront_cache_policy" "existing_cache_policy" {
 }
 
 data "aws_cloudfront_origin_request_policy" "existing_cors_policy" {
-  name        = "Managed-CORS-S3Origin"
+  name = "Managed-CORS-S3Origin"
 }
 
 data "aws_secretsmanager_secret" "rds_user" {

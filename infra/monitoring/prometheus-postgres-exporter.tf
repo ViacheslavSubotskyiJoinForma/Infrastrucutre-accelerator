@@ -19,7 +19,7 @@ resource "helm_release" "prometheus-postgres-exporter" {
   chart            = "prometheus-postgres-exporter"
   version          = "4.2.1"
   values = [templatefile("values/prometheus-postgres-exporter.yaml", {
-    secretName     = "prometheus-postgres-exporter-${var.env}"
-    sekretKey      = "connection"
+    secretName = "prometheus-postgres-exporter-${var.env}"
+    sekretKey  = "connection"
   })]
 }

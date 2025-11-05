@@ -2,7 +2,7 @@ resource "aws_eip" "nat" {
   count = var.env == "prod" ? 3 : 0
   #vpc   = true
 
-  tags  = local.tags
+  tags = local.tags
 }
 
 module "vpc" {
@@ -19,15 +19,15 @@ module "vpc" {
 
   enable_nat_gateway  = true
   single_nat_gateway  = var.env == "replace_to_prod" ? false : true
-  reuse_nat_ips       = var.env == "replace_to_prod" ? true : false   # <= Skip creation of EIPs for the NAT Gateways
-  external_nat_ip_ids = "${aws_eip.nat.*.id}"            # <= IPs specified here as input to the module
+  reuse_nat_ips       = var.env == "replace_to_prod" ? true : false # <= Skip creation of EIPs for the NAT Gateways
+  external_nat_ip_ids = aws_eip.nat.*.id                            # <= IPs specified here as input to the module
   enable_vpn_gateway  = false
 
-  enable_dns_hostnames = true
-  enable_dns_support   = true
-  map_public_ip_on_launch = true
-  manage_default_network_acl = false
-  manage_default_route_table = false
+  enable_dns_hostnames          = true
+  enable_dns_support            = true
+  map_public_ip_on_launch       = true
+  manage_default_network_acl    = false
+  manage_default_route_table    = false
   manage_default_security_group = false
 
   # Flowlogs

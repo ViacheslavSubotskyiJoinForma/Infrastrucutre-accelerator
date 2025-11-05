@@ -76,13 +76,13 @@ data "aws_iam_policy_document" "external_secrets" {
 }
 
 resource "random_password" "encryption_key" {
-  length           = 25
-  special          = true
+  length  = 25
+  special = true
 }
 
 resource "aws_secretsmanager_secret" "secrets_manager_source1_ssh" {
-    count       = var.env == "prod" ? 1 : 0
-    name        = "${var.env}-ssh-public-key-source1"
-    description = "Secrets for Store publick key from the Source1"
-    tags        = local.tags
+  count       = var.env == "prod" ? 1 : 0
+  name        = "${var.env}-ssh-public-key-source1"
+  description = "Secrets for Store publick key from the Source1"
+  tags        = local.tags
 }
