@@ -12,6 +12,17 @@ provider "aws" {
   region  = var.region
   profile = var.aws_profile
 
+  default_tags {
+    tags = {
+      Project     = var.project_name
+      Environment = var.env
+      ManagedBy   = "Terraform"
+      Component   = "vpc"
+      Repository  = "infrastructure-accelerator"
+      Generator   = "Infrastructure Template Generator"
+    }
+  }
+
   # For local testing, AWS_PROFILE environment variable can override this
   # For production with role assumption, uncomment:
   # assume_role {

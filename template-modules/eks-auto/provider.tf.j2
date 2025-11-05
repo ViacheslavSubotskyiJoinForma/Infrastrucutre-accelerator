@@ -18,6 +18,8 @@ provider "aws" {
       Environment = var.env
       ManagedBy   = "Terraform"
       Component   = "eks-auto"
+      Repository  = "infrastructure-accelerator"
+      Generator   = "Infrastructure Template Generator"
     }
   }
 }
