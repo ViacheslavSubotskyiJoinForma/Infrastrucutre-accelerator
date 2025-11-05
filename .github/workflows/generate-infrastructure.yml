@@ -250,7 +250,17 @@ jobs:
       - name: Create archive
         run: |
           cd generated-infra
-          tar -czf ../infrastructure-${{ inputs.project_name }}-$(date +%Y%m%d-%H%M%S).tar.gz .
+
+          # Create archive excluding temporary files
+          tar -czf ../infrastructure-${{ inputs.project_name }}-$(date +%Y%m%d-%H%M%S).tar.gz \
+            --exclude='.terraform' \
+            --exclude='.terraform.lock.hcl' \
+            --exclude='*.tfstate' \
+            --exclude='*.tfstate.backup' \
+            --exclude='*.tfplan' \
+            --exclude='.git' \
+            .
+
           cd ..
 
           echo "✅ Archive created successfully"
