@@ -1,0 +1,9 @@
+clusterName: "${clusterName}"
+
+serviceAccount:
+  annotations: 
+    eks.amazonaws.com/role-arn: "${role}"
+  name: "${serviceAccount}"
+
+clusterSecretsPermissions:
+  allowAllSecrets: true
