@@ -20,7 +20,7 @@ module "vpc" {
   enable_nat_gateway  = true
   single_nat_gateway  = var.env == "replace_to_prod" ? false : true
   reuse_nat_ips       = var.env == "replace_to_prod" ? true : false # <= Skip creation of EIPs for the NAT Gateways
-  external_nat_ip_ids = aws_eip.nat[*].id # <= IPs specified here as input to the module
+  external_nat_ip_ids = aws_eip.nat[*].id                           # <= IPs specified here as input to the module
   enable_vpn_gateway  = false
 
   enable_dns_hostnames          = true

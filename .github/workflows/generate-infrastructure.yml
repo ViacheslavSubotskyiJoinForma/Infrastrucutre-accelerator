@@ -247,6 +247,37 @@ jobs:
           - The `.gitlab-ci.yml` file is included for GitLab CI/CD automation
           EOF
 
+      - name: Verify generated files
+        run: |
+          echo "=== Verifying generated files ==="
+          echo ""
+          echo "Directory structure:"
+          ls -la generated-infra/
+          echo ""
+
+          if [ -f "generated-infra/.gitlab-ci.yml" ]; then
+            echo "✅ .gitlab-ci.yml exists"
+            echo "File size: $(stat -f%z generated-infra/.gitlab-ci.yml 2>/dev/null || stat -c%s generated-infra/.gitlab-ci.yml) bytes"
+          else
+            echo "❌ ERROR: .gitlab-ci.yml NOT FOUND"
+            exit 1
+          fi
+
+          if [ -f "generated-infra/README.md" ]; then
+            echo "✅ README.md exists"
+          else
+            echo "❌ ERROR: README.md NOT FOUND"
+            exit 1
+          fi
+
+          if [ -d "generated-infra/infra" ]; then
+            echo "✅ infra/ directory exists"
+            echo "Components: $(ls -d generated-infra/infra/*/ | xargs -n1 basename | tr '\n' ', ' | sed 's/,$//')"
+          else
+            echo "❌ ERROR: infra/ directory NOT FOUND"
+            exit 1
+          fi
+
       - name: Create archive
         run: |
           cd generated-infra
@@ -265,6 +296,11 @@ jobs:
 
           echo "✅ Archive created successfully"
           ls -lh infrastructure-*.tar.gz
+
+          # Verify archive contents
+          echo ""
+          echo "Archive contents (first 20 files):"
+          tar -tzf infrastructure-*.tar.gz | head -20
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
