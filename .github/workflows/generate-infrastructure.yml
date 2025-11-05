@@ -1,5 +1,7 @@
 name: Generate Infrastructure Template
 
+run-name: Generate "${{ inputs.project_name }}" infrastructure (${{ inputs.component_preset }})
+
 on:
   workflow_dispatch:
     inputs:
