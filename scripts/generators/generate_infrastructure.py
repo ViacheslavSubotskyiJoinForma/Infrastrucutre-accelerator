@@ -39,6 +39,12 @@ class InfrastructureGenerator:
         'services': ['sftp.tf', 'zendesk.tf', 'vanta.tf'],  # Client-specific integrations
     }
 
+    # Components that require local modules
+    REQUIRES_MODULES = {
+        'services': ['sftp'],  # services uses modules/sftp (but excluded by default)
+        # Add more as needed
+    }
+
     def __init__(self, project_name: str, components: List[str],
                  environments: List[str], config: Dict):
         self.project_name = project_name
@@ -47,6 +53,7 @@ class InfrastructureGenerator:
         self.config = config
         self.output_dir = Path(config.get('output_dir', 'generated-infra'))
         self.template_dir = Path(config.get('template_dir', 'template-modules'))
+        self.needs_modules = False
 
     def validate_components(self):
         """Validate selected components and their dependencies"""
@@ -84,6 +91,33 @@ class InfrastructureGenerator:
 
         return sorted_components
 
+    def _check_modules_needed(self):
+        """Check if any components require local modules"""
+        for component in self.components:
+            if component in self.REQUIRES_MODULES:
+                self.needs_modules = True
+                print(f"Component {component} requires modules, will copy modules/ directory")
+                break
+
+    def _copy_modules(self, output_dir: Path):
+        """Copy modules directory to generated infrastructure"""
+        print("Copying modules directory...")
+
+        modules_src = Path('modules')
+        if not modules_src.exists():
+            print("Warning: modules/ directory not found, skipping")
+            return
+
+        modules_dest = output_dir / 'modules'
+
+        # Remove existing modules directory if present
+        if modules_dest.exists():
+            shutil.rmtree(modules_dest)
+
+        # Copy entire modules directory
+        shutil.copytree(modules_src, modules_dest, ignore=shutil.ignore_patterns('.git*', '__pycache__', '*.pyc'))
+        print(f"Copied modules/ directory to {modules_dest}")
+
     def generate(self):
         """Generate infrastructure code"""
         print(f"Generating infrastructure for project: {self.project_name}")
@@ -93,6 +127,13 @@ class InfrastructureGenerator:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         infra_dir = self.output_dir / 'infra'
         infra_dir.mkdir(exist_ok=True)
+
+        # Check if we need to copy modules
+        self._check_modules_needed()
+
+        # Copy modules if needed
+        if self.needs_modules:
+            self._copy_modules(infra_dir.parent)
 
         # Generate each component
         for component in self.components:
