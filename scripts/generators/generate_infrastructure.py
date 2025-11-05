@@ -272,6 +272,12 @@ Plan_{{ component }}_{{ env }}:
         - infra/{{ component }}/**/*
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       when: manual
+{% if dependencies.get(component) %}
+  needs:
+{% for dep in dependencies.get(component, []) %}
+    - Apply_{{ dep }}_{{ env }}
+{% endfor %}
+{% endif %}
 
 Apply_{{ component }}_{{ env }}:
   stage: Apply
@@ -281,6 +287,9 @@ Apply_{{ component }}_{{ env }}:
     - terraform apply -auto-approve tfplan-{{ env }}
   needs:
     - Plan_{{ component }}_{{ env }}
+{% for dep in dependencies.get(component, []) %}
+    - Apply_{{ dep }}_{{ env }}
+{% endfor %}
   dependencies:
     - Plan_{{ component }}_{{ env }}
   rules:
@@ -292,7 +301,8 @@ Apply_{{ component }}_{{ env }}:
         template = Template(gitlab_template)
         rendered = template.render(
             components=self.components,
-            environments=self.environments
+            environments=self.environments,
+            dependencies=self.DEPENDENCIES
         )
 
         gitlab_ci_file = output_dir / '.gitlab-ci.yml'
