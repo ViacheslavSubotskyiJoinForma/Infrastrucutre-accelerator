@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infrastructure Generator - Template Builder</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏗️ Infrastructure Template Generator</h1>
+            <p class="subtitle">Create customized Terraform infrastructure with automated validation</p>
+        </header>
+
+        <div class="content-wrapper">
+            <!-- Left Panel: Configuration Form -->
+            <div class="form-panel">
+                <section class="config-section">
+                    <h2><i class="fas fa-cog"></i> Project Configuration</h2>
+
+                    <div class="form-group">
+                        <label for="project-name">Project Name *</label>
+                        <input type="text" id="project-name" placeholder="my-infrastructure" required>
+                        <small>Used for naming resources and outputs</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="environments">Environments *</label>
+                        <input type="text" id="environments" value="dev,uat,prod" required>
+                        <small>Comma-separated list (e.g., dev,uat,prod)</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="region">AWS Region *</label>
+                        <select id="region">
+                            <option value="us-east-1" selected>US East (N. Virginia) - us-east-1</option>
+                            <option value="us-east-2">US East (Ohio) - us-east-2</option>
+                            <option value="us-west-1">US West (N. California) - us-west-1</option>
+                            <option value="us-west-2">US West (Oregon) - us-west-2</option>
+                            <option value="eu-west-1">Europe (Ireland) - eu-west-1</option>
+                            <option value="eu-central-1">Europe (Frankfurt) - eu-central-1</option>
+                            <option value="ap-southeast-1">Asia Pacific (Singapore) - ap-southeast-1</option>
+                            <option value="ap-northeast-1">Asia Pacific (Tokyo) - ap-northeast-1</option>
+                        </select>
+                    </div>
+                </section>
+
+                <section class="config-section">
+                    <h2><i class="fas fa-cubes"></i> Infrastructure Components</h2>
+                    <p class="section-description">Select the components you need. Dependencies will be automatically included.</p>
+
+                    <div class="components-grid">
+                        <div class="component-card" data-component="vpc">
+                            <input type="checkbox" id="comp-vpc" value="vpc" checked>
+                            <label for="comp-vpc">
+                                <div class="component-header">
+                                    <i class="fas fa-network-wired"></i>
+                                    <h3>VPC</h3>
+                                </div>
+                                <p>Networking foundation with subnets, NAT gateways, and flow logs</p>
+                                <span class="badge required">Required for most</span>
+                            </label>
+                        </div>
+
+                        <div class="component-card" data-component="rds">
+                            <input type="checkbox" id="comp-rds" value="rds">
+                            <label for="comp-rds">
+                                <div class="component-header">
+                                    <i class="fas fa-database"></i>
+                                    <h3>RDS</h3>
+                                </div>
+                                <p>Aurora PostgreSQL database with autoscaling</p>
+                                <span class="badge depends">Requires: vpc</span>
+                            </label>
+                        </div>
+
+                        <div class="component-card" data-component="eks">
+                            <input type="checkbox" id="comp-eks" value="eks">
+                            <label for="comp-eks">
+                                <div class="component-header">
+                                    <i class="fab fa-docker"></i>
+                                    <h3>EKS</h3>
+                                </div>
+                                <p>Kubernetes cluster with Karpenter, external-dns, metrics-server</p>
+                                <span class="badge depends">Requires: vpc</span>
+                            </label>
+                        </div>
+
+                        <div class="component-card" data-component="services">
+                            <input type="checkbox" id="comp-services" value="services">
+                            <label for="comp-services">
+                                <div class="component-header">
+                                    <i class="fas fa-server"></i>
+                                    <h3>Services</h3>
+                                </div>
+                                <p>API Gateway, Lambda, Cognito, S3, SES, CloudFront, NLB</p>
+                                <span class="badge depends">Requires: vpc, eks</span>
+                            </label>
+                        </div>
+
+                        <div class="component-card" data-component="secrets">
+                            <input type="checkbox" id="comp-secrets" value="secrets">
+                            <label for="comp-secrets">
+                                <div class="component-header">
+                                    <i class="fas fa-key"></i>
+                                    <h3>Secrets</h3>
+                                </div>
+                                <p>AWS Secrets Manager for sensitive data</p>
+                                <span class="badge depends">Requires: eks, services</span>
+                            </label>
+                        </div>
+
+                        <div class="component-card" data-component="opensearch">
+                            <input type="checkbox" id="comp-opensearch" value="opensearch">
+                            <label for="comp-opensearch">
+                                <div class="component-header">
+                                    <i class="fas fa-search"></i>
+                                    <h3>OpenSearch</h3>
+                                </div>
+                                <p>OpenSearch cluster for search and analytics</p>
+                                <span class="badge depends">Requires: vpc, services, eks</span>
+                            </label>
+                        </div>
+
+                        <div class="component-card" data-component="monitoring">
+                            <input type="checkbox" id="comp-monitoring" value="monitoring">
+                            <label for="comp-monitoring">
+                                <div class="component-header">
+                                    <i class="fas fa-chart-line"></i>
+                                    <h3>Monitoring</h3>
+                                </div>
+                                <p>Grafana dashboards and metrics infrastructure</p>
+                                <span class="badge depends">Requires: vpc, eks, services, rds</span>
+                            </label>
+                        </div>
+
+                        <div class="component-card" data-component="common">
+                            <input type="checkbox" id="comp-common" value="common">
+                            <label for="comp-common">
+                                <div class="component-header">
+                                    <i class="fas fa-building"></i>
+                                    <h3>Common</h3>
+                                </div>
+                                <p>Management account resources: GitLab runner, ECR, Retool</p>
+                                <span class="badge optional">Optional</span>
+                            </label>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="config-section">
+                    <h2><i class="fas fa-sliders-h"></i> Advanced Options</h2>
+
+                    <div class="form-group">
+                        <label for="state-bucket">S3 State Bucket (optional)</label>
+                        <input type="text" id="state-bucket" placeholder="Auto-generated if empty">
+                        <small>S3 bucket for Terraform state storage</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="dynamodb-table">DynamoDB Lock Table (optional)</label>
+                        <input type="text" id="dynamodb-table" placeholder="Auto-generated if empty">
+                        <small>DynamoDB table for state locking</small>
+                    </div>
+
+                    <div class="form-group checkbox-group">
+                        <input type="checkbox" id="use-assume-role" checked>
+                        <label for="use-assume-role">Use AWS role assumption (OrganizationAccountAccessRole)</label>
+                    </div>
+                </section>
+
+                <section class="config-section">
+                    <h2><i class="fab fa-github"></i> GitHub Authentication</h2>
+
+                    <div class="form-group">
+                        <label for="github-token">GitHub Personal Access Token *</label>
+                        <input type="password" id="github-token" placeholder="ghp_..." required>
+                        <small>Required to trigger workflow. Needs 'repo' or 'workflow' scope. <a href="https://github.com/settings/tokens/new?scopes=repo,workflow" target="_blank">Create token</a></small>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Right Panel: Preview and Actions -->
+            <div class="preview-panel">
+                <div class="sticky-panel">
+                    <section class="preview-section">
+                        <h2><i class="fas fa-eye"></i> Configuration Preview</h2>
+
+                        <div class="preview-item">
+                            <strong>Project:</strong>
+                            <span id="preview-project">my-infrastructure</span>
+                        </div>
+
+                        <div class="preview-item">
+                            <strong>Environments:</strong>
+                            <span id="preview-environments">dev, uat, prod</span>
+                        </div>
+
+                        <div class="preview-item">
+                            <strong>Region:</strong>
+                            <span id="preview-region">us-east-1</span>
+                        </div>
+
+                        <div class="preview-item">
+                            <strong>Selected Components:</strong>
+                            <div id="preview-components" class="component-tags">
+                                <span class="tag">vpc</span>
+                            </div>
+                        </div>
+
+                        <div class="preview-item" id="preview-dependencies-container" style="display:none;">
+                            <strong>Auto-included Dependencies:</strong>
+                            <div id="preview-dependencies" class="component-tags"></div>
+                        </div>
+                    </section>
+
+                    <section class="action-section">
+                        <button id="generate-btn" class="btn-primary" disabled>
+                            <i class="fas fa-rocket"></i>
+                            Generate Infrastructure
+                        </button>
+                        <p class="action-note">This will trigger a GitHub Actions workflow</p>
+                    </section>
+
+                    <section class="status-section" id="status-section" style="display:none;">
+                        <div id="status-content"></div>
+                    </section>
+
+                    <section class="info-section">
+                        <h3><i class="fas fa-info-circle"></i> What happens next?</h3>
+                        <ol>
+                            <li>GitHub Actions workflow will start</li>
+                            <li>Terraform code will be generated</li>
+                            <li>Automatic validation runs (init, fmt, validate, tflint)</li>
+                            <li>Download artifact with generated infrastructure</li>
+                            <li>Extract and deploy to your AWS account</li>
+                        </ol>
+
+                        <div class="help-links">
+                            <a href="https://github.com/ViacheslavSubotskyiJoinForma/Infrastrucutre-accelerator" target="_blank">
+                                <i class="fab fa-github"></i> Repository
+                            </a>
+                            <a href="../GENERATOR_README.md" target="_blank">
+                                <i class="fas fa-book"></i> Documentation
+                            </a>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
