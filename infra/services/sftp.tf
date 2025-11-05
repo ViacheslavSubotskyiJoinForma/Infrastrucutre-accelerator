@@ -31,8 +31,7 @@ resource "aws_security_group" "sftp_security_group" {
 module "sftp" {
   #count              = (var.env == "prod" || var.env == "uat") ? 1 : 0
   count              = var.env == "prod" ? 1 : 0
-  source             = "gitlab.com/ClientDomain/modules/aws//sftp"
-  version            = "0.1.3"
+  source             = "../../modules/sftp"
   dns_name           = var.dns
   user               = var.user
   env                = var.env
