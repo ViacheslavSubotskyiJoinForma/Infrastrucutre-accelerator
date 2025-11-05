@@ -256,31 +256,30 @@ jobs:
         run: |
           cd generated-infra
 
-          # Create archive excluding temporary files
-          tar -czf ../infrastructure-${{ inputs.project_name }}-$(date +%Y%m%d-%H%M%S).tar.gz \
-            --exclude='.terraform' \
-            --exclude='.terraform.lock.hcl' \
-            --exclude='*.tfstate' \
-            --exclude='*.tfstate.backup' \
-            --exclude='*.tfplan' \
-            --exclude='.git' \
-            .
+          # Create ZIP archive excluding temporary files
+          zip -r ../infrastructure-${{ inputs.project_name }}-$(date +%Y%m%d-%H%M%S).zip . \
+            -x '.terraform/*' \
+            -x '.terraform.lock.hcl' \
+            -x '*.tfstate' \
+            -x '*.tfstate.backup' \
+            -x '*.tfplan' \
+            -x '.git/*'
 
           cd ..
 
           echo "✅ Archive created successfully"
-          ls -lh infrastructure-*.tar.gz
+          ls -lh infrastructure-*.zip
 
           # Verify archive contents
           echo ""
           echo "Archive contents (first 20 files):"
-          tar -tzf infrastructure-*.tar.gz | head -20
+          unzip -l infrastructure-*.zip | head -30
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: infrastructure-${{ inputs.project_name }}
-          path: infrastructure-*.tar.gz
+          path: infrastructure-*.zip
           retention-days: 30
 
       - name: Summary
