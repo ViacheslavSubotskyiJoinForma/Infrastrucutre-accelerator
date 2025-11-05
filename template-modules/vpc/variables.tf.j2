@@ -3,6 +3,12 @@ variable "env" {
   type        = string
 }
 
+variable "repository" {
+  description = "Repository name for resource tagging"
+  type        = string
+  default     = "infrastructure-accelerator"
+}
+
 variable "region" {
   description = "AWS Region"
   type        = string
