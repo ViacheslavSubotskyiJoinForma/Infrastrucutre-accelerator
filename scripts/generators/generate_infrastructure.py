@@ -281,9 +281,6 @@ Apply_{{ component }}_{{ env }}:
     - terraform apply -auto-approve tfplan-{{ env }}
   needs:
     - Plan_{{ component }}_{{ env }}
-{% for dep in dependencies.get(component, []) %}
-    - Apply_{{ dep }}_{{ env }}
-{% endfor %}
   dependencies:
     - Plan_{{ component }}_{{ env }}
   rules:
@@ -295,8 +292,7 @@ Apply_{{ component }}_{{ env }}:
         template = Template(gitlab_template)
         rendered = template.render(
             components=self.components,
-            environments=self.environments,
-            dependencies=self.DEPENDENCIES
+            environments=self.environments
         )
 
         gitlab_ci_file = output_dir / '.gitlab-ci.yml'
