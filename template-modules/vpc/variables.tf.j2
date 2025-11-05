@@ -1,0 +1,25 @@
+variable "env" {
+  description = "Environment name (dev/uat/prod)"
+  type        = string
+}
+
+variable "account" {
+  description = "AWS Account ID"
+  type        = string
+}
+
+variable "region" {
+  description = "AWS Region"
+  type        = string
+  default     = "us-east-1"
+}
+
+variable "cidr" {
+  description = "CIDR blocks for each environment"
+  type        = map(any)
+  default = {
+    dev  = "10.1"
+    uat  = "10.2"
+    prod = "10.3"
+  }
+}

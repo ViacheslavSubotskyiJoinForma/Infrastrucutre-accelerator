@@ -126,6 +126,72 @@ Infrastructure layers reference outputs from other layers via `terraform_remote_
 Custom modules are located in `modules/`:
 - **sftp/**: SFTP server module with data sources, outputs, and variables
 
+## Infrastructure Template Generator
+
+This repository includes an automated infrastructure template generator that creates customized Terraform configurations.
+
+### Overview
+
+- **Location**: `scripts/generators/generate_infrastructure.py`
+- **Templates**: `template-modules/` (Jinja2 templates for each component)
+- **Workflow**: `.github/workflows/generate-infrastructure.yml` (GitHub Actions)
+- **Documentation**: `GENERATOR_README.md`
+
+### Quick Usage
+
+#### Via GitHub Actions (Recommended)
+1. Go to Actions tab → "Generate Infrastructure Template"
+2. Click "Run workflow"
+3. Select desired components (VPC, RDS, EKS, Services, etc.)
+4. Configure environments and AWS settings
+5. Download generated artifact (compressed archive)
+
+#### Via Command Line
+```bash
+python3 scripts/generators/generate_infrastructure.py \
+  --project-name my-project \
+  --components vpc,rds,eks \
+  --environments dev,uat,prod \
+  --region us-east-1
+```
+
+### Generated Output
+
+Creates a complete infrastructure project:
+- Terraform code for selected components
+- GitLab CI/CD pipeline configuration (`.gitlab-ci.yml`)
+- README with deployment instructions
+- Configuration templates
+- Validation report
+
+### Component Dependencies
+
+The generator automatically resolves dependencies:
+- **vpc**: No dependencies (foundational)
+- **rds**: Requires vpc
+- **eks**: Requires vpc
+- **services**: Requires vpc, eks
+- **secrets**: Requires eks, services
+- **opensearch**: Requires vpc, services, eks
+- **monitoring**: Requires vpc, eks, services, rds
+- **common**: Independent (management account)
+
+### Validation
+
+The workflow automatically validates generated code:
+- `terraform init` - Provider and module validation
+- `terraform fmt` - Code formatting check
+- `terraform validate` - Configuration syntax validation
+- `tflint` - Best practices and linting
+
+### Customization
+
+- **Templates**: Edit files in `template-modules/<component>/*.j2`
+- **Generator**: Modify `scripts/generators/generate_infrastructure.py`
+- **Workflow**: Update `.github/workflows/generate-infrastructure.yml`
+
+See `GENERATOR_README.md` for detailed documentation.
+
 ## Important Notes
 
 - All provider configurations assume roles across AWS accounts using `OrganizationAccountAccessRole`
