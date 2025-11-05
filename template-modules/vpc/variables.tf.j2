@@ -1,3 +1,9 @@
+variable "project_name" {
+  description = "Project name used for resource naming"
+  type        = string
+  default     = "{{ project_name }}"
+}
+
 variable "env" {
   description = "Environment name (dev/uat/prod)"
   type        = string
