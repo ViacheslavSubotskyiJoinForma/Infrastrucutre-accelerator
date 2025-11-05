@@ -476,6 +476,11 @@ def main():
         default='default',
         help='AWS Profile name for local testing (default: default)'
     )
+    parser.add_argument(
+        '--repository',
+        default='infrastructure-accelerator',
+        help='Repository name for resource tagging (default: infrastructure-accelerator)'
+    )
 
     args = parser.parse_args()
 
@@ -495,6 +500,7 @@ def main():
         'region': args.region,
         'aws_account_id': args.aws_account_id or config.get('aws_account_id', ''),
         'aws_profile': args.aws_profile or config.get('aws_profile', 'default'),
+        'repository': args.repository or config.get('repository', 'infrastructure-accelerator'),
     })
 
     # Generate infrastructure

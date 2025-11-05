@@ -34,6 +34,12 @@ on:
         type: string
         default: '156041409155'
 
+      repository:
+        description: 'Repository name for resource tagging (e.g., infrastructure-accelerator)'
+        required: false
+        type: string
+        default: 'infrastructure-accelerator'
+
 jobs:
   generate:
     runs-on: ubuntu-latest
@@ -60,6 +66,7 @@ jobs:
             --environments "${{ inputs.environments }}" \
             --region "${{ inputs.region }}" \
             --aws-account-id "${{ inputs.aws_account_id }}" \
+            --repository "${{ inputs.repository }}" \
             --output-dir generated-infra
 
       - name: Set up Terraform
