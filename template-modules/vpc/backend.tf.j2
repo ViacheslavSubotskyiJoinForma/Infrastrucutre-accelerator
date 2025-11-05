@@ -1,9 +1,12 @@
-terraform {
-  backend "s3" {
-    encrypt        = true
-    bucket         = "{{ state_bucket }}"
-    key            = "${var.env}/vpc/tf.state"
-    dynamodb_table = "{{ dynamodb_table }}"
-    region         = "{{ region }}"
-  }
-}
+# MVP version uses local state backend
+# For production use, configure S3 backend with state locking:
+#
+# terraform {
+#   backend "s3" {
+#     encrypt        = true
+#     bucket         = "your-terraform-state-bucket"
+#     key            = "${var.env}/vpc/tf.state"
+#     dynamodb_table = "your-terraform-locks-table"
+#     region         = "{{ region }}"
+#   }
+# }

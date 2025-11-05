@@ -11,7 +11,13 @@ variable "account" {
 variable "region" {
   description = "AWS Region"
   type        = string
-  default     = "us-east-1"
+  default     = "{{ region }}"
+}
+
+variable "aws_profile" {
+  description = "AWS Profile for local authentication"
+  type        = string
+  default     = "{{ aws_profile }}"
 }
 
 variable "cidr" {
