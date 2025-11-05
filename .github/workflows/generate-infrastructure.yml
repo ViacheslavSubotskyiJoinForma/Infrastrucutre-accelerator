@@ -150,6 +150,24 @@ jobs:
             fi
           done
 
+      - name: Install gitlab-ci-local
+        run: |
+          npm install -g gitlab-ci-local
+
+      - name: Validate GitLab CI configuration
+        run: |
+          cd generated-infra
+
+          echo "Validating GitLab CI configuration..."
+          gitlab-ci-local --list
+
+          echo ""
+          echo "Validating job dependency chain..."
+          gitlab-ci-local --validate-dependency-chain
+
+          echo ""
+          echo "✅ GitLab CI configuration is valid"
+
       - name: Generate validation report
         run: |
           cat > generated-infra/VALIDATION_REPORT.md << EOF
@@ -169,6 +187,7 @@ jobs:
           ✅ Terraform formatting checked
           ✅ Terraform validation passed
           ✅ tflint analysis completed
+          ✅ GitLab CI configuration validated
 
           ## Next Steps
 
