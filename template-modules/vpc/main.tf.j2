@@ -29,13 +29,13 @@ module "vpc" {
   manage_default_route_table    = false
   manage_default_security_group = false
 
-  # Flowlogs
-  enable_flow_log                                 = true
-  flow_log_cloudwatch_log_group_retention_in_days = 365
-  create_flow_log_cloudwatch_iam_role             = true
-  create_flow_log_cloudwatch_log_group            = true
-  flow_log_max_aggregation_interval               = 60
-  flow_log_traffic_type                           = "ALL"
+  # Flowlogs (optional - requires IAM permissions)
+  enable_flow_log                                 = var.enable_flow_logs
+  flow_log_cloudwatch_log_group_retention_in_days = var.enable_flow_logs ? 365 : null
+  create_flow_log_cloudwatch_iam_role             = var.enable_flow_logs
+  create_flow_log_cloudwatch_log_group            = var.enable_flow_logs
+  flow_log_max_aggregation_interval               = var.enable_flow_logs ? 60 : null
+  flow_log_traffic_type                           = var.enable_flow_logs ? "ALL" : null
 
   tags = local.tags
   public_subnet_tags = {

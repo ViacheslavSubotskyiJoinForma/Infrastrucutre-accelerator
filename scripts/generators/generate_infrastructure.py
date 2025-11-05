@@ -196,11 +196,10 @@ class InfrastructureGenerator:
         # Template context
         context = {
             'project_name': self.project_name,
-            'state_bucket': self.config.get('state_bucket', f'tf-state-{self.config.get("region", "us-east-1")}-{self.project_name}'),
-            'dynamodb_table': self.config.get('dynamodb_table', f'tf-lock-{self.config.get("region", "us-east-1")}-{self.project_name}'),
-            'region': self.config.get('region', 'us-east-1'),
-            'use_assume_role': self.config.get('use_assume_role', True),
             'environments': self.environments,
+            'region': self.config.get('region', 'us-east-1'),
+            'aws_account_id': self.config.get('aws_account_id', ''),
+            'aws_profile': self.config.get('aws_profile', 'default'),
             **self.config
         }
 
@@ -215,98 +214,74 @@ class InfrastructureGenerator:
             print(f"  Generated: {output_file.name}")
 
     def _generate_gitlab_ci(self, output_dir: Path):
-        """Generate GitLab CI/CD configuration"""
+        """Generate GitLab CI/CD configuration (simplified for MVP with local state)"""
         print("Generating GitLab CI/CD config...")
 
-        gitlab_template = """stages:
-  - Init
+        gitlab_template = """# GitLab CI/CD Configuration (MVP with local state)
+# Note: This configuration uses local state backend for simplicity
+# For production use, consider using S3 backend with state locking
+
+stages:
+  - Validate
   - Plan
   - Apply
 
 image:
-  name: postgres:15.3-alpine3.18
+  name: hashicorp/terraform:1.5.4
   entrypoint: [""]
 
 variables:
-  PLAN: plan.cache
-  DOCKER_REGISTRY: <acc_id>.dkr.ecr.us-east-1.amazonaws.com
-
-cache:
-  key: "$TF_ROOT-$ENV"
-  paths:
-    - ${TF_ROOT}/.terraform/
-
-.terraform_init:
-  before_script:
-    - apk update
-    - apk add git openssl
-    - |-
-      wget https://releases.hashicorp.com/terraform/1.5.4/terraform_1.5.4_linux_amd64.zip \\
-      && unzip terraform_1.5.4_linux_amd64.zip && rm terraform_1.5.4_linux_amd64.zip \\
-      && mv terraform /usr/bin/terraform
-    - cd ${TF_ROOT}
-    - |-
-      cat <<EOF > ~/.terraformrc
-      credentials "gitlab.com" {
-        token = "${CI_JOB_TOKEN}"
-      }
-      EOF
-    - terraform init -backend-config="key=${ENV}/${TF_ROOT}/tf.state"
-    - terraform validate
+  TF_CLI_ARGS: "-no-color"
 
 {% for component in components %}
-Terraform_Plan_{{ component }}:
-  stage: Plan
-  extends: .terraform_init
+.terraform_base_{{ component }}:
+  before_script:
+    - cd infra/{{ component }}
+    - terraform init
+
+Validate_{{ component }}:
+  stage: Validate
+  extends: .terraform_base_{{ component }}
   script:
-    - terraform plan -var-file=../config/${ENV}.tfvars -out=${TF_ROOT}-${ENV}-${PLAN}
-  parallel:
-    matrix:
-      - ENV: {{ environments|tojson }}
-        TF_ROOT: ['{{ component }}']
+    - terraform fmt -check
+    - terraform validate
   rules:
-    - if: $CI_COMMIT_REF_NAME != $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
-        paths:
-          - {{ component }}/**/*
-        compare_to: 'refs/heads/main'
-      when: always
-{% endfor %}
+        - infra/{{ component }}/**/*
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
-Terraform_Plan:
+{% for env in environments %}
+Plan_{{ component }}_{{ env }}:
   stage: Plan
-  extends: .terraform_init
-  when: manual
+  extends: .terraform_base_{{ component }}
   script:
-    - terraform plan -var-file=../config/${ENV}.tfvars -out=${TF_ROOT}-${ENV}-${PLAN}
+    - terraform plan -var-file=../config/{{ env }}.tfvars -out=tfplan-{{ env }}
   artifacts:
     paths:
-      - ${TF_ROOT}/${TF_ROOT}-${ENV}-${PLAN}
-      - ${TF_ROOT}/*.zip
+      - infra/{{ component }}/tfplan-{{ env }}
     expire_in: 2 hrs
-  parallel:
-    matrix:
-      - ENV: {{ environments|tojson }}
-        TF_ROOT: {{ components|tojson }}
   rules:
-    - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - infra/{{ component }}/**/*
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
 
-Terraform_Apply:
+Apply_{{ component }}_{{ env }}:
   stage: Apply
-  extends: .terraform_init
+  extends: .terraform_base_{{ component }}
   when: manual
   script:
-    - terraform apply -auto-approve -input=false ${TF_ROOT}-${ENV}-${PLAN}
-  artifacts:
-    paths:
-      - ${TF_ROOT}/${TF_ROOT}-${ENV}-${PLAN}
-      - ${TF_ROOT}/*.zip
-  parallel:
-    matrix:
-      - ENV: {{ environments|tojson }}
-        TF_ROOT: {{ components|tojson }}
+    - terraform apply -auto-approve tfplan-{{ env }}
+  needs:
+    - Plan_{{ component }}_{{ env }}
+  dependencies:
+    - Plan_{{ component }}_{{ env }}
   rules:
-    - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+{% endfor %}
+{% endfor %}
 """
 
         template = Template(gitlab_template)
@@ -399,7 +374,7 @@ cp infra/config/sample.tfvars.example infra/config/dev.tfvars
 
 ```bash
 cd infra/<component>
-terraform init -backend-config="key=${{ENV}}/<component>/tf.state"
+terraform init
 ```
 
 ### 3. Plan Changes
@@ -423,15 +398,31 @@ Components must be deployed in this order due to dependencies:
 ## GitLab CI/CD
 
 The repository includes a `.gitlab-ci.yml` file that automates:
-- **Plan**: Runs automatically on non-main branch pushes
+- **Validate**: Runs fmt and validate checks
+- **Plan**: Creates execution plans per environment
 - **Apply**: Manual approval required on main branch
 
 ## Configuration
 
-Key configuration values:
-- **State Bucket**: `{self.config.get('state_bucket', 'TBD')}`
-- **DynamoDB Table**: `{self.config.get('dynamodb_table', 'TBD')}`
+This is an MVP version with local state backend:
+- **State Storage**: Local (terraform.tfstate in each component directory)
 - **Region**: `{self.config.get('region', 'us-east-1')}`
+- **AWS Account**: `{self.config.get('aws_account_id', 'TBD')}`
+
+**Note**: For production use, consider migrating to S3 backend with DynamoDB state locking.
+
+## VPC Flow Logs
+
+VPC Flow Logs are **enabled by default** for production use.
+
+For local testing with limited IAM permissions (e.g., AWS Contributor role), disable Flow Logs:
+
+```bash
+# Add to your .tfvars file:
+enable_flow_logs = false
+```
+
+**Note**: Flow Logs require permissions to create IAM roles and CloudWatch Log Groups. Disable this setting if testing locally with limited permissions.
 """
 
         (output_dir / 'README.md').write_text(readme)
@@ -472,18 +463,13 @@ def main():
         help='AWS region (default: us-east-1)'
     )
     parser.add_argument(
-        '--state-bucket',
-        help='S3 bucket for Terraform state'
+        '--aws-account-id',
+        help='AWS Account ID'
     )
     parser.add_argument(
-        '--dynamodb-table',
-        help='DynamoDB table for state locking'
-    )
-    parser.add_argument(
-        '--use-assume-role',
-        action='store_true',
-        default=True,
-        help='Use AWS role assumption'
+        '--aws-profile',
+        default='default',
+        help='AWS Profile name for local testing (default: default)'
     )
 
     args = parser.parse_args()
@@ -502,9 +488,8 @@ def main():
     config.update({
         'output_dir': args.output_dir,
         'region': args.region,
-        'state_bucket': args.state_bucket or config.get('state_bucket'),
-        'dynamodb_table': args.dynamodb_table or config.get('dynamodb_table'),
-        'use_assume_role': args.use_assume_role,
+        'aws_account_id': args.aws_account_id or config.get('aws_account_id', ''),
+        'aws_profile': args.aws_profile or config.get('aws_profile', 'default'),
     })
 
     # Generate infrastructure

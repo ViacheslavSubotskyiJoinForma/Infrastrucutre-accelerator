@@ -1,6 +1,6 @@
-name: Generate Infrastructure Template
+name: Generate Infrastructure Template (MVP)
 
-run-name: Generate "${{ inputs.project_name }}" infrastructure (${{ inputs.component_preset }})
+run-name: Generate "${{ inputs.project_name }}" infrastructure
 
 on:
   workflow_dispatch:
@@ -10,23 +10,11 @@ on:
         required: true
         type: string
 
-      component_preset:
-        description: 'Component preset'
+      components:
+        description: 'Components (comma-separated: vpc,rds,eks,services,secrets,opensearch,monitoring,common)'
         required: true
-        type: choice
-        options:
-          - 'minimal'
-          - 'standard'
-          - 'full-stack'
-          - 'kubernetes'
-          - 'custom'
-        default: 'standard'
-
-      custom_components:
-        description: 'Custom components (if preset=custom): vpc,rds,eks,services,secrets,opensearch,monitoring,common'
-        required: false
         type: string
-        default: 'vpc,rds,eks,services'
+        default: 'vpc'
 
       environments:
         description: 'Environments (comma-separated: dev,uat,prod)'
@@ -40,21 +28,11 @@ on:
         type: string
         default: 'us-east-1'
 
-      state_bucket:
-        description: 'S3 bucket for Terraform state (auto-generated if empty)'
-        required: false
+      aws_account_id:
+        description: 'AWS Account ID'
+        required: true
         type: string
-
-      dynamodb_table:
-        description: 'DynamoDB table for state locking (auto-generated if empty)'
-        required: false
-        type: string
-
-      use_assume_role:
-        description: 'Use AWS role assumption'
-        required: false
-        type: boolean
-        default: true
+        default: '156041409155'
 
 jobs:
   generate:
@@ -74,53 +52,14 @@ jobs:
           pip install --upgrade pip
           pip install jinja2
 
-      - name: Build component list
-        id: components
-        run: |
-          PRESET="${{ inputs.component_preset }}"
-          COMPONENTS=""
-
-          case "$PRESET" in
-            "minimal")
-              # VPC only
-              COMPONENTS="vpc"
-              ;;
-            "standard")
-              # VPC, RDS, EKS, Services
-              COMPONENTS="vpc,rds,eks,services"
-              ;;
-            "full-stack")
-              # All components except common
-              COMPONENTS="vpc,rds,secrets,eks,services,opensearch,monitoring"
-              ;;
-            "kubernetes")
-              # Kubernetes-focused setup
-              COMPONENTS="vpc,eks,monitoring"
-              ;;
-            "custom")
-              # Use custom components from input
-              COMPONENTS="${{ inputs.custom_components }}"
-              ;;
-            *)
-              echo "Unknown preset: $PRESET"
-              exit 1
-              ;;
-          esac
-
-          echo "components=${COMPONENTS}" >> $GITHUB_OUTPUT
-          echo "Preset: $PRESET"
-          echo "Selected components: ${COMPONENTS}"
-
       - name: Generate infrastructure
         run: |
           python3 scripts/generators/generate_infrastructure.py \
             --project-name "${{ inputs.project_name }}" \
-            --components "${{ steps.components.outputs.components }}" \
+            --components "${{ inputs.components }}" \
             --environments "${{ inputs.environments }}" \
             --region "${{ inputs.region }}" \
-            ${{ inputs.state_bucket && format('--state-bucket {0}', inputs.state_bucket) || '' }} \
-            ${{ inputs.dynamodb_table && format('--dynamodb-table {0}', inputs.dynamodb_table) || '' }} \
-            ${{ inputs.use_assume_role && '--use-assume-role' || '' }} \
+            --aws-account-id "${{ inputs.aws_account_id }}" \
             --output-dir generated-infra
 
       - name: Set up Terraform
@@ -211,16 +150,43 @@ jobs:
             fi
           done
 
+      - name: Install gitlab-ci-local
+        run: |
+          npm install -g gitlab-ci-local
+
+      - name: Validate GitLab CI configuration
+        run: |
+          cd generated-infra
+
+          # Initialize git repo for gitlab-ci-local to work properly
+          git init
+          git config user.email "ci@example.com"
+          git config user.name "CI"
+          git add .
+          git commit -m "Initial commit"
+
+          echo "Validating GitLab CI configuration..."
+          echo ""
+          gitlab-ci-local --list-all
+
+          echo ""
+          echo "Validating job dependency chain..."
+          gitlab-ci-local --validate-dependency-chain
+
+          echo ""
+          echo "✅ GitLab CI configuration is valid"
+
       - name: Generate validation report
         run: |
-          cat > generated-infra/VALIDATION_REPORT.md << 'EOF'
+          cat > generated-infra/VALIDATION_REPORT.md << EOF
           # Terraform Validation Report
 
           ## Project Information
           - **Project Name**: ${{ inputs.project_name }}
-          - **Components**: ${{ steps.components.outputs.components }}
+          - **Components**: ${{ inputs.components }}
           - **Environments**: ${{ inputs.environments }}
           - **Region**: ${{ inputs.region }}
+          - **AWS Account**: ${{ inputs.aws_account_id }}
           - **Generated**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
 
           ## Validation Checks
@@ -229,22 +195,23 @@ jobs:
           ✅ Terraform formatting checked
           ✅ Terraform validation passed
           ✅ tflint analysis completed
+          ✅ GitLab CI configuration validated
 
           ## Next Steps
 
           1. Download and extract the artifact
           2. Review the generated infrastructure code
-          3. Create `infra/config/*.tfvars` files with your environment-specific values
-          4. Initialize Terraform: `terraform init -backend-config="key=${ENV}/<component>/tf.state"`
-          5. Plan changes: `terraform plan -var-file=../config/${ENV}.tfvars`
-          6. Apply infrastructure: `terraform apply -var-file=../config/${ENV}.tfvars`
+          3. Create tfvars files with your values (one per environment)
+          4. Initialize Terraform: \`cd infra/<component> && terraform init\`
+          5. Plan changes: \`terraform plan -var-file=../config/<env>.tfvars\`
+          6. Apply infrastructure: \`terraform apply -var-file=../config/<env>.tfvars\`
 
           ## Important Notes
 
-          - Components must be deployed in the order listed in README.md
+          - This is an MVP version with **local state backend**
           - Configure your AWS credentials before running Terraform
           - Review all configuration files before applying
-          - The `.gitlab-ci.yml` file is included for GitLab CI/CD automation
+          - State files will be stored locally in each component directory
           EOF
 
       - name: Verify generated files
@@ -311,14 +278,14 @@ jobs:
 
       - name: Summary
         run: |
-          echo "## 🎉 Infrastructure Generation Complete!" >> $GITHUB_STEP_SUMMARY
+          echo "## 🎉 Infrastructure Generation Complete! (MVP)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Configuration" >> $GITHUB_STEP_SUMMARY
           echo "- **Project**: ${{ inputs.project_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Preset**: ${{ inputs.component_preset }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Components**: ${{ steps.components.outputs.components }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Components**: ${{ inputs.components }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Environments**: ${{ inputs.environments }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Region**: ${{ inputs.region }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **AWS Account**: ${{ inputs.aws_account_id }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### ✅ Validation Results" >> $GITHUB_STEP_SUMMARY
           echo "- Terraform initialization: ✅ Passed" >> $GITHUB_STEP_SUMMARY
@@ -330,7 +297,7 @@ jobs:
           echo "Download the generated infrastructure archive from the Actions artifacts." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📚 Next Steps" >> $GITHUB_STEP_SUMMARY
-          echo "1. Download the artifact" >> $GITHUB_STEP_SUMMARY
-          echo "2. Extract and review the code" >> $GITHUB_STEP_SUMMARY
-          echo "3. Configure environment-specific .tfvars files" >> $GITHUB_STEP_SUMMARY
-          echo "4. Deploy using Terraform or GitLab CI/CD" >> $GITHUB_STEP_SUMMARY
+          echo "1. Download and extract the artifact" >> $GITHUB_STEP_SUMMARY
+          echo "2. Review the generated code" >> $GITHUB_STEP_SUMMARY
+          echo "3. Create config/<env>.tfvars files" >> $GITHUB_STEP_SUMMARY
+          echo "4. Deploy using Terraform (local state)" >> $GITHUB_STEP_SUMMARY
