@@ -47,12 +47,6 @@ variable "endpoint_public_access" {
   default     = true
 }
 
-variable "cluster_enabled_log_types" {
-  description = "List of control plane logging types to enable"
-  type        = list(string)
-  default     = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
-}
-
 variable "tags" {
   description = "Additional tags for resources"
   type        = map(string)

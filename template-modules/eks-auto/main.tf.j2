@@ -21,8 +21,5 @@ module "eks" {
   vpc_id     = data.terraform_remote_state.vpc.outputs.vpc_id
   subnet_ids = data.terraform_remote_state.vpc.outputs.private_subnets
 
-  # CloudWatch logging
-  cluster_enabled_log_types = var.cluster_enabled_log_types
-
   tags = local.tags
 }
