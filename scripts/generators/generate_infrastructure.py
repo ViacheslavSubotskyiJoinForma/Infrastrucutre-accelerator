@@ -274,6 +274,8 @@ Apply_{{ component }}_{{ env }}:
   when: manual
   script:
     - terraform apply -auto-approve tfplan-{{ env }}
+  needs:
+    - Plan_{{ component }}_{{ env }}
   dependencies:
     - Plan_{{ component }}_{{ env }}
   rules:
