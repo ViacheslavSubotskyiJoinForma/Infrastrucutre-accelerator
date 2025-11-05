@@ -24,3 +24,9 @@ variable "cidr" {
     prod = "10.3"
   }
 }
+
+variable "enable_flow_logs" {
+  description = "Enable VPC Flow Logs (requires IAM permissions). Set to false for local testing with limited IAM permissions."
+  type        = bool
+  default     = true
+}

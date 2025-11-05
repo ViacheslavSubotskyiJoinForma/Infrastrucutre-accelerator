@@ -410,6 +410,19 @@ This is an MVP version with local state backend:
 - **AWS Account**: `{self.config.get('aws_account_id', 'TBD')}`
 
 **Note**: For production use, consider migrating to S3 backend with DynamoDB state locking.
+
+## VPC Flow Logs
+
+VPC Flow Logs are **enabled by default** for production use.
+
+For local testing with limited IAM permissions (e.g., AWS Contributor role), disable Flow Logs:
+
+```bash
+# Add to your .tfvars file:
+enable_flow_logs = false
+```
+
+**Note**: Flow Logs require permissions to create IAM roles and CloudWatch Log Groups. Disable this setting if testing locally with limited permissions.
 """
 
         (output_dir / 'README.md').write_text(readme)
