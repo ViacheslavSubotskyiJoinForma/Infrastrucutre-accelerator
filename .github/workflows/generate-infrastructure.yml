@@ -165,6 +165,13 @@ jobs:
         run: |
           cd generated-infra
 
+          # Clean up .terraform directories and lock files to avoid git warnings about embedded repos
+          echo "Cleaning up .terraform directories and lock files..."
+          find . -type d -name ".terraform" -exec rm -rf {} + 2>/dev/null || true
+          find . -type f -name ".terraform.lock.hcl" -delete 2>/dev/null || true
+          echo "✅ Cleanup complete"
+          echo ""
+
           # Initialize git repo for gitlab-ci-local to work properly
           git init
           git config user.email "ci@example.com"
