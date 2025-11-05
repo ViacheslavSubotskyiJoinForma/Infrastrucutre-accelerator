@@ -1,14 +1,6 @@
-data "aws_eks_cluster" "cluster" {
-  name = module.eks.cluster_name
-}
-
 data "aws_eks_cluster_auth" "cluster" {
   name = module.eks.cluster_name
 }
-
-data "aws_caller_identity" "current" {}
-
-data "aws_region" "current" {}
 
 data "aws_partition" "current" {}
 
@@ -46,11 +38,3 @@ data "aws_iam_roles" "dev" {
   path_prefix = "/aws-reserved/sso.amazonaws.com/"
 }
 
-data "terraform_remote_state" "es" {
-  backend = "s3"
-  config = {
-    bucket = "tf-state-us-east-1-<ID>"
-    key    = "${var.env}/opensearch/tf.state"
-    region = var.region
-  }
-}

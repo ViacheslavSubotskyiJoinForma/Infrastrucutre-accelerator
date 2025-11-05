@@ -1,12 +1,18 @@
-variable "env" {}
+variable "env" {
+  type = string
+}
 
-variable "account" {}
+variable "account" {
+  type = string
+}
 
 variable "region" {
+  type    = string
   default = "us-east-1"
 }
 
 variable "dns" {
+  type    = string
   default = "ClientDomain.com"
 }
 
@@ -15,20 +21,18 @@ variable "user" {
   default = ["source1"]
 }
 
-variable "user_source2" {
-  type    = list(string)
-  default = ["source2"]
-}
-
 variable "bucket_name" {
+  type    = string
   default = "ses-for-cognito-us-east-1"
 }
 
 variable "platform_credential" {
+  type    = string
   default = "<ID>"
 }
 
 variable "username" {
+  type    = string
   default = "<ID>"
 }
 

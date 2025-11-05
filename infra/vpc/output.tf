@@ -50,5 +50,5 @@ output "azs" {
 
 output "nat_ip" {
   description = "A list of Publick IP Adresses"
-  value       = aws_eip.nat.*.public_ip
+  value       = aws_eip.nat[*].public_ip
 }

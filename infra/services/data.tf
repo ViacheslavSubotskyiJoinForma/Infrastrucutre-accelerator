@@ -87,10 +87,6 @@ data "aws_eks_cluster_auth" "cluster" {
   name = data.terraform_remote_state.eks.outputs.cluster_id
 }
 
-data "aws_eks_cluster_auth" "oidc_provider_arn" {
-  name = data.terraform_remote_state.eks.outputs.oidc_arn
-}
-
 data "aws_security_group" "default" {
   vpc_id = data.terraform_remote_state.vpc.outputs.vpc_id
   name   = "default"

@@ -69,7 +69,7 @@ resource "kubernetes_manifest" "targetgroupbinding_backend" {
     "kind"       = "TargetGroupBinding"
     "metadata" = {
       "name"      = "backend-nlb-pods-binding"
-      "namespace" = "${var.env}"
+      "namespace" = var.env
     }
     "spec" = {
       "ipAddressType" = "ipv4"
@@ -77,7 +77,7 @@ resource "kubernetes_manifest" "targetgroupbinding_backend" {
         "name" = "backend"
         "port" = 80
       }
-      "targetGroupARN" = "${aws_lb_target_group.backend_nlb_target_group.arn}"
+      "targetGroupARN" = aws_lb_target_group.backend_nlb_target_group.arn
       "targetType"     = "ip"
     }
   }

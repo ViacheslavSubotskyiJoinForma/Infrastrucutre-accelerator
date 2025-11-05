@@ -11,7 +11,7 @@ resource "helm_release" "metrics-server" {
   namespace = "kube-system"
 
   values = [
-    "${file("values/metrics.yaml")}"
+    file("values/metrics.yaml")
   ]
 
   depends_on = [

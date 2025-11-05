@@ -9,8 +9,7 @@ locals {
   admin_url       = var.env == "prod" ? "admin.${var.dns}" : "admin.${local.dns_name}"
   logos_url       = var.env == "prod" ? "logos.${var.dns}" : "logos.${local.dns_name}"
   backend_url     = var.env == "prod" ? "backend.${var.dns}" : "backend.${local.dns_name}"
-  email_cognito   = var.env == "prod" ? "${var.dns}" : "${local.dns_name}"
-  admin_logs      = "${local.admin_url}-logs"
+  email_cognito = var.env == "prod" ? var.dns : local.dns_name
   master-password = jsondecode(data.aws_secretsmanager_secret_version.rds_user.secret_string)["master_password"]
   user            = jsondecode(data.aws_secretsmanager_secret_version.rds_user.secret_string)["master_username"]
   endpoint        = jsondecode(data.aws_secretsmanager_secret_version.rds.secret_string)["endpoint"]
