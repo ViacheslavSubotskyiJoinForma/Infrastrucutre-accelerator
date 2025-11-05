@@ -11,7 +11,7 @@ on:
         type: string
 
       components:
-        description: 'Components (comma-separated: vpc,rds,eks,services,secrets,opensearch,monitoring,common)'
+        description: 'Components (comma-separated: vpc,rds,eks,eks-auto,services,secrets,opensearch,monitoring,common)'
         required: true
         type: string
         default: 'vpc'

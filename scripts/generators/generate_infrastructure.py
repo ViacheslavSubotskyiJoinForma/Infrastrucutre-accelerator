@@ -18,7 +18,7 @@ class InfrastructureGenerator:
     """Generate Terraform infrastructure from templates"""
 
     AVAILABLE_COMPONENTS = [
-        'vpc', 'rds', 'secrets', 'eks', 'services',
+        'vpc', 'rds', 'secrets', 'eks', 'eks-auto', 'services',
         'opensearch', 'monitoring', 'common'
     ]
 
@@ -28,6 +28,7 @@ class InfrastructureGenerator:
         'rds': ['vpc'],
         'secrets': ['eks', 'services'],
         'eks': ['vpc'],
+        'eks-auto': ['vpc'],  # EKS Auto Mode - simplified EKS with only VPC dependency
         'services': ['vpc', 'eks'],
         'opensearch': ['vpc', 'services', 'eks'],
         'monitoring': ['vpc', 'eks', 'services', 'rds'],
