@@ -38,6 +38,4 @@ locals {
   ]
   source1_ips = var.env == "prod" ? concat(local.source1_cv_ips, local.source1_prod_ips) : local.source1_cv_ips
 
-  source1_ssh_public_key = var.env == "prod" ? jsondecode(data.aws_secretsmanager_secret_version.source1_ssh_piblic_key[0].secret_string)["source1_ssh_public_key"] : ""
-
 }

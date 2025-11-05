@@ -43,15 +43,6 @@ data "terraform_remote_state" "post_confirmation" {
   }
 }
 
-data "terraform_remote_state" "pre_signup" {
-  backend = "s3"
-  config = {
-    bucket = "tf-state-us-east-1-<ID>"
-    key    = "${var.env}/pre-signup-lambda/tf.state"
-    region = var.region
-  }
-}
-
 data "terraform_remote_state" "custom_message_forgot_password" {
   backend = "s3"
   config = {
