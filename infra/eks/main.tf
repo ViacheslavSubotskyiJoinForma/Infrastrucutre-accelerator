@@ -26,10 +26,10 @@ module "eks" {
       addon_version     = "v1.16.0-eksbuild.1"
     }
     aws-ebs-csi-driver = {
-      resolve_conflicts="OVERWRITE"
+      resolve_conflicts        = "OVERWRITE"
       service_account_role_arn = module.ebs_csi_irsa_role.iam_role_arn
-      addon_version = "v1.26.1-eksbuild.1"
-      most_recent = true
+      addon_version            = "v1.26.1-eksbuild.1"
+      most_recent              = true
     }
   }
 
@@ -43,9 +43,9 @@ module "eks" {
 
       iam_role_additional_policies = {
         AmazonSSMManagedInstanceCore = "arn:${local.partition}:iam::aws:policy/AmazonSSMManagedInstanceCore",
-        CloudWatchLogsFullAccess = "arn:${local.partition}:iam::aws:policy/CloudWatchLogsFullAccess",
-        AmazonCognitoPowerUser = "arn:${local.partition}:iam::aws:policy/AmazonCognitoPowerUser",
-        SecretsManagerReadWrite = "arn:${local.partition}:iam::aws:policy/SecretsManagerReadWrite"
+        CloudWatchLogsFullAccess     = "arn:${local.partition}:iam::aws:policy/CloudWatchLogsFullAccess",
+        AmazonCognitoPowerUser       = "arn:${local.partition}:iam::aws:policy/AmazonCognitoPowerUser",
+        SecretsManagerReadWrite      = "arn:${local.partition}:iam::aws:policy/SecretsManagerReadWrite"
       }
 
       instance_types = ["t3.small"]

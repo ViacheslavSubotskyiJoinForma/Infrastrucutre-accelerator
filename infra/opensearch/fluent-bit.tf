@@ -1,7 +1,7 @@
 resource "helm_release" "fluent_bit" {
-  name    = "fluent-bit"
-  version = "0.22.0"
-  verify          = false
+  name             = "fluent-bit"
+  version          = "0.22.0"
+  verify           = false
   repository       = "https://fluent.github.io/helm-charts"
   chart            = "fluent-bit"
   namespace        = "fluent-bit"

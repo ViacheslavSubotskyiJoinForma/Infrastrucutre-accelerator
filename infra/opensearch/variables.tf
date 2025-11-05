@@ -35,10 +35,10 @@ variable "data_node_disk_size" {
 }
 
 variable "enable_custom_endpoint" {
-   default = false
+  default = false
 }
 variable "create_service_linked_role" {
-   default = false
+  default = false
 }
 
 variable "dns" {
@@ -46,10 +46,10 @@ variable "dns" {
 }
 
 variable "lambda_names" {
-  type        = list(string)
-  default     = [
-    "PostConfirmationLambdaTrigger", 
-    "CustomMessageForgotPasswordLambdaTrigger", 
+  type = list(string)
+  default = [
+    "PostConfirmationLambdaTrigger",
+    "CustomMessageForgotPasswordLambdaTrigger",
     "PreSignUpLambdaTrigger",
     "PreTokenGenerationLambdaTrigger"
   ]

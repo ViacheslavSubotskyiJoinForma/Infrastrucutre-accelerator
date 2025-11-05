@@ -160,7 +160,7 @@
 # [https://docs.firezone.dev/]
 module "ec2" {
   source  = "terraform-aws-modules/ec2-instance/aws"
-  version = "5.5.0" 
+  version = "5.5.0"
 
   name = "firezone-instance"
 
@@ -199,7 +199,7 @@ module "ec2" {
 
 module "security_group" {
   source  = "terraform-aws-modules/security-group/aws"
-  version = "5.1.0" 
+  version = "5.1.0"
 
   name   = "firezone-sg"
   vpc_id = module.vpc.vpc_id

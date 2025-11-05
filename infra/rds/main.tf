@@ -8,7 +8,7 @@ module "aurora" {
   #instance_class = var.env == "dev" ? "db.t4g.medium" : "db.t4g.large"
   instance_class = "db.t4g.medium"
   #instances      = var.env == "dev" ? var.instances_dev : var.instances_prod
-  instances      = var.instances_dev
+  instances = var.instances_dev
 
   iam_database_authentication_enabled = true
   manage_master_user_password         = false
@@ -22,9 +22,9 @@ module "aurora" {
   autoscaling_min_capacity = 1
   autoscaling_max_capacity = 3
 
-  vpc_id                  = data.terraform_remote_state.vpc.outputs.vpc_id
-  subnets                 = data.terraform_remote_state.vpc.outputs.database_subnets
-    security_group_rules = {
+  vpc_id  = data.terraform_remote_state.vpc.outputs.vpc_id
+  subnets = data.terraform_remote_state.vpc.outputs.database_subnets
+  security_group_rules = {
     common_ip_ingress = {
       cidr_blocks = [data.terraform_remote_state.vpc.outputs.cidr_blocks, "10.10.0.0/16"]
     }
@@ -71,5 +71,5 @@ resource "aws_rds_cluster_parameter_group" "db" {
 
 resource "aws_cloudwatch_dashboard" "rds" {
   dashboard_name = "RDS-Dashboard"
-  dashboard_body = "${file("${path.module}/files/dashboard-body.json")}"
+  dashboard_body = file("${path.module}/files/dashboard-body.json")
 }

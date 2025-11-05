@@ -6,18 +6,18 @@ resource "aws_iam_role" "vanta-audit" {
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
-        {
-            "Effect": "Allow",
-            "Principal": {
-                "AWS": "arn:aws:iam::956993596390:root"
-            },
-            "Action": "sts:AssumeRole",
-            "Condition": {
-                "StringEquals": {
-                    "sts:ExternalId": "D9A26BA33889E1E"
-                }
-            }
+      {
+        "Effect" : "Allow",
+        "Principal" : {
+          "AWS" : "arn:aws:iam::956993596390:root"
+        },
+        "Action" : "sts:AssumeRole",
+        "Condition" : {
+          "StringEquals" : {
+            "sts:ExternalId" : "D9A26BA33889E1E"
+          }
         }
+      }
     ]
   })
 
@@ -25,7 +25,7 @@ resource "aws_iam_role" "vanta-audit" {
 }
 
 resource "aws_iam_policy" "vanta-management-account-permissions" {
-  name        = "VantaManagementAccountPermissions"
+  name = "VantaManagementAccountPermissions"
   #path        = "/"
 
   # Terraform's "jsonencode" function converts a

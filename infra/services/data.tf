@@ -43,15 +43,6 @@ data "terraform_remote_state" "post_confirmation" {
   }
 }
 
-data "terraform_remote_state" "pre_signup" {
-  backend = "s3"
-  config = {
-    bucket = "tf-state-us-east-1-<ID>"
-    key    = "${var.env}/pre-signup-lambda/tf.state"
-    region = var.region
-  }
-}
-
 data "terraform_remote_state" "custom_message_forgot_password" {
   backend = "s3"
   config = {
@@ -87,10 +78,6 @@ data "aws_eks_cluster_auth" "cluster" {
   name = data.terraform_remote_state.eks.outputs.cluster_id
 }
 
-data "aws_eks_cluster_auth" "oidc_provider_arn" {
-  name = data.terraform_remote_state.eks.outputs.oidc_arn
-}
-
 data "aws_security_group" "default" {
   vpc_id = data.terraform_remote_state.vpc.outputs.vpc_id
   name   = "default"
@@ -101,7 +88,7 @@ data "aws_cloudfront_cache_policy" "existing_cache_policy" {
 }
 
 data "aws_cloudfront_origin_request_policy" "existing_cors_policy" {
-  name        = "Managed-CORS-S3Origin"
+  name = "Managed-CORS-S3Origin"
 }
 
 data "aws_secretsmanager_secret" "rds_user" {

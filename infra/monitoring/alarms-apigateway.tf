@@ -16,7 +16,7 @@ resource "aws_cloudwatch_metric_alarm" "gateway_5XXError_rate" {
 
   dimensions = {
     ApiName = "gateway"
-    Stage = "integration"
+    Stage   = "integration"
   }
   tags = local.tags
 }
@@ -39,7 +39,7 @@ resource "aws_cloudwatch_metric_alarm" "gateway_4XXError_rate" {
 
   dimensions = {
     ApiName = "gateway"
-    Stage = "integration"
+    Stage   = "integration"
   }
   tags = local.tags
 }
@@ -62,7 +62,7 @@ resource "aws_cloudwatch_metric_alarm" "gateway_latency" {
 
   dimensions = {
     ApiName = "gateway"
-    Stage = "integration"
+    Stage   = "integration"
   }
   tags = local.tags
 }

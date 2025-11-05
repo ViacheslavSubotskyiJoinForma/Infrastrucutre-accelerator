@@ -34,6 +34,17 @@ class InfrastructureGenerator:
         'common': []
     }
 
+    # Files to exclude from generation (client-specific or problematic)
+    EXCLUDE_FILES = {
+        'services': ['sftp.tf', 'zendesk.tf', 'vanta.tf'],  # Client-specific integrations
+    }
+
+    # Components that require local modules
+    REQUIRES_MODULES = {
+        'services': ['sftp'],  # services uses modules/sftp (but excluded by default)
+        # Add more as needed
+    }
+
     def __init__(self, project_name: str, components: List[str],
                  environments: List[str], config: Dict):
         self.project_name = project_name
@@ -42,6 +53,7 @@ class InfrastructureGenerator:
         self.config = config
         self.output_dir = Path(config.get('output_dir', 'generated-infra'))
         self.template_dir = Path(config.get('template_dir', 'template-modules'))
+        self.needs_modules = False
 
     def validate_components(self):
         """Validate selected components and their dependencies"""
@@ -79,6 +91,33 @@ class InfrastructureGenerator:
 
         return sorted_components
 
+    def _check_modules_needed(self):
+        """Check if any components require local modules"""
+        for component in self.components:
+            if component in self.REQUIRES_MODULES:
+                self.needs_modules = True
+                print(f"Component {component} requires modules, will copy modules/ directory")
+                break
+
+    def _copy_modules(self, output_dir: Path):
+        """Copy modules directory to generated infrastructure"""
+        print("Copying modules directory...")
+
+        modules_src = Path('modules')
+        if not modules_src.exists():
+            print("Warning: modules/ directory not found, skipping")
+            return
+
+        modules_dest = output_dir / 'modules'
+
+        # Remove existing modules directory if present
+        if modules_dest.exists():
+            shutil.rmtree(modules_dest)
+
+        # Copy entire modules directory
+        shutil.copytree(modules_src, modules_dest, ignore=shutil.ignore_patterns('.git*', '__pycache__', '*.pyc'))
+        print(f"Copied modules/ directory to {modules_dest}")
+
     def generate(self):
         """Generate infrastructure code"""
         print(f"Generating infrastructure for project: {self.project_name}")
@@ -88,6 +127,13 @@ class InfrastructureGenerator:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         infra_dir = self.output_dir / 'infra'
         infra_dir.mkdir(exist_ok=True)
+
+        # Check if we need to copy modules
+        self._check_modules_needed()
+
+        # Copy modules if needed
+        if self.needs_modules:
+            self._copy_modules(infra_dir.parent)
 
         # Generate each component
         for component in self.components:
@@ -113,13 +159,35 @@ class InfrastructureGenerator:
 
         template_component_dir = self.template_dir / component
 
-        if not template_component_dir.exists():
+        # Check if template directory exists and has .j2 files
+        has_templates = (template_component_dir.exists() and
+                        list(template_component_dir.glob('*.j2')))
+
+        if not has_templates:
             print(f"Warning: No template found for {component}, copying from infra/")
             # Copy from existing infra if template doesn't exist
             src_dir = Path('infra') / component
             if src_dir.exists():
+                # Get exclusion list for this component
+                exclude_files = self.EXCLUDE_FILES.get(component, [])
+
+                # Copy .tf files
                 for file in src_dir.glob('*.tf'):
+                    # Skip excluded files
+                    if file.name in exclude_files:
+                        print(f"  Skipping {file.name} (client-specific)")
+                        continue
                     shutil.copy(file, component_dir)
+                    print(f"  Copied: {file.name}")
+
+                # Copy additional directories (values, files, templates, code, etc.)
+                for subdir in src_dir.iterdir():
+                    if subdir.is_dir() and not subdir.name.startswith('.'):
+                        dest_subdir = component_dir / subdir.name
+                        if dest_subdir.exists():
+                            shutil.rmtree(dest_subdir)
+                        shutil.copytree(subdir, dest_subdir)
+                        print(f"  Copied directory: {subdir.name}/")
             return
 
         # Setup Jinja2 environment

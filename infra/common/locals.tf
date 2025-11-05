@@ -5,7 +5,7 @@ locals {
     Terraform = true
   }
 
-  emails      = [
+  emails = [
     "User1@ClientDomain.com",
     "User2@ClientDomain.com"
   ]
@@ -26,11 +26,11 @@ locals {
     format("%s/%s", parts[0], element(parts, length(parts) - 1))
   ])[0]
 
-  email    = "ClientDomain.com"
+  email = "ClientDomain.com"
   custom_emails = {
     "User3" = "User3@ClientDomain.com",
-    "User1"   = "User1@ClientDomain.com",
-    "User2"    = "User2@ClientDomain.com"
+    "User1" = "User1@ClientDomain.com",
+    "User2" = "User2@ClientDomain.com"
   }
   vpn      = "https://vpn.${var.dns}/"
   okta_url = "https://ClientDomain.okta.com"

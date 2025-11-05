@@ -141,7 +141,7 @@ data "okta_users" "retool" {
 resource "aws_secretsmanager_secret" "firezone" {
   description = "Credentials from okta"
   name        = "firezone"
-  tags       = local.tags
+  tags        = local.tags
 }
 
 resource "aws_secretsmanager_secret_version" "firezone" {
@@ -153,9 +153,9 @@ resource "aws_secretsmanager_secret_version" "firezone" {
 }
 EOF
   lifecycle {
-      ignore_changes = [
-        secret_string
-      ]
+    ignore_changes = [
+      secret_string
+    ]
   }
 }
 
@@ -196,9 +196,9 @@ resource "aws_secretsmanager_secret_version" "grafana" {
 }
 EOF
   lifecycle {
-      ignore_changes = [
-        secret_string
-      ]
+    ignore_changes = [
+      secret_string
+    ]
   }
 }
 

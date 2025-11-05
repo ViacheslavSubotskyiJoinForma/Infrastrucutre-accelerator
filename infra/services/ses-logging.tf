@@ -1,7 +1,7 @@
 data "archive_file" "ses_python_lambda_package" {
-  type                   = "zip"  
-  source_file            = "${path.module}/code/SESloggingLambda.py" 
-  output_path            = "${path.module}/SESloggingLambda.zip"
+  type        = "zip"
+  source_file = "${path.module}/code/SESloggingLambda.py"
+  output_path = "${path.module}/SESloggingLambda.zip"
 }
 
 resource "aws_ses_configuration_set" "domain_conf_set" {
@@ -31,9 +31,9 @@ data "aws_iam_policy_document" "ses_assume_role_policy" {
 }
 
 resource "aws_iam_role" "ses_lambda_exec_role" {
-  name = "example_lambda_exec_role"
+  name               = "example_lambda_exec_role"
   assume_role_policy = data.aws_iam_policy_document.ses_assume_role_policy.json
-  tags = local.tags
+  tags               = local.tags
 }
 
 resource "aws_lambda_permission" "ses_allow_execution_from_sns" {

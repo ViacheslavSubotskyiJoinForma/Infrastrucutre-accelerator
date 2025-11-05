@@ -8,25 +8,25 @@ module "eks" {
   cluster_endpoint_private_access = true
   cluster_endpoint_public_access  = false
   create_kms_key                  = false
-  cluster_encryption_config = {}
+  cluster_encryption_config       = {}
 
   cluster_addons = {
     coredns = {
-      most_recent = true
-      addon_version     = "v1.10.1-eksbuild.18"
+      most_recent   = true
+      addon_version = "v1.10.1-eksbuild.18"
     }
     kube-proxy = {
-      most_recent = true
-      addon_version     = "v1.28.4-eksbuild.4"
+      most_recent   = true
+      addon_version = "v1.28.4-eksbuild.4"
     }
     vpc-cni = {
-      most_recent = true
-      addon_version     = "v1.16.0-eksbuild.1"
+      most_recent   = true
+      addon_version = "v1.16.0-eksbuild.1"
     }
     aws-ebs-csi-driver = {
       service_account_role_arn = module.ebs_csi_irsa_role.iam_role_arn
-      addon_version = "v1.26.1-eksbuild.1"
-      most_recent = true
+      addon_version            = "v1.26.1-eksbuild.1"
+      most_recent              = true
     }
   }
 
@@ -67,7 +67,7 @@ module "eks" {
     }
   }
 
-  cluster_enabled_log_types = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
+  cluster_enabled_log_types              = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
   cloudwatch_log_group_retention_in_days = 365
 
   aws_auth_users = [

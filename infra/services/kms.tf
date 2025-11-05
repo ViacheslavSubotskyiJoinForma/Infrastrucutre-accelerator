@@ -3,7 +3,7 @@ resource "aws_kms_key" "s3_key" {
   deletion_window_in_days = 10
   enable_key_rotation     = true
 
-  tags                    = local.tags
+  tags = local.tags
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "encryption-log-bucket" {

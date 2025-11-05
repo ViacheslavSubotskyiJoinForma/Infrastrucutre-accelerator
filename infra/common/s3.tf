@@ -1,7 +1,7 @@
 # Bucket for store lambda artifacts
 module "lambda" {
   source  = "terraform-aws-modules/s3-bucket/aws"
-  version = "3.15.1" 
+  version = "3.15.1"
 
   bucket = "lambda-artifacts-${var.region}-${random_id.lambda.hex}"
   acl    = "private"

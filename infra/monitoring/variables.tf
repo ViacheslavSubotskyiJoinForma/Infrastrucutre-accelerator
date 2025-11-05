@@ -7,9 +7,9 @@ variable "region" {
 }
 
 variable "datapoints_to_alarm" {
-  type = string
+  type        = string
   description = "The number of datapoints that must be breaching to trigger the alarm"
-  default = "2"
+  default     = "2"
 }
 
 variable "evaluation_period" {

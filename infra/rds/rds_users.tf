@@ -52,19 +52,19 @@ resource "postgresql_grant" "grant_backend_rw_schema" {
 }
 
 resource "postgresql_grant" "backend_all_table" {
-  database     = module.aurora.cluster_database_name
-  role         = postgresql_role.backend.name
-  schema       = "public"
-  object_type  = "table"
-  privileges   = ["DELETE", "INSERT", "REFERENCES", "SELECT", "TRIGGER", "TRUNCATE", "UPDATE",]
-  depends_on   = [postgresql_role.backend]
+  database    = module.aurora.cluster_database_name
+  role        = postgresql_role.backend.name
+  schema      = "public"
+  object_type = "table"
+  privileges  = ["DELETE", "INSERT", "REFERENCES", "SELECT", "TRIGGER", "TRUNCATE", "UPDATE", ]
+  depends_on  = [postgresql_role.backend]
 }
 
 resource "postgresql_grant" "backend_all_sequence" {
-  database     = module.aurora.cluster_database_name
-  role         = postgresql_role.backend.name
-  schema       = "public"
-  object_type  = "sequence"
-  privileges   = ["USAGE", "SELECT", "UPDATE"]
-  depends_on   = [postgresql_role.backend]
+  database    = module.aurora.cluster_database_name
+  role        = postgresql_role.backend.name
+  schema      = "public"
+  object_type = "sequence"
+  privileges  = ["USAGE", "SELECT", "UPDATE"]
+  depends_on  = [postgresql_role.backend]
 }

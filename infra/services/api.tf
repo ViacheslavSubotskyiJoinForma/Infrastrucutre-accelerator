@@ -59,7 +59,7 @@ resource "aws_api_gateway_integration" "api_integration" {
   connection_type         = "VPC_LINK"
   connection_id           = aws_api_gateway_vpc_link.backend_nlb_vpc_link.id
   uri                     = "https://${local.backend_url}/{proxy}"
-  request_parameters      = {
+  request_parameters = {
     "integration.request.path.proxy" = "method.request.path.proxy"
   }
 }
@@ -101,7 +101,7 @@ resource "aws_api_gateway_integration" "source1_integration" {
   connection_type         = "VPC_LINK"
   connection_id           = aws_api_gateway_vpc_link.backend_nlb_vpc_link.id
   uri                     = "https://${local.backend_url}/integration/source1/{proxy}"
-  request_parameters      = {
+  request_parameters = {
     "integration.request.path.proxy" = "method.request.path.proxy"
   }
 }
@@ -163,7 +163,7 @@ resource "aws_api_gateway_stage" "stage" {
   stage_name         = "integration"
   access_log_settings {
     destination_arn = "arn:aws:logs:${var.region}:${var.account}:log-group:API-Gateway-Execution-Logs_${aws_api_gateway_rest_api.rest_api.id}/integration"
-    format          = jsonencode(
+    format = jsonencode(
       {
         caller         = "$context.identity.caller"
         httpMethod     = "$context.httpMethod"
@@ -172,8 +172,8 @@ resource "aws_api_gateway_stage" "stage" {
         requestTime    = "$context.requestTime"
         responseLength = "$context.responseLength"
         status         = "$context.status"
-      })
-    }
+    })
+  }
 
   lifecycle {
     ignore_changes = [
@@ -312,9 +312,9 @@ resource "aws_api_gateway_model" "Dummy" {
 }
 EOF
   lifecycle {
-      ignore_changes = [
-        schema
-      ]
+    ignore_changes = [
+      schema
+    ]
   }
 }
 
@@ -331,9 +331,9 @@ resource "aws_api_gateway_model" "Empty" {
 }
 EOF
   lifecycle {
-      ignore_changes = [
-        schema
-      ]
+    ignore_changes = [
+      schema
+    ]
   }
 }
 
@@ -353,25 +353,25 @@ resource "aws_api_gateway_model" "Error" {
 }
 EOF
   lifecycle {
-      ignore_changes = [
-        schema
-      ]
+    ignore_changes = [
+      schema
+    ]
   }
 }
 
 resource "aws_iam_role" "api-logging" {
-  name               = "APIGatewayPushToCloudWatchLogs"
+  name = "APIGatewayPushToCloudWatchLogs"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
-        {
-            "Sid": "",
-            "Effect": "Allow",
-            "Principal": {
-                "Service": "apigateway.amazonaws.com"
-            },
-            "Action": "sts:AssumeRole"
-        }
+      {
+        "Sid" : "",
+        "Effect" : "Allow",
+        "Principal" : {
+          "Service" : "apigateway.amazonaws.com"
+        },
+        "Action" : "sts:AssumeRole"
+      }
     ]
   })
 
@@ -384,18 +384,18 @@ resource "aws_iam_role_policy_attachment" "api-logging" {
 }
 
 resource "aws_api_gateway_account" "api-logging" {
-  cloudwatch_role_arn = "${aws_iam_role.api-logging.arn}"
+  cloudwatch_role_arn = aws_iam_role.api-logging.arn
 }
 
 resource "aws_api_gateway_method_settings" "general_settings" {
-  rest_api_id = "${aws_api_gateway_rest_api.rest_api.id}"
+  rest_api_id = aws_api_gateway_rest_api.rest_api.id
   stage_name  = aws_api_gateway_stage.stage.stage_name
   method_path = "*/*"
 
   settings {
     # Enable CloudWatch logging and metrics
     # metrics_enabled        = true # Detailed Metrics
-    logging_level          = "INFO"
+    logging_level = "INFO"
 
     # Limit the rate of calls to prevent abuse and unwanted charges
     throttling_rate_limit  = 100

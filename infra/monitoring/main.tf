@@ -6,14 +6,14 @@ resource "helm_release" "prometheus" {
   chart            = "prometheus"
   version          = "15.12.0"
   values = [templatefile("values/prometheus.yaml", {
-    env            = var.env
-    ENV            = upper(var.env)
-    cloudwatch     = helm_release.prometheus-cloudwatch-exporter.name
-    subnets        = join(", ", data.terraform_remote_state.vpc.outputs.private_subnets)
-    default-sg     = data.aws_eks_cluster.cluster.vpc_config[0].cluster_security_group_id
-    certificate    = data.terraform_remote_state.services.outputs.public_acm_arn
-    slack_api_url  = local.slack_api_url
-    slack_chanel   = local.slack_chanel
+    env           = var.env
+    ENV           = upper(var.env)
+    cloudwatch    = helm_release.prometheus-cloudwatch-exporter.name
+    subnets       = join(", ", data.terraform_remote_state.vpc.outputs.private_subnets)
+    default-sg    = data.aws_eks_cluster.cluster.vpc_config[0].cluster_security_group_id
+    certificate   = data.terraform_remote_state.services.outputs.public_acm_arn
+    slack_api_url = local.slack_api_url
+    slack_chanel  = local.slack_chanel
   })]
 }
 
@@ -25,10 +25,10 @@ resource "helm_release" "prometheus-msteams" {
   chart            = "prometheus-msteams"
   version          = "1.3.1"
   values = [templatefile("values/prometheus-msteams.yaml", {
-    url-sufix      = "prom2ms"
-    ENV            = upper(var.env)
-    webhookURL     = local.prom2ms
-    prefix         = var.env
+    url-sufix  = "prom2ms"
+    ENV        = upper(var.env)
+    webhookURL = local.prom2ms
+    prefix     = var.env
   })]
 }
 
@@ -49,10 +49,10 @@ resource "helm_release" "prometheus-cloudwatch-exporter" {
   chart            = "prometheus-cloudwatch-exporter"
   version          = "0.19.2"
   values = [templatefile("values/prometheus-cloudwatch-exporter.yaml", {
-    env            = var.env
-    region         = var.region
-    role_arn       = module.prometheus_cloudwatch_exporter_role.iam_role_arn
-    role_id        = module.prometheus_cloudwatch_exporter_role.iam_role_name
+    env      = var.env
+    region   = var.region
+    role_arn = module.prometheus_cloudwatch_exporter_role.iam_role_arn
+    role_id  = module.prometheus_cloudwatch_exporter_role.iam_role_name
   })]
 }
 

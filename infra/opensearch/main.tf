@@ -19,19 +19,19 @@ resource "aws_iam_service_linked_role" "es" {
 }
 
 resource "aws_elasticsearch_domain" "es" {
-  domain_name             = "${var.env}-elasticsearch"
-  elasticsearch_version   = var.elasticsearch_version
+  domain_name           = "${var.env}-elasticsearch"
+  elasticsearch_version = var.elasticsearch_version
 
   encrypt_at_rest {
     enabled = true
-  }      
+  }
 
   node_to_node_encryption {
     enabled = true
   }
 
   cluster_config {
-    instance_count           = var.data_node_count
+    instance_count = var.data_node_count
     #instance_type            = var.data_node_type
     instance_type            = var.env == "prod" ? var.data_node_type_prod : var.data_node_type
     dedicated_master_count   = var.master_node_count
@@ -49,8 +49,8 @@ resource "aws_elasticsearch_domain" "es" {
   }
 
   vpc_options {
-    subnet_ids         = [ data.terraform_remote_state.vpc.outputs.database_subnets[0], data.terraform_remote_state.vpc.outputs.database_subnets[1], data.terraform_remote_state.vpc.outputs.database_subnets[2] ]
-    security_group_ids = [ aws_security_group.es.id ]
+    subnet_ids         = [data.terraform_remote_state.vpc.outputs.database_subnets[0], data.terraform_remote_state.vpc.outputs.database_subnets[1], data.terraform_remote_state.vpc.outputs.database_subnets[2]]
+    security_group_ids = [aws_security_group.es.id]
   }
   domain_endpoint_options {
     custom_endpoint_enabled         = true
@@ -85,5 +85,5 @@ resource "aws_route53_record" "es" {
   name    = "elasticsearch"
   type    = "CNAME"
   ttl     = "300"
-  records = [ aws_elasticsearch_domain.es.endpoint ]
+  records = [aws_elasticsearch_domain.es.endpoint]
 }

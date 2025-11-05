@@ -24,7 +24,7 @@ resource "aws_cognito_user_pool" "email" {
     email_sending_account  = "DEVELOPER"
     source_arn             = aws_ses_domain_identity.domain.arn
     from_email_address     = "ClientDomain Admin <ClientDomainadmin@${local.email_cognito}>" # mandatory field
-    reply_to_email_address = "ClientDomainadmin@${local.email_cognito}" # mandatory field
+    reply_to_email_address = "ClientDomainadmin@${local.email_cognito}"                      # mandatory field
   }
   verification_message_template {
     default_email_option = "CONFIRM_WITH_CODE"
@@ -48,9 +48,9 @@ resource "aws_cognito_user_pool" "email" {
     invite_message_template {
       email_subject = "Welcome to ClientDomain!" # mandatory field
       email_message = templatefile("cognito/invitation-template.html", {
-        admin_url_con  = local.admin_url
+        admin_url_con = local.admin_url
       })
-      sms_message   = "Your username is {username}. Sign up at {####}" # mandatory field
+      sms_message = "Your username is {username}. Sign up at {####}" # mandatory field
     }
   }
 
@@ -138,11 +138,11 @@ resource "aws_cognito_user_pool" "email" {
     pre_token_generation = data.terraform_remote_state.pre_token.outputs.pretoken_arn
     post_confirmation    = data.terraform_remote_state.post_confirmation.outputs.postconfirmation_arn
   }
-  
+
   tags = local.tags
 
   depends_on = [
-      aws_ses_receipt_rule.store
+    aws_ses_receipt_rule.store
   ]
 }
 
@@ -157,7 +157,7 @@ resource "aws_cognito_user_pool" "phone" {
 
   mfa_configuration = "OFF"
 
-  alias_attributes = ["phone_number"]
+  alias_attributes         = ["phone_number"]
   auto_verified_attributes = ["phone_number"]
   lifecycle {
     ignore_changes = [
@@ -277,7 +277,7 @@ resource "aws_cognito_user_pool" "phone" {
     pre_token_generation = data.terraform_remote_state.pre_token.outputs.pretoken_arn
     post_confirmation    = data.terraform_remote_state.post_confirmation.outputs.postconfirmation_arn
     #pre_sign_up          = data.terraform_remote_state.pre_signup.outputs.presignup_arn
-    custom_message       = data.terraform_remote_state.custom_message_forgot_password.outputs.custom_message_forgot_password_arn
+    custom_message = data.terraform_remote_state.custom_message_forgot_password.outputs.custom_message_forgot_password_arn
   }
 
   tags = local.tags
@@ -341,14 +341,14 @@ resource "aws_cognito_user_pool_client" "autotest" {
     "openid",
     "profile",
   ]
-  explicit_auth_flows  = [
+  explicit_auth_flows = [
     "ALLOW_ADMIN_USER_PASSWORD_AUTH",
     "ALLOW_CUSTOM_AUTH",
     "ALLOW_REFRESH_TOKEN_AUTH",
     "ALLOW_USER_PASSWORD_AUTH",
     "ALLOW_USER_SRP_AUTH",
   ]
-  read_attributes      = [
+  read_attributes = [
     "custom:date_of_birth",
     "custom:org_node_id",
     "custom:permissions",
@@ -360,7 +360,7 @@ resource "aws_cognito_user_pool_client" "autotest" {
   supported_identity_providers = [
     "COGNITO",
   ]
-  write_attributes     = [
+  write_attributes = [
     "custom:date_of_birth",
     "custom:org_node_id",
     "custom:permissions",
@@ -374,8 +374,8 @@ resource "aws_cognito_user_pool_client" "autotest" {
     refresh_token = "days"
   }
   allowed_oauth_flows = [
-     "code",
-     "implicit",
+    "code",
+    "implicit",
   ]
   depends_on = [
     aws_cognito_user_pool.email
@@ -390,44 +390,44 @@ resource "aws_cognito_user_pool_client" "postman" {
   id_token_validity                    = 60
   callback_urls                        = ["https://localhost"]
   prevent_user_existence_errors        = "ENABLED"
-  allowed_oauth_flows  = [
-     "code",
-     "implicit",
+  allowed_oauth_flows = [
+    "code",
+    "implicit",
   ]
-  explicit_auth_flows  = [
-     "ALLOW_ADMIN_USER_PASSWORD_AUTH",
-     "ALLOW_REFRESH_TOKEN_AUTH",
-     "ALLOW_USER_SRP_AUTH",
+  explicit_auth_flows = [
+    "ALLOW_ADMIN_USER_PASSWORD_AUTH",
+    "ALLOW_REFRESH_TOKEN_AUTH",
+    "ALLOW_USER_SRP_AUTH",
   ]
-  read_attributes      = [
-     "custom:date_of_birth",
-     "custom:org_node_id",
-     "custom:permissions",
-     "family_name",
-     "given_name",
-     "phone_number",
-     "phone_number_verified",
+  read_attributes = [
+    "custom:date_of_birth",
+    "custom:org_node_id",
+    "custom:permissions",
+    "family_name",
+    "given_name",
+    "phone_number",
+    "phone_number_verified",
   ]
   supported_identity_providers = [
-     "COGNITO",
+    "COGNITO",
   ]
-  write_attributes             = [
-     "custom:date_of_birth",
-     "custom:org_node_id",
-     "custom:permissions",
-     "family_name",
-     "given_name",
-     "phone_number",
+  write_attributes = [
+    "custom:date_of_birth",
+    "custom:org_node_id",
+    "custom:permissions",
+    "family_name",
+    "given_name",
+    "phone_number",
   ]
   token_validity_units {
-     access_token  = "minutes"
-     id_token      = "minutes"
-     refresh_token = "days"
+    access_token  = "minutes"
+    id_token      = "minutes"
+    refresh_token = "days"
   }
   allowed_oauth_scopes = [
-     "openid",
-     "phone",
-     "profile",
+    "openid",
+    "phone",
+    "profile",
   ]
   depends_on = [
     aws_cognito_user_pool.phone
@@ -461,12 +461,12 @@ resource "aws_cognito_user" "zero_user" {
   password     = random_password.password.result
 
   attributes = {
-    org_node_id        = "0"
-    permissions        = "[1,2,5,6,7,16,22,24,26,27,28,30,34,39,40,41,43]"
-    email              = local.email
-    email_verified     = true
-    family_name        = "superuser"
-    given_name         = "superuser"
+    org_node_id    = "0"
+    permissions    = "[1,2,5,6,7,16,22,24,26,27,28,30,34,39,40,41,43]"
+    email          = local.email
+    email_verified = true
+    family_name    = "superuser"
+    given_name     = "superuser"
   }
   lifecycle {
     ignore_changes = [
@@ -488,13 +488,13 @@ resource "random_password" "password" {
 module "zero_user" {
   source  = "lgallard/secrets-manager/aws"
   version = "0.10.1"
-  
+
   secrets = {
     "zero-user" = {
-      description        = "Zero user secret"
-      secret_key_value   = {
-        USER_UUID            = aws_cognito_user.zero_user.username
-        USER_PASSWORD        = random_password.password.result
+      description = "Zero user secret"
+      secret_key_value = {
+        USER_UUID     = aws_cognito_user.zero_user.username
+        USER_PASSWORD = random_password.password.result
       }
       recovery_window_in_days = 7
     }
@@ -508,7 +508,7 @@ module "zero_user" {
 
 resource "null_resource" "zero_user_setup" {
   provisioner "local-exec" {
-    command     = "psql -h ${local.endpoint} -p ${local.port} -U ${local.user} -d ${local.db} -c \"insert INTO public.user (role_id, owner_node_id, email, first_name, last_name, status, id) values (1, 0, '${local.email}', 'supperuser', 'supperuser', 'PENDING_CONFIRMATION', '${var.username}') ON CONFLICT DO NOTHING\""
+    command = "psql -h ${local.endpoint} -p ${local.port} -U ${local.user} -d ${local.db} -c \"insert INTO public.user (role_id, owner_node_id, email, first_name, last_name, status, id) values (1, 0, '${local.email}', 'supperuser', 'supperuser', 'PENDING_CONFIRMATION', '${var.username}') ON CONFLICT DO NOTHING\""
     environment = {
       PGPASSWORD = local.master-password
     }

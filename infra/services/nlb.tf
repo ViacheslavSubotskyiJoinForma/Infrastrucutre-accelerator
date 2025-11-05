@@ -4,7 +4,7 @@ resource "aws_lb" "backend_nlb" {
   load_balancer_type = "network"
   subnets            = data.terraform_remote_state.vpc.outputs.private_subnets
 
-  enable_deletion_protection = false
+  enable_deletion_protection       = false
   enable_cross_zone_load_balancing = true
 
   tags = local.tags
@@ -15,7 +15,7 @@ resource "aws_route53_record" "backend_nlb_record" {
   type    = "CNAME"
   zone_id = var.env == "prod" ? data.aws_route53_zone.public.zone_id : aws_route53_zone.public_dns.zone_id
   ttl     = 60
-  records = [ aws_lb.backend_nlb.dns_name ]
+  records = [aws_lb.backend_nlb.dns_name]
   depends_on = [
     aws_lb.backend_nlb
   ]
@@ -66,10 +66,10 @@ resource "aws_api_gateway_vpc_link" "backend_nlb_vpc_link" {
 resource "kubernetes_manifest" "targetgroupbinding_backend" {
   manifest = {
     "apiVersion" = "elbv2.k8s.aws/v1beta1"
-    "kind" = "TargetGroupBinding"
+    "kind"       = "TargetGroupBinding"
     "metadata" = {
-      "name" = "backend-nlb-pods-binding"
-      "namespace" = "${var.env}"
+      "name"      = "backend-nlb-pods-binding"
+      "namespace" = var.env
     }
     "spec" = {
       "ipAddressType" = "ipv4"
@@ -77,8 +77,8 @@ resource "kubernetes_manifest" "targetgroupbinding_backend" {
         "name" = "backend"
         "port" = 80
       }
-      "targetGroupARN" = "${aws_lb_target_group.backend_nlb_target_group.arn}"
-      "targetType" = "ip"
+      "targetGroupARN" = aws_lb_target_group.backend_nlb_target_group.arn
+      "targetType"     = "ip"
     }
   }
 }

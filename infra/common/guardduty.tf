@@ -39,8 +39,8 @@ EOF
 }
 
 resource "aws_cloudwatch_event_target" "sns-guardduty" {
-  rule        = aws_cloudwatch_event_rule.gd-alert-rule.name
-  arn         = aws_sns_topic.SNS_alarm_notification.arn
-  target_id   = "SendToSNS"
-  depends_on  = [aws_cloudwatch_event_rule.gd-alert-rule]
+  rule       = aws_cloudwatch_event_rule.gd-alert-rule.name
+  arn        = aws_sns_topic.SNS_alarm_notification.arn
+  target_id  = "SendToSNS"
+  depends_on = [aws_cloudwatch_event_rule.gd-alert-rule]
 } 
