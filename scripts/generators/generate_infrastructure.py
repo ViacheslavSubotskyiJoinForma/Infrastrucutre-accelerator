@@ -17,22 +17,26 @@ from jinja2 import Environment, FileSystemLoader, Template
 class InfrastructureGenerator:
     """Generate Terraform infrastructure from templates"""
 
+    # Available components with templates
     AVAILABLE_COMPONENTS = [
-        'vpc', 'rds', 'secrets', 'eks', 'eks-auto', 'services',
-        'opensearch', 'monitoring', 'common'
+        'vpc',      # VPC networking (ready)
+        'eks-auto', # EKS Auto Mode cluster (ready)
+        # Future components (templates to be created):
+        # 'rds', 'secrets', 'eks', 'services', 'opensearch', 'monitoring', 'common'
     ]
 
-    # Component dependencies
+    # Component dependencies (only for available components)
     DEPENDENCIES = {
-        'vpc': [],
-        'rds': ['vpc'],
-        'secrets': ['eks', 'services'],
-        'eks': ['vpc'],
-        'eks-auto': ['vpc'],  # EKS Auto Mode - simplified EKS with only VPC dependency
-        'services': ['vpc', 'eks'],
-        'opensearch': ['vpc', 'services', 'eks'],
-        'monitoring': ['vpc', 'eks', 'services', 'rds'],
-        'common': []
+        'vpc': [],           # No dependencies (foundational)
+        'eks-auto': ['vpc'], # EKS Auto Mode - requires VPC only
+        # Future dependencies (when components are added):
+        # 'rds': ['vpc'],
+        # 'secrets': ['eks', 'services'],
+        # 'eks': ['vpc'],
+        # 'services': ['vpc', 'eks'],
+        # 'opensearch': ['vpc', 'services', 'eks'],
+        # 'monitoring': ['vpc', 'eks', 'services', 'rds'],
+        # 'common': []
     }
 
     # Files to exclude from generation (client-specific or problematic)
