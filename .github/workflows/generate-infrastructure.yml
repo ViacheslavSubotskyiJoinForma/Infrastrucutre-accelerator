@@ -14,7 +14,7 @@ on:
         description: 'Components (comma-separated: vpc,rds,eks,eks-auto,services,secrets,opensearch,monitoring,common)'
         required: true
         type: string
-        default: 'vpc'
+        default: 'vpc,eks-auto'
 
       environments:
         description: 'Environments (comma-separated: dev,uat,prod)'
