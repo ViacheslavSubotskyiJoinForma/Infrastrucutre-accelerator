@@ -8,58 +8,26 @@ on:
         required: true
         type: string
 
-      # Component selection
-      include_vpc:
-        description: 'Include VPC (networking foundation)'
+      component_preset:
+        description: 'Component preset'
         required: true
-        type: boolean
-        default: true
+        type: choice
+        options:
+          - 'minimal'
+          - 'standard'
+          - 'full-stack'
+          - 'kubernetes'
+          - 'custom'
+        default: 'standard'
 
-      include_rds:
-        description: 'Include RDS (database)'
+      custom_components:
+        description: 'Custom components (if preset=custom): vpc,rds,eks,services,secrets,opensearch,monitoring,common'
         required: false
-        type: boolean
-        default: false
+        type: string
+        default: 'vpc,rds,eks,services'
 
-      include_secrets:
-        description: 'Include Secrets (AWS Secrets Manager)'
-        required: false
-        type: boolean
-        default: false
-
-      include_eks:
-        description: 'Include EKS (Kubernetes cluster)'
-        required: false
-        type: boolean
-        default: false
-
-      include_services:
-        description: 'Include Services (API Gateway, Lambda, Cognito, S3, etc.)'
-        required: false
-        type: boolean
-        default: false
-
-      include_opensearch:
-        description: 'Include OpenSearch'
-        required: false
-        type: boolean
-        default: false
-
-      include_monitoring:
-        description: 'Include Monitoring (Grafana)'
-        required: false
-        type: boolean
-        default: false
-
-      include_common:
-        description: 'Include Common (Management account resources)'
-        required: false
-        type: boolean
-        default: false
-
-      # Environment configuration
       environments:
-        description: 'Environments (comma-separated)'
+        description: 'Environments (comma-separated: dev,uat,prod)'
         required: true
         type: string
         default: 'dev,uat,prod'
@@ -71,18 +39,18 @@ on:
         default: 'us-east-1'
 
       state_bucket:
-        description: 'S3 bucket for Terraform state (leave empty for auto-generated name)'
+        description: 'S3 bucket for Terraform state (auto-generated if empty)'
         required: false
         type: string
 
       dynamodb_table:
-        description: 'DynamoDB table for state locking (leave empty for auto-generated name)'
+        description: 'DynamoDB table for state locking (auto-generated if empty)'
         required: false
         type: string
 
       use_assume_role:
-        description: 'Use AWS role assumption (OrganizationAccountAccessRole)'
-        required: true
+        description: 'Use AWS role assumption'
+        required: false
         type: boolean
         default: true
 
@@ -107,44 +75,38 @@ jobs:
       - name: Build component list
         id: components
         run: |
+          PRESET="${{ inputs.component_preset }}"
           COMPONENTS=""
 
-          if [ "${{ inputs.include_vpc }}" == "true" ]; then
-            COMPONENTS="${COMPONENTS}vpc,"
-          fi
-
-          if [ "${{ inputs.include_rds }}" == "true" ]; then
-            COMPONENTS="${COMPONENTS}rds,"
-          fi
-
-          if [ "${{ inputs.include_secrets }}" == "true" ]; then
-            COMPONENTS="${COMPONENTS}secrets,"
-          fi
-
-          if [ "${{ inputs.include_eks }}" == "true" ]; then
-            COMPONENTS="${COMPONENTS}eks,"
-          fi
-
-          if [ "${{ inputs.include_services }}" == "true" ]; then
-            COMPONENTS="${COMPONENTS}services,"
-          fi
-
-          if [ "${{ inputs.include_opensearch }}" == "true" ]; then
-            COMPONENTS="${COMPONENTS}opensearch,"
-          fi
-
-          if [ "${{ inputs.include_monitoring }}" == "true" ]; then
-            COMPONENTS="${COMPONENTS}monitoring,"
-          fi
-
-          if [ "${{ inputs.include_common }}" == "true" ]; then
-            COMPONENTS="${COMPONENTS}common,"
-          fi
-
-          # Remove trailing comma
-          COMPONENTS="${COMPONENTS%,}"
+          case "$PRESET" in
+            "minimal")
+              # VPC only
+              COMPONENTS="vpc"
+              ;;
+            "standard")
+              # VPC, RDS, EKS, Services
+              COMPONENTS="vpc,rds,eks,services"
+              ;;
+            "full-stack")
+              # All components except common
+              COMPONENTS="vpc,rds,secrets,eks,services,opensearch,monitoring"
+              ;;
+            "kubernetes")
+              # Kubernetes-focused setup
+              COMPONENTS="vpc,eks,monitoring"
+              ;;
+            "custom")
+              # Use custom components from input
+              COMPONENTS="${{ inputs.custom_components }}"
+              ;;
+            *)
+              echo "Unknown preset: $PRESET"
+              exit 1
+              ;;
+          esac
 
           echo "components=${COMPONENTS}" >> $GITHUB_OUTPUT
+          echo "Preset: $PRESET"
           echo "Selected components: ${COMPONENTS}"
 
       - name: Generate infrastructure
@@ -305,6 +267,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Configuration" >> $GITHUB_STEP_SUMMARY
           echo "- **Project**: ${{ inputs.project_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Preset**: ${{ inputs.component_preset }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Components**: ${{ steps.components.outputs.components }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Environments**: ${{ inputs.environments }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Region**: ${{ inputs.region }}" >> $GITHUB_STEP_SUMMARY

@@ -73,29 +73,36 @@ The generator automatically includes required dependencies. For example:
 
 #### Required
 - **project_name**: Name for your project (used in resource naming)
+- **component_preset**: Choose from predefined component sets
+  - `minimal` - VPC only (basic networking)
+  - `standard` - VPC, RDS, EKS, Services (typical application stack)
+  - `full-stack` - All components except common (complete infrastructure)
+  - `kubernetes` - VPC, EKS, Monitoring (K8s-focused)
+  - `custom` - Specify your own components
 - **environments**: Comma-separated list (e.g., `dev,uat,prod`)
 
-#### Component Selection (Checkboxes)
-- Include VPC (required for most components)
-- Include RDS
-- Include Secrets
-- Include EKS
-- Include Services
-- Include OpenSearch
-- Include Monitoring
-- Include Common
-
-#### AWS Configuration
+#### Optional
+- **custom_components**: If preset=custom, specify components (e.g., `vpc,rds,eks,services,secrets,opensearch,monitoring,common`)
 - **region**: AWS region (default: `us-east-1`)
-- **state_bucket**: S3 bucket for Terraform state (optional, auto-generated if empty)
-- **dynamodb_table**: DynamoDB table for state locking (optional, auto-generated if empty)
+- **state_bucket**: S3 bucket for Terraform state (auto-generated if empty)
+- **dynamodb_table**: DynamoDB table for state locking (auto-generated if empty)
 - **use_assume_role**: Enable AWS role assumption (default: true)
+
+### Component Presets
+
+| Preset | Components | Use Case |
+|--------|-----------|----------|
+| **minimal** | vpc | Basic networking setup for testing or manual resource deployment |
+| **standard** | vpc, rds, eks, services | Typical web application with database, Kubernetes, and API services |
+| **full-stack** | vpc, rds, secrets, eks, services, opensearch, monitoring | Complete production infrastructure with all features |
+| **kubernetes** | vpc, eks, monitoring | Kubernetes-focused deployment with monitoring |
+| **custom** | (specify your own) | Maximum flexibility - choose exactly what you need |
 
 ### Workflow Steps
 
 1. **Checkout repository**
 2. **Set up Python** and install dependencies
-3. **Build component list** from selected checkboxes
+3. **Build component list** from selected preset or custom input
 4. **Generate infrastructure** using template generator
 5. **Validate Terraform**:
    - Initialize (without backend)
