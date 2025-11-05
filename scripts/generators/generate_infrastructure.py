@@ -272,12 +272,6 @@ Plan_{{ component }}_{{ env }}:
         - infra/{{ component }}/**/*
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       when: manual
-{% if dependencies.get(component) %}
-  needs:
-{% for dep in dependencies.get(component, []) %}
-    - Apply_{{ dep }}_{{ env }}
-{% endfor %}
-{% endif %}
 
 Apply_{{ component }}_{{ env }}:
   stage: Apply
