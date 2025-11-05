@@ -34,6 +34,11 @@ class InfrastructureGenerator:
         'common': []
     }
 
+    # Files to exclude from generation (client-specific or problematic)
+    EXCLUDE_FILES = {
+        'services': ['sftp.tf', 'zendesk.tf', 'vanta.tf'],  # Client-specific integrations
+    }
+
     def __init__(self, project_name: str, components: List[str],
                  environments: List[str], config: Dict):
         self.project_name = project_name
@@ -113,13 +118,25 @@ class InfrastructureGenerator:
 
         template_component_dir = self.template_dir / component
 
-        if not template_component_dir.exists():
+        # Check if template directory exists and has .j2 files
+        has_templates = (template_component_dir.exists() and
+                        list(template_component_dir.glob('*.j2')))
+
+        if not has_templates:
             print(f"Warning: No template found for {component}, copying from infra/")
             # Copy from existing infra if template doesn't exist
             src_dir = Path('infra') / component
             if src_dir.exists():
+                # Get exclusion list for this component
+                exclude_files = self.EXCLUDE_FILES.get(component, [])
+
                 for file in src_dir.glob('*.tf'):
+                    # Skip excluded files
+                    if file.name in exclude_files:
+                        print(f"  Skipping {file.name} (client-specific)")
+                        continue
                     shutil.copy(file, component_dir)
+                    print(f"  Copied: {file.name}")
             return
 
         # Setup Jinja2 environment
