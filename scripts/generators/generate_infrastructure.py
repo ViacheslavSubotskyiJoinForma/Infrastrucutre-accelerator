@@ -130,6 +130,7 @@ class InfrastructureGenerator:
                 # Get exclusion list for this component
                 exclude_files = self.EXCLUDE_FILES.get(component, [])
 
+                # Copy .tf files
                 for file in src_dir.glob('*.tf'):
                     # Skip excluded files
                     if file.name in exclude_files:
@@ -137,6 +138,15 @@ class InfrastructureGenerator:
                         continue
                     shutil.copy(file, component_dir)
                     print(f"  Copied: {file.name}")
+
+                # Copy additional directories (values, files, templates, code, etc.)
+                for subdir in src_dir.iterdir():
+                    if subdir.is_dir() and not subdir.name.startswith('.'):
+                        dest_subdir = component_dir / subdir.name
+                        if dest_subdir.exists():
+                            shutil.rmtree(dest_subdir)
+                        shutil.copytree(subdir, dest_subdir)
+                        print(f"  Copied directory: {subdir.name}/")
             return
 
         # Setup Jinja2 environment
