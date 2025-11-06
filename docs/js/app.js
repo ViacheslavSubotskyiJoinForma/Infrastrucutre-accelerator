@@ -6,8 +6,49 @@ const WORKFLOW_NAME = 'Generate Infrastructure Template (MVP)';
 let selectedComponents = ['vpc'];
 let selectedEnvironments = ['dev'];
 
+// Theme Management
+const theme = {
+    STORAGE_KEY: 'theme-preference',
+    DARK: 'dark',
+    LIGHT: 'light',
+
+    init() {
+        // Load saved theme or default to light
+        const savedTheme = localStorage.getItem(this.STORAGE_KEY) || this.LIGHT;
+        this.set(savedTheme);
+
+        // Set up toggle button
+        const toggleBtn = document.getElementById('themeToggle');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', () => this.toggle());
+        }
+    },
+
+    set(newTheme) {
+        const root = document.documentElement;
+        const icon = document.getElementById('themeIcon');
+
+        if (newTheme === this.DARK) {
+            root.setAttribute('data-theme', 'dark');
+            if (icon) icon.textContent = '☀️';
+        } else {
+            root.removeAttribute('data-theme');
+            if (icon) icon.textContent = '🌙';
+        }
+
+        localStorage.setItem(this.STORAGE_KEY, newTheme);
+    },
+
+    toggle() {
+        const current = localStorage.getItem(this.STORAGE_KEY) || this.LIGHT;
+        const newTheme = current === this.LIGHT ? this.DARK : this.LIGHT;
+        this.set(newTheme);
+    }
+};
+
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
+    theme.init();
     await auth.init();
     setupEventListeners();
     updateDiagram();
