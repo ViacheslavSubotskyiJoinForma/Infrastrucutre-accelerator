@@ -1,0 +1,52 @@
+grafana:
+  enabled: true
+  rbac:
+    pspEnabled: true
+  env: 
+    GF_SECURITY_DISABLE_INITIAL_ADMIN_CREATION: true
+    GF_AUTH_ANONYMOUS_ENABLED: false
+persistence:
+  enabled: true
+grafana.ini:
+    server:
+      root_url: https://${grafana_url}
+    auth.okta:
+      name: Okta
+      icon: okta
+      enabled: true
+      allow_sign_up: true
+      scopes: openid profile email groups
+      client_id: ${client_id}
+      client_secret: ${client_secret}
+      auth_url: ${okta_url}/oauth2/v1/authorize
+      token_url: ${okta_url}/oauth2/v1/token
+      api_url: ${okta_url}/oauth2/v1/userinfo
+      allowed_groups: ${allowed_groups}
+      role_attribute_strict: true
+      role_attribute_path: contains(groups[*], 'admin-firezone') && 'Admin' || contains(groups[*], 'dev-firezone') && 'Editor' || 'Viewer'
+    auth:
+      disable_login_form: true
+      oauth_auto_login: true
+    auth.basic:
+      enabled: false
+defaultDashboardsTimezone: browser
+ingress:
+  enabled: true
+  hosts:
+    - ${grafana_url}
+  path: /**
+  pathType: ImplementationSpecific
+  annotations:
+    alb.ingress.kubernetes.io/certificate-arn: ${certificate}
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80},{"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/success-codes: '200'
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    alb.ingress.kubernetes.io/load-balancer-attributes: routing.http.drop_invalid_header_fields.enabled=true
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    alb.ingress.kubernetes.io/subnets: ${subnets}
+    alb.ingress.kubernetes.io/security-groups: ${sg}
+    public: "true"

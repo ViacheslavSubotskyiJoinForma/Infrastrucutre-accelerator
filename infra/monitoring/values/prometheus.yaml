@@ -1,0 +1,1821 @@
+---
+alertmanager:
+  enabled: true
+  baseURL: "https://alertmanager.${env}.ClientDomain.com"
+
+  ingress:
+    enabled: true
+    annotations:
+      kubernetes.io/ingress.class: alb
+      alb.ingress.kubernetes.io/group.name: monitoring
+      alb.ingress.kubernetes.io/group.order: "100"
+      alb.ingress.kubernetes.io/certificate-arn: ${certificate}
+      alb.ingress.kubernetes.io/healthcheck-interval-seconds: '15'
+      alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80},{"HTTPS": 443}]'
+      alb.ingress.kubernetes.io/load-balancer-attributes: routing.http.drop_invalid_header_fields.enabled=true
+      alb.ingress.kubernetes.io/scheme: internal
+      alb.ingress.kubernetes.io/subnets: ${subnets}
+      alb.ingress.kubernetes.io/ssl-redirect: '443'
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/unhealthy-threshold-count: '5'
+      alb.ingress.kubernetes.io/security-groups: ${default-sg}
+      public: "true"
+    hosts:
+      - alertmanager.${env}.ClientDomain.com
+    path: /
+    pathType: Prefix
+
+  persistentVolume:
+    enabled: true
+    accessModes:
+      - ReadWriteOnce
+    mountPath: /data
+    size: 2Gi
+
+## Monitors ConfigMap changes and POSTs to a URL
+## Ref: https://github.com/jimmidyson/configmap-reload
+##
+#configmapReload:
+#  prometheus:
+#    enabled: true
+#  alertmanager:
+#    enabled: true
+
+kubeStateMetrics:
+  enabled: true
+
+nodeExporter:
+  enabled: true
+
+server:
+  enabled: true
+  name: server
+  baseURL: "https://prometheus.${env}.ClientDomain.com"
+
+  ingress:
+    enabled: true
+    annotations:
+      kubernetes.io/ingress.class: alb
+      alb.ingress.kubernetes.io/group.name: monitoring
+      alb.ingress.kubernetes.io/group.order: "200"
+      alb.ingress.kubernetes.io/certificate-arn: ${certificate}
+      alb.ingress.kubernetes.io/healthcheck-interval-seconds: '15'
+      alb.ingress.kubernetes.io/healthcheck-path: "/graph"
+      alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80},{"HTTPS": 443}]'
+      alb.ingress.kubernetes.io/load-balancer-attributes: routing.http.drop_invalid_header_fields.enabled=true
+      alb.ingress.kubernetes.io/scheme: internal
+      alb.ingress.kubernetes.io/subnets: ${subnets}
+      alb.ingress.kubernetes.io/ssl-redirect: '443'
+      alb.ingress.kubernetes.io/success-codes: '200'
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/unhealthy-threshold-count: '5'
+      alb.ingress.kubernetes.io/security-groups: ${default-sg}
+      public: "true"
+    hosts:
+      - prometheus.${env}.ClientDomain.com
+    path: /
+    pathType: Prefix
+  strategy:
+    type: Recreate
+  persistentVolume:
+    enabled: true
+    accessModes:
+      - ReadWriteOnce
+    mountPath: /data
+    size: 10Gi
+  
+  nodeSelector: {
+    karpenter.sh/provisioner-name: "spot"
+  }
+
+  statefulSet:
+    enabled: true
+
+
+## alertmanager ConfigMap entries
+##
+alertmanagerFiles:
+  alertmanager.yml:
+    global:
+      resolve_timeout: 1m
+    
+    route:
+      group_wait: 10s
+      group_interval: 30s
+      group_by: [alertname, job]
+      receiver: msteams-fake
+      repeat_interval: 3h
+      routes:
+      - receiver: slack-channel
+        group_wait: 10s
+        matchers:
+          - severity =~ "warning|critical"
+        continue: true
+      - receiver: msteams-receiver
+        group_wait: 10s
+        matchers:
+          - severity =~ "warning|critical"
+        continue: true
+        
+    receivers:
+      - name: msteams-fake
+        webhook_configs:
+        - url: 'http://prometheus-msteams:2000/fake'
+      - name: msteams-receiver
+        webhook_configs:
+        - url: 'http://prometheus-msteams:2000/prom2ms'
+      - name: slack-channel
+        slack_configs:
+        - api_url: "${slack_api_url}"
+          channel: "${slack_chanel}"
+          send_resolved: true
+          username: 'AlertManager ${ENV}'
+          icon_url: https://avatars3.githubusercontent.com/u/3380462
+          title_link: 'https://prometheus.${env}.ClientDomain.com/alerts?search='
+          title: |-
+            [{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .CommonLabels.alertname }} for {{ .CommonLabels.job }}
+            {{- if gt (len .CommonLabels) (len .GroupLabels) -}}
+              {{" "}}(
+              {{- with .CommonLabels.Remove .GroupLabels.Names }}
+                {{- range $index, $label := .SortedPairs -}}
+                  {{ if $index }}, {{ end }}
+                  {{- $label.Name }}="{{ $label.Value -}}"
+                {{- end }}
+              {{- end -}}
+              )
+            {{- end }}
+          text: >-
+            {{ with index .Alerts 0 -}}
+              :chart_with_upwards_trend: *<{{ .GeneratorURL }}|Graph>*
+              {{- if .Annotations.runbook }}   :notebook: *<{{ .Annotations.runbook }}|Runbook>*{{ end }}
+            {{ end }}           
+            
+            *Alert details*:
+            
+            {{ range .Alerts -}}
+            *Alert:* {{ .Annotations.title }}{{ if .Labels.severity }} - `{{ .Labels.severity }}`{{ end }}    
+            *Description:* {{ .Annotations.description }}    
+            *Details:*
+              {{ range .Labels.SortedPairs }} • *{{ .Name }}:* `{{ .Value }}`
+              {{ end }}
+            {{ end }}
+
+
+serverFiles:
+  ## Alerts configuration
+  ## Ref: https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/
+  alerting_rules.yml:
+    groups:
+      - name: Prometheus
+        rules:
+          - alert: PrometheusJobMissing
+            expr: absent(up{job="prometheus"})
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: Prometheus job missing (instance {{ $labels.instance }})
+              description: "A Prometheus job has disappeared\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "A Prometheus job has disappeared\n  VALUE = {{ $value }}"
+
+          - alert: PrometheusTargetMissing
+            expr: up{job!="kubernetes-service-endpoints"} == 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Prometheus target missing (instance {{ $labels.instance }})"
+              description: "A Prometheus target has disappeared. An exporter might be crashed.\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "A Prometheus target has disappeared. An exporter might be crashed.\n  VALUE = {{ $value }}"
+
+          - alert: PrometheusAllTargetsMissing
+            expr: count by (job) (up) == 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Prometheus all targets missing (instance {{ $labels.instance }})"
+              description: "A Prometheus job does not have living target anymore.\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "A Prometheus job does not have living target anymore.\n  VALUE = {{ $value }}"
+
+          - alert: PrometheusConfigurationReloadFailure
+            expr: prometheus_config_last_reload_successful != 1
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Prometheus configuration reload failure (instance {{ $labels.instance }})"
+              description: "Prometheus configuration reload error\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Prometheus configuration reload error\n  VALUE = {{ $value }}"
+
+          - alert: PrometheusTooManyRestarts
+            expr: changes(process_start_time_seconds{job=~"prometheus|pushgateway|alertmanager"}[15m]) > 2
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Prometheus too many restarts (instance {{ $labels.instance }})"
+              description: "Prometheus has restarted more than twice in the last 15 minutes. It might be crashlooping.\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Prometheus has restarted more than twice in the last 15 minutes. It might be crashlooping.\n  VALUE = {{ $value }}"
+
+          - alert: PrometheusAlertmanagerConfigurationReloadFailure
+            expr: alertmanager_config_last_reload_successful != 1
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Prometheus AlertManager configuration reload failure (instance {{ $labels.instance }})"
+              description: "AlertManager configuration reload error\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "AlertManager configuration reload error\n  VALUE = {{ $value }}"
+
+          - alert: PrometheusAlertmanagerConfigNotSynced
+            expr: count(count_values("config_hash", alertmanager_config_hash)) > 1
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Prometheus AlertManager config not synced (instance {{ $labels.instance }})"
+              description: "Configurations of AlertManager cluster instances are out of sync\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Configurations of AlertManager cluster instances are out of sync\n  VALUE = {{ $value }}"
+
+          - alert: PrometheusNotConnectedToAlertmanager
+            expr: prometheus_notifications_alertmanagers_discovered < 1
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Prometheus not connected to alertmanager (instance {{ $labels.instance }})"
+              description: "Prometheus cannot connect the alertmanager\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Prometheus cannot connect the alertmanager\n  VALUE = {{ $value }}"
+
+          - alert: PrometheusRuleEvaluationFailures
+            expr: increase(prometheus_rule_evaluation_failures_total[3m]) > 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Prometheus rule evaluation failures (instance {{ $labels.instance }})"
+              description: "Prometheus encountered {{ $value }} rule evaluation failures, leading to potentially ignored alerts.\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Prometheus encountered {{ $value }} rule evaluation failures, leading to potentially ignored alerts.\n  VALUE = {{ $value }}"
+
+          - alert: PrometheusTemplateTextExpansionFailures
+            expr: increase(prometheus_template_text_expansion_failures_total[3m]) > 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Prometheus template text expansion failures (instance {{ $labels.instance }})"
+              description: "Prometheus encountered {{ $value }} template text expansion failures\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Prometheus encountered {{ $value }} template text expansion failures\n  VALUE = {{ $value }}"
+
+          - alert: PrometheusRuleEvaluationSlow
+            expr: prometheus_rule_group_last_duration_seconds > prometheus_rule_group_interval_seconds
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Prometheus rule evaluation slow (instance {{ $labels.instance }})"
+              description: "Prometheus rule evaluation took more time than the scheduled interval. I indicates a slower storage backend access or too complex query.\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Prometheus rule evaluation took more time than the scheduled interval. I indicates a slower storage backend access or too complex query.\n  VALUE = {{ $value }}"
+
+          - alert: PrometheusNotificationsBacklog
+            expr: min_over_time(prometheus_notifications_queue_length[10m]) > 0
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Prometheus notifications backlog (instance {{ $labels.instance }})"
+              description: "The Prometheus notification queue has not been empty for 10 minutes\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "The Prometheus notification queue has not been empty for 10 minutes\n  VALUE = {{ $value }}"
+
+          - alert: PrometheusAlertmanagerNotificationFailing
+            expr: rate(alertmanager_notifications_failed_total[1m]) > 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Prometheus AlertManager notification failing (instance {{ $labels.instance }})"
+              description: "Alertmanager is failing sending notifications\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Alertmanager is failing sending notifications\n  VALUE = {{ $value }}"
+
+          - alert: PrometheusTargetEmpty
+            expr: prometheus_sd_discovered_targets == 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Prometheus target empty (instance {{ $labels.instance }})"
+              description: "Prometheus has no target in service discovery\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Prometheus has no target in service discovery\n  VALUE = {{ $value }}"
+
+          - alert: PrometheusTargetScrapingSlow
+            expr: prometheus_target_interval_length_seconds{quantile="0.9"} > 90
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Prometheus target scraping slow (instance {{ $labels.instance }})"
+              description: "Prometheus is scraping exporters slowly\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Prometheus is scraping exporters slowly\n  VALUE = {{ $value }}"
+
+          - alert: PrometheusLargeScrape
+            expr: increase(prometheus_target_scrapes_exceeded_sample_limit_total[10m]) > 10
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Prometheus large scrape (instance {{ $labels.instance }})"
+              description: "Prometheus has many scrapes that exceed the sample limit\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Prometheus has many scrapes that exceed the sample limit\n  VALUE = {{ $value }}"
+
+          - alert: PrometheusTargetScrapeDuplicate
+            expr: increase(prometheus_target_scrapes_sample_duplicate_timestamp_total[5m]) > 0
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Prometheus target scrape duplicate (instance {{ $labels.instance }})"
+              description: "Prometheus has many samples rejected due to duplicate timestamps but different values\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Prometheus has many samples rejected due to duplicate timestamps but different values\n  VALUE = {{ $value }}"
+
+          - alert: PrometheusTsdbCheckpointCreationFailures
+            expr: increase(prometheus_tsdb_checkpoint_creations_failed_total[3m]) > 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Prometheus TSDB checkpoint creation failures (instance {{ $labels.instance }})"
+              description: "Prometheus encountered {{ $value }} checkpoint creation failures\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Prometheus encountered {{ $value }} checkpoint creation failures\n  VALUE = {{ $value }}"
+
+          - alert: PrometheusTsdbCheckpointDeletionFailures
+            expr: increase(prometheus_tsdb_checkpoint_deletions_failed_total[3m]) > 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Prometheus TSDB checkpoint deletion failures (instance {{ $labels.instance }})"
+              description: "Prometheus encountered {{ $value }} checkpoint deletion failures\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Prometheus encountered {{ $value }} checkpoint deletion failures\n  VALUE = {{ $value }}"
+
+          - alert: PrometheusTsdbCompactionsFailed
+            expr: increase(prometheus_tsdb_compactions_failed_total[3m]) > 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Prometheus TSDB compactions failed (instance {{ $labels.instance }})"
+              description: "Prometheus encountered {{ $value }} TSDB compactions failures\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Prometheus encountered {{ $value }} TSDB compactions failures\n  VALUE = {{ $value }}"
+
+          - alert: PrometheusTsdbHeadTruncationsFailed
+            expr: increase(prometheus_tsdb_head_truncations_failed_total[3m]) > 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Prometheus TSDB head truncations failed (instance {{ $labels.instance }})"
+              description: "Prometheus encountered {{ $value }} TSDB head truncation failures\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Prometheus encountered {{ $value }} TSDB head truncation failures\n  VALUE = {{ $value }}"
+
+          - alert: PrometheusTsdbReloadFailures
+            expr: increase(prometheus_tsdb_reloads_failures_total[3m]) > 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Prometheus TSDB reload failures (instance {{ $labels.instance }})"
+              description: "Prometheus encountered {{ $value }} TSDB reload failures\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Prometheus encountered {{ $value }} TSDB reload failures\n  VALUE = {{ $value }}"
+
+          - alert: PrometheusTsdbWalCorruptions
+            expr: increase(prometheus_tsdb_wal_corruptions_total[3m]) > 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Prometheus TSDB WAL corruptions (instance {{ $labels.instance }})"
+              description: "Prometheus encountered {{ $value }} TSDB WAL corruptions\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Prometheus encountered {{ $value }} TSDB WAL corruptions\n  VALUE = {{ $value }}"
+
+          - alert: PrometheusTsdbWalTruncationsFailed
+            expr: increase(prometheus_tsdb_wal_truncations_failed_total[3m]) > 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Prometheus TSDB WAL truncations failed (instance {{ $labels.instance }})"
+              description: "Prometheus encountered {{ $value }} TSDB WAL truncation failures\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"        
+              description_ms: "Prometheus encountered {{ $value }} TSDB WAL truncation failures\n  VALUE = {{ $value }}"        
+
+      - name: Node
+        rules:
+          - alert: NodeCount
+            expr: count(kube_node_info) > 3
+            for: 30m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Node count more 3"
+              description: "Node count more 3\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Node count more 3\n  VALUE = {{ $value }}"
+
+          - alert: HostOutOfMemory
+            expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes * 100 < 10
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Host out of memory (instance {{ $labels.instance }})"
+              description: "Node memory is filling up (< 10% left)\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Node memory is filling up (< 10% left)\n  VALUE = {{ $value }}"
+
+          - alert: HostMemoryUnderMemoryPressure
+            expr: rate(node_vmstat_pgmajfault[1m]) > 1000
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Host memory under memory pressure (instance {{ $labels.instance }})"
+              description: "The node is under heavy memory pressure. High rate of major page faults\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "The node is under heavy memory pressure. High rate of major page faults\n  VALUE = {{ $value }}"
+
+          - alert: HostUnusualNetworkThroughputIn
+            expr: sum by (instance) (rate(node_network_receive_bytes_total[2m])) / 1024 / 1024 > 100
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Host unusual network throughput in (instance {{ $labels.instance }})"
+              description: "Host network interfaces are probably receiving too much data (> 100 MB/s)\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Host network interfaces are probably receiving too much data (> 100 MB/s)\n  VALUE = {{ $value }}"
+
+          - alert: HostUnusualNetworkThroughputOut
+            expr: sum by (instance) (rate(node_network_transmit_bytes_total[2m])) / 1024 / 1024 > 100
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Host unusual network throughput out (instance {{ $labels.instance }})"
+              description: "Host network interfaces are probably sending too much data (> 100 MB/s)\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Host network interfaces are probably sending too much data (> 100 MB/s)\n  VALUE = {{ $value }}"
+
+          - alert: HostUnusualDiskReadRate
+            expr: sum by (instance) (rate(node_disk_read_bytes_total[2m])) / 1024 / 1024 > 50
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Host unusual disk read rate (instance {{ $labels.instance }})"
+              description: "Disk is probably reading too much data (> 50 MB/s)\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Disk is probably reading too much data (> 50 MB/s)\n  VALUE = {{ $value }}"
+
+          - alert: HostUnusualDiskWriteRate
+            expr: sum by (instance) (rate(node_disk_written_bytes_total[2m])) / 1024 / 1024 > 50
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Host unusual disk write rate (instance {{ $labels.instance }})"
+              description: "Disk is probably writing too much data (> 50 MB/s)\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Disk is probably writing too much data (> 50 MB/s)\n  VALUE = {{ $value }}"
+
+          # please add ignored mountpoints in node_exporter parameters like
+          # "--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|run)($|/)"
+          - alert: HostOutOfDiskSpace
+            expr: (node_filesystem_avail_bytes * 100) / node_filesystem_size_bytes < 10
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Host out of disk space (instance {{ $labels.instance }})"
+              description: "Disk is almost full (< 10% left)\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Disk is almost full (< 10% left)\n  VALUE = {{ $value }}"
+
+          - alert: HostDiskWillFillIn4Hours
+            expr: predict_linear(node_filesystem_free_bytes{fstype!~"tmpfs"}[1h], 4 * 3600) < 0
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Host disk will fill in 4 hours (instance {{ $labels.instance }})"
+              description: "Disk will fill in 4 hours at current write rate\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Disk will fill in 4 hours at current write rate\n  VALUE = {{ $value }}"
+
+          - alert: HostOutOfInodes
+            expr: node_filesystem_files_free{mountpoint ="/rootfs"} / node_filesystem_files{mountpoint ="/rootfs"} * 100 < 10
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Host out of inodes (instance {{ $labels.instance }})"
+              description: "Disk is almost running out of available inodes (< 10% left)\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Disk is almost running out of available inodes (< 10% left)\n  VALUE = {{ $value }}"
+
+          - alert: HostUnusualDiskReadLatency
+            expr: "rate(node_disk_read_time_seconds_total[1m]) / rate(node_disk_reads_completed_total[1m]) > 0.1 and rate(node_disk_reads_completed_total[1m]) > 0"
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Host unusual disk read latency (instance {{ $labels.instance }})"
+              description: "Disk latency is growing (read operations > 100ms)\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Disk latency is growing (read operations > 100ms)\n  VALUE = {{ $value }}"
+
+          - alert: HostUnusualDiskWriteLatency
+            expr: "rate(node_disk_write_time_seconds_total[1m]) / rate(node_disk_writes_completed_total[1m]) > 0.1 and rate(node_disk_writes_completed_total[1m]) > 0"
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Host unusual disk write latency (instance {{ $labels.instance }})"
+              description: "Disk latency is growing (write operations > 100ms)\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Disk latency is growing (write operations > 100ms)\n  VALUE = {{ $value }}"
+
+          - alert: HostHighCpuLoad
+            expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Host high CPU load (instance {{ $labels.instance }})"
+              description: "CPU load is > 80%\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "CPU load is > 80%\n  VALUE = {{ $value }}"
+
+          # 1000 context switches is an arbitrary number.
+          # Alert threshold depends on nature of application.
+          # Please read: https://github.com/samber/awesome-prometheus-alerts/issues/58
+          - alert: HostContextSwitching
+            expr: (rate(node_context_switches_total[5m])) / (count without(cpu, mode) (node_cpu_seconds_total{mode="idle"})) > 15000
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Host context switching (instance {{ $labels.instance }})"
+              description: "Context switching is growing on node (> 15000 / s)\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Context switching is growing on node (> 15000 / s)\n  VALUE = {{ $value }}"
+
+          - alert: HostSwapIsFillingUp
+            expr: (1 - (node_memory_SwapFree_bytes / node_memory_SwapTotal_bytes)) * 100 > 80
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Host swap is filling up (instance {{ $labels.instance }})"
+              description: "Swap is filling up (>80%)\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Swap is filling up (>80%)\n  VALUE = {{ $value }}"
+
+          - alert: HostSystemdServiceCrashed
+            expr: node_systemd_unit_state{state="failed"} == 1
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Host SystemD service crashed (instance {{ $labels.instance }})"
+              description: "SystemD service crashed\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "SystemD service crashed\n  VALUE = {{ $value }}"
+
+          - alert: HostPhysicalComponentTooHot
+            expr: node_hwmon_temp_celsius > 75
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Host physical component too hot (instance {{ $labels.instance }})"
+              description: "Physical hardware component too hot\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Physical hardware component too hot\n  VALUE = {{ $value }}"
+
+          - alert: HostNodeOvertemperatureAlarm
+            expr: node_hwmon_temp_alarm == 1
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Host node overtemperature alarm (instance {{ $labels.instance }})"
+              description: "Physical node temperature alarm triggered\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Physical node temperature alarm triggered\n  VALUE = {{ $value }}"
+
+          - alert: HostRaidArrayGotInactive
+            expr: node_md_state{state="inactive"} > 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Host RAID array got inactive (instance {{ $labels.instance }})"
+              description: "RAID array {{ $labels.device }} is in degraded state due to one or more disks failures. Number of spare drives is insufficient to fix issue automatically.\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "RAID array {{ $labels.device }} is in degraded state due to one or more disks failures. Number of spare drives is insufficient to fix issue automatically.\n  VALUE = {{ $value }}"
+
+          - alert: HostRaidDiskFailure
+            expr: node_md_disks{state="failed"} > 0
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Host RAID disk failure (instance {{ $labels.instance }})"
+              description: "At least one device in RAID array on {{ $labels.instance }} failed. Array {{ $labels.md_device }} needs attention and possibly a disk swap\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "At least one device in RAID array on {{ $labels.instance }} failed. Array {{ $labels.md_device }} needs attention and possibly a disk swap\n  VALUE = {{ $value }}"
+
+          - alert: HostOomKillDetected
+            expr: increase(node_vmstat_oom_kill[5m]) > 0
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Host OOM kill detected (instance {{ $labels.instance }})"
+              description: "OOM kill detected\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "OOM kill detected\n  VALUE = {{ $value }}"
+
+          - alert: HostEdacCorrectableErrorsDetected
+            expr: increase(node_edac_correctable_errors_total[5m]) > 0
+            for: 5m
+            labels:
+              severity: info
+            annotations:
+              summary: "Host EDAC Correctable Errors detected (instance {{ $labels.instance }})"
+              description: "{{ $labels.instance }} has had {{ printf \"%.0f\" $value }} correctable memory errors reported by EDAC in the last 5 minutes.\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "{{ $labels.instance }} has had {{ printf \"%.0f\" $value }} correctable memory errors reported by EDAC in the last 5 minutes.\n  VALUE = {{ $value }}"
+
+          - alert: HostEdacUncorrectableErrorsDetected
+            expr: node_edac_uncorrectable_errors_total > 0
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Host EDAC Uncorrectable Errors detected (instance {{ $labels.instance }})"
+              description: "{{ $labels.instance }} has had {{ printf \"%.0f\" $value }} uncorrectable memory errors reported by EDAC in the last 5 minutes.\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "{{ $labels.instance }} has had {{ printf \"%.0f\" $value }} uncorrectable memory errors reported by EDAC in the last 5 minutes.\n  VALUE = {{ $value }}"
+
+          - alert: HostNetworkReceiveErrors
+            expr: increase(node_network_receive_errs_total[5m]) > 0
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Host Network Receive Errors (instance {{ $labels.instance }})"
+              description: "{{ $labels.instance }} interface {{ $labels.device }} has encountered {{ printf \"%.0f\" $value }} receive errors in the last five minutes.\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "{{ $labels.instance }} interface {{ $labels.device }} has encountered {{ printf \"%.0f\" $value }} receive errors in the last five minutes.\n  VALUE = {{ $value }}"
+
+          - alert: HostNetworkTransmitErrors
+            expr: increase(node_network_transmit_errs_total[5m]) > 0
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Host Network Transmit Errors (instance {{ $labels.instance }})"
+              description: "{{ $labels.instance }} interface {{ $labels.device }} has encountered {{ printf \"%.0f\" $value }} transmit errors in the last five minutes.\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"          
+              description_ms: "{{ $labels.instance }} interface {{ $labels.device }} has encountered {{ printf \"%.0f\" $value }} transmit errors in the last five minutes.\n  VALUE = {{ $value }}"          
+
+          - alert: HostNetworkInterfaceSaturated
+            expr: (rate(node_network_receive_bytes_total{device!~"^tap.*"}[1m]) + rate(node_network_transmit_bytes_total{device!~"^tap.*"}[1m])) / node_network_speed_bytes{device!~"^tap.*"} > 0.8
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: Host Network Interface Saturated (instance {{ $labels.instance }})
+              description: "The network interface \"{{ $labels.interface }}\" on \"{{ $labels.instance }}\" is getting overloaded.\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "The network interface \"{{ $labels.interface }}\" on \"{{ $labels.instance }}\" is getting overloaded.\n  VALUE = {{ $value }}"
+
+      - name: Container
+        rules:
+          # cAdvisor can sometimes consume a lot of CPU, so this alert will fire constantly.
+          # If you want to exclude it from this alert, just use: container_cpu_usage_seconds_total{name!=""}
+          - alert: ContainerCpuUsage
+            expr: (sum(rate(container_cpu_usage_seconds_total{name!=""}[3m])) BY (instance, name) * 100) > 90
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Container CPU usage (instance {{ $labels.instance }})"
+              description: "Container CPU usage is above 90%\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Container CPU usage is above 90%\n  VALUE = {{ $value }}"
+
+          # See https://medium.com/faun/how-much-is-too-much-the-linux-oomkiller-and-used-memory-d32186f29c9d
+          - alert: ContainerMemoryUsage
+            expr: (sum(container_memory_working_set_bytes{name!=""}) BY (instance, name) / sum(container_spec_memory_limit_bytes{name!=""} > 0) BY (instance, name) * 100) > 90
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Container Memory usage (instance {{ $labels.instance }})"
+              description: "Container Memory usage is above 90%\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Container Memory usage is above 90%\n  VALUE = {{ $value }}"
+
+          - alert: ContainerVolumeUsage
+            expr: (1 - (sum(container_fs_inodes_free) BY (instance) / sum(container_fs_inodes_total) BY (instance)) * 100) > 90
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Container Volume usage (instance {{ $labels.instance }})"
+              description: "Container Volume usage is above 90%\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Container Volume usage is above 90%\n  VALUE = {{ $value }}"
+
+          - alert: ContainerVolumeIoUsage
+            expr: (sum(container_fs_io_current) BY (instance, name) * 100) > 90
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Container Volume IO usage (instance {{ $labels.instance }})"
+              description: "Container Volume IO usage is above 90%\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Container Volume IO usage is above 90%\n  VALUE = {{ $value }}"
+
+          - alert: ContainerHighThrottleRate
+            expr: rate(container_cpu_cfs_throttled_seconds_total[3m]) > 1
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Container high throttle rate (instance {{ $labels.instance }})"
+              description: "Container is being throttled\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"          
+              description_ms: "Container is being throttled\n  VALUE = {{ $value }}"          
+
+      - name: PostgreSQL
+        rules:
+   
+          - alert: PostgresqlDown
+            expr: 'pg_up == 0'
+            for: 0m
+            labels:
+              severity: critical
+            annotations:
+              summary: Postgresql down (instance {{ $labels.instance }})
+              description: "Postgresql instance is down\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+              description_ms: "Postgresql instance is down\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+      
+          - alert: PostgresqlRestarted
+            expr: 'time() - pg_postmaster_start_time_seconds < 60'
+            for: 0m
+            labels:
+              severity: critical
+            annotations:
+              summary: Postgresql restarted (instance {{ $labels.instance }})
+              description: "Postgresql restarted\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+              description_ms: "Postgresql restarted\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+      
+          - alert: PostgresqlExporterError
+            expr: 'pg_exporter_last_scrape_error > 0'
+            for: 0m
+            labels:
+              severity: critical
+            annotations:
+              summary: Postgresql exporter error (instance {{ $labels.instance }})
+              description: "Postgresql exporter is showing errors. A query may be buggy in query.yaml\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+              description_ms: "Postgresql exporter is showing errors. A query may be buggy in query.yaml\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+      
+          #- alert: PostgresqlTableNotAutoVacuumed
+          #  expr: '(pg_stat_user_tables_last_autovacuum > 0) and (time() - pg_stat_user_tables_last_autovacuum) > 60 * 60 * 24 * 1000'
+          #  for: 0m
+          #  labels:
+          #    severity: warning
+          #  annotations:
+          #    summary: Postgresql table not auto vacuumed (instance {{ $labels.instance }})
+          #    description: "Table {{ $labels.relname }} has not been auto vacuumed for 10 days\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+          #    description_ms: "Table {{ $labels.relname }} has not been auto vacuumed for 10 days\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+      #
+          #- alert: PostgresqlTableNotAutoAnalyzed
+          #  expr: '(pg_stat_user_tables_last_autoanalyze > 0) and (time() - pg_stat_user_tables_last_autoanalyze) > 24 * 60 * 60 * 100'
+          #  for: 0m
+          #  labels:
+          #    severity: warning
+          #  annotations:
+          #    summary: Postgresql table not auto analyzed (instance {{ $labels.instance }})
+          #    description: "Table {{ $labels.relname }} has not been auto analyzed for 10 days\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+          #    description_ms: "Table {{ $labels.relname }} has not been auto analyzed for 10 days\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+      
+          - alert: PostgresqlTooManyConnections
+            expr: 'sum by (datname) (pg_stat_activity_count{datname!~"template.*|postgres"}) > pg_settings_max_connections * 0.8'
+            for: 2m
+            labels:
+              severity: warning
+            annotations:
+              summary: Postgresql too many connections (instance {{ $labels.instance }})
+              description: "PostgreSQL instance has too many connections (> 80%).\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+              description_ms: "PostgreSQL instance has too many connections (> 80%).\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+      
+          - alert: PostgresqlNotEnoughConnections
+            expr: 'sum by (datname) (pg_stat_activity_count{datname!~"template.*|postgres|rdsadmin"}) < 5'
+            for: 2m
+            labels:
+              severity: warning
+            annotations:
+              summary: Postgresql not enough connections (instance {{ $labels.instance }})
+              description: "PostgreSQL instance should have more connections (> 5)\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+              description_ms: "PostgreSQL instance should have more connections (> 5)\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+      
+          - alert: PostgresqlDeadLocks
+            expr: 'increase(pg_stat_database_deadlocks{datname!~"template.*|postgres"}[1m]) > 5'
+            for: 0m
+            labels:
+              severity: warning
+            annotations:
+              summary: Postgresql dead locks (instance {{ $labels.instance }})
+              description: "PostgreSQL has dead-locks\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+              description_ms: "PostgreSQL has dead-locks\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+      
+          - alert: PostgresqlHighRollbackRate
+            expr: 'sum by (namespace,datname) ((rate(pg_stat_database_xact_rollback{datname!~"template.*|postgres",datid!="0"}[3m])) / ((rate(pg_stat_database_xact_rollback{datname!~"template.*|postgres",datid!="0"}[3m])) + (rate(pg_stat_database_xact_commit{datname!~"template.*|postgres",datid!="0"}[3m])))) > 0.02'
+            for: 2m
+            labels:
+              severity: warning
+            annotations:
+              summary: Postgresql high rollback rate (instance {{ $labels.instance }})
+              description: "Ratio of transactions being aborted compared to committed is > 2 %\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+              description_ms: "Ratio of transactions being aborted compared to committed is > 2 %\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+      
+          - alert: PostgresqlCommitRateLow
+            expr: 'rate(pg_stat_database_xact_commit[1m]) < 10'
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: Postgresql commit rate low (instance {{ $labels.instance }})
+              description: "Postgresql seems to be processing very few transactions\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+              description_ms: "Postgresql seems to be processing very few transactions\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+      
+          - alert: PostgresqlLowXidConsumption
+            expr: 'rate(pg_txid_current[1m]) < 5'
+            for: 2m
+            labels:
+              severity: warning
+            annotations:
+              summary: Postgresql low XID consumption (instance {{ $labels.instance }})
+              description: "Postgresql seems to be consuming transaction IDs very slowly\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+              description_ms: "Postgresql seems to be consuming transaction IDs very slowly\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+      
+          - alert: PostgresqlHighRateStatementTimeout
+            expr: 'rate(postgresql_errors_total{type="statement_timeout"}[1m]) > 3'
+            for: 0m
+            labels:
+              severity: critical
+            annotations:
+              summary: Postgresql high rate statement timeout (instance {{ $labels.instance }})
+              description: "Postgres transactions showing high rate of statement timeouts\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+              description_ms: "Postgres transactions showing high rate of statement timeouts\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+      
+          - alert: PostgresqlHighRateDeadlock
+            expr: 'increase(postgresql_errors_total{type="deadlock_detected"}[1m]) > 1'
+            for: 0m
+            labels:
+              severity: critical
+            annotations:
+              summary: Postgresql high rate deadlock (instance {{ $labels.instance }})
+              description: "Postgres detected deadlocks\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+              description_ms: "Postgres detected deadlocks\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+      
+          - alert: PostgresqlUnusedReplicationSlot
+            expr: 'pg_replication_slots_active == 0'
+            for: 1m
+            labels:
+              severity: warning
+            annotations:
+              summary: Postgresql unused replication slot (instance {{ $labels.instance }})
+              description: "Unused Replication Slots\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+              description_ms: "Unused Replication Slots\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+      
+          - alert: PostgresqlTooManyDeadTuples
+            expr: '((pg_stat_user_tables_n_dead_tup > 10000) / (pg_stat_user_tables_n_live_tup + pg_stat_user_tables_n_dead_tup)) >= 0.1'
+            for: 2m
+            labels:
+              severity: warning
+            annotations:
+              summary: Postgresql too many dead tuples (instance {{ $labels.instance }})
+              description: "PostgreSQL dead tuples is too large\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+              description_ms: "PostgreSQL dead tuples is too large\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+      
+          - alert: PostgresqlConfigurationChanged
+            expr: '{__name__=~"pg_settings_.*"} != ON(__name__) {__name__=~"pg_settings_([^t]|t[^r]|tr[^a]|tra[^n]|tran[^s]|trans[^a]|transa[^c]|transac[^t]|transact[^i]|transacti[^o]|transactio[^n]|transaction[^_]|transaction_[^r]|transaction_r[^e]|transaction_re[^a]|transaction_rea[^d]|transaction_read[^_]|transaction_read_[^o]|transaction_read_o[^n]|transaction_read_on[^l]|transaction_read_onl[^y]).*"} OFFSET 5m'
+            for: 0m
+            labels:
+              severity: info
+            annotations:
+              summary: Postgresql configuration changed (instance {{ $labels.instance }})
+              description: "Postgres Database configuration change has occurred\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+              description_ms: "Postgres Database configuration change has occurred\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+      
+          - alert: PostgresqlSslCompressionActive
+            expr: 'sum(pg_stat_ssl_compression) > 0'
+            for: 0m
+            labels:
+              severity: critical
+            annotations:
+              summary: Postgresql SSL compression active (instance {{ $labels.instance }})
+              description: "Database connections with SSL compression enabled. This may add significant jitter in replication delay. Replicas should turn off SSL compression via `sslcompression=0` in `recovery.conf`.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+              description_ms: "Database connections with SSL compression enabled. This may add significant jitter in replication delay. Replicas should turn off SSL compression via `sslcompression=0` in `recovery.conf`.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+      
+          - alert: PostgresqlTooManyLocksAcquired
+            expr: '((sum (pg_locks_count)) / (pg_settings_max_locks_per_transaction * pg_settings_max_connections)) > 0.20'
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: Postgresql too many locks acquired (instance {{ $labels.instance }})
+              description: "Too many locks acquired on the database. If this alert happens frequently, we may need to increase the postgres setting max_locks_per_transaction.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+              description_ms: "Too many locks acquired on the database. If this alert happens frequently, we may need to increase the postgres setting max_locks_per_transaction.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+      
+          - alert: PostgresqlBloatIndexHigh(>80%)
+            expr: 'pg_bloat_btree_bloat_pct > 80 and on (idxname) (pg_bloat_btree_real_size > 100000000)'
+            for: 1h
+            labels:
+              severity: warning
+            annotations:
+              summary: Postgresql bloat index high (> 80%) (instance {{ $labels.instance }})
+              description: "The index {{ $labels.idxname }} is bloated. You should execute `REINDEX INDEX CONCURRENTLY {{ $labels.idxname }};`\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+              description_ms: "The index {{ $labels.idxname }} is bloated. You should execute `REINDEX INDEX CONCURRENTLY {{ $labels.idxname }};`\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+      
+          - alert: PostgresqlBloatTableHigh(>80%)
+            expr: 'pg_bloat_table_bloat_pct > 80 and on (relname) (pg_bloat_table_real_size > 200000000)'
+            for: 1h
+            labels:
+              severity: warning
+            annotations:
+              summary: Postgresql bloat table high (> 80%) (instance {{ $labels.instance }})
+              description: "The table {{ $labels.relname }} is bloated. You should execute `VACUUM {{ $labels.relname }};`\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+              description_ms: "The table {{ $labels.relname }} is bloated. You should execute `VACUUM {{ $labels.relname }};`\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+      
+
+      - name: Kubernetes
+        rules:
+          - alert: KubernetesNodeReady
+            expr: kube_node_status_condition{condition="Ready",status="true"} == 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: Kubernetes Node ready (instance {{ $labels.instance }})
+              description: "Node {{ $labels.node }} has been unready for a long time\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Node {{ $labels.node }} has been unready for a long time\n  VALUE = {{ $value }}"
+
+          - alert: KubernetesMemoryPressure
+            expr: kube_node_status_condition{condition="MemoryPressure",status="true"} == 1
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: Kubernetes memory pressure (instance {{ $labels.instance }})
+              description: "{{ $labels.node }} has MemoryPressure condition\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "{{ $labels.node }} has MemoryPressure condition\n  VALUE = {{ $value }}"
+
+          - alert: KubernetesDiskPressure
+            expr: kube_node_status_condition{condition="DiskPressure",status="true"} == 1
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: Kubernetes disk pressure (instance {{ $labels.instance }})
+              description: "{{ $labels.node }} has DiskPressure condition\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "{{ $labels.node }} has DiskPressure condition\n  VALUE = {{ $value }}"
+
+          - alert: KubernetesOutOfDisk
+            expr: kube_node_status_condition{condition="OutOfDisk",status="true"} == 1
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: Kubernetes out of disk (instance {{ $labels.instance }})
+              description: "{{ $labels.node }} has OutOfDisk condition\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "{{ $labels.node }} has OutOfDisk condition\n  VALUE = {{ $value }}"
+
+          - alert: KubernetesOutOfCapacity
+            expr: sum(kube_pod_info) by (node) / sum(kube_node_status_allocatable_pods) by (node) * 100 > 90
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: Kubernetes out of capacity (instance {{ $labels.instance }})
+              description: "{{ $labels.node }} is out of capacity\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "{{ $labels.node }} is out of capacity\n  VALUE = {{ $value }}"
+
+          - alert: KubernetesJobFailed
+            expr: kube_job_status_failed > 0
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: Kubernetes Job failed (instance {{ $labels.instance }})
+              description: "Job {{$labels.namespace}}/{{$labels.exported_job}} failed to complete\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Job {{$labels.namespace}}/{{$labels.exported_job}} failed to complete\n  VALUE = {{ $value }}"
+
+          - alert: KubernetesCronjobSuspended
+            expr: kube_cronjob_spec_suspend != 0
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: Kubernetes CronJob suspended (instance {{ $labels.instance }})
+              description: "CronJob {{ $labels.namespace }}/{{ $labels.cronjob }} is suspended\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "CronJob {{ $labels.namespace }}/{{ $labels.cronjob }} is suspended\n  VALUE = {{ $value }}"
+
+          - alert: KubernetesPersistentvolumeclaimPending
+            expr: kube_persistentvolumeclaim_status_phase{phase="Pending"} == 1
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: Kubernetes PersistentVolumeClaim pending (instance {{ $labels.instance }})
+              description: "PersistentVolumeClaim {{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }} is pending\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "PersistentVolumeClaim {{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }} is pending\n  VALUE = {{ $value }}"
+
+          - alert: KubernetesVolumeOutOfDiskSpace
+            expr: kubelet_volume_stats_available_bytes / kubelet_volume_stats_capacity_bytes * 100 < 10
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: Kubernetes Volume out of disk space (instance {{ $labels.instance }})
+              description: "Volume is almost full (< 10% left)\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Volume is almost full (< 10% left)\n  VALUE = {{ $value }}"
+
+          - alert: KubernetesVolumeFullInFourDays
+            expr: predict_linear(kubelet_volume_stats_available_bytes[6h], 4 * 24 * 3600) < 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: Kubernetes Volume full in four days (instance {{ $labels.instance }})
+              description: "{{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }} is expected to fill up within four days. Currently {{ $value | humanize }}% is available.\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "{{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }} is expected to fill up within four days. Currently {{ $value | humanize }}% is available.\n  VALUE = {{ $value }}"
+
+          - alert: KubernetesPersistentvolumeError
+            expr: kube_persistentvolume_status_phase{phase=~"Failed|Pending",job="kube-state-metrics"} > 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: Kubernetes PersistentVolume error (instance {{ $labels.instance }})
+              description: "Persistent volume is in bad state\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Persistent volume is in bad state\n  VALUE = {{ $value }}"
+
+          - alert: KubernetesStatefulsetDown
+            expr: (kube_statefulset_status_replicas_ready / kube_statefulset_status_replicas_current) != 1
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: Kubernetes StatefulSet down (instance {{ $labels.instance }})
+              description: "A StatefulSet went down\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "A StatefulSet went down\n  VALUE = {{ $value }}"
+
+          - alert: KubernetesHpaScalingAbility
+            expr: kube_hpa_status_condition{status="false", condition ="AbleToScale"} == 1
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: Kubernetes HPA scaling ability (instance {{ $labels.instance }})
+              description: "Pod is unable to scale\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Pod is unable to scale\n  VALUE = {{ $value }}"
+
+          - alert: KubernetesHpaMetricAvailability
+            expr: kube_hpa_status_condition{status="false", condition="ScalingActive"} == 1
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: Kubernetes HPA metric availability (instance {{ $labels.instance }})
+              description: "HPA is not able to collect metrics\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "HPA is not able to collect metrics\n  VALUE = {{ $value }}"
+
+          - alert: KubernetesHpaScaleCapability
+            expr: kube_hpa_status_desired_replicas >= kube_hpa_spec_max_replicas
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: Kubernetes HPA scale capability (instance {{ $labels.instance }})
+              description: "The maximum number of desired Pods has been hit\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "The maximum number of desired Pods has been hit\n  VALUE = {{ $value }}"
+
+          - alert: KubernetesPodNotHealthy
+            expr: sum by (namespace, pod) (kube_pod_status_phase{phase=~"Pending|Unknown|Failed"}) > 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: Kubernetes Pod not healthy (instance {{ $labels.instance }})
+              description: "Pod has been in a non-ready state for longer than an hour.\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Pod has been in a non-ready state for longer than an hour.\n  VALUE = {{ $value }}"
+
+          - alert: KubernetesPodCrashLooping
+            expr: rate(kube_pod_container_status_restarts_total[15m]) * 60 * 5 > 5
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: Kubernetes pod crash looping (instance {{ $labels.instance }})
+              description: "Pod {{ $labels.pod }} is crash looping\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Pod {{ $labels.pod }} is crash looping\n  VALUE = {{ $value }}"
+
+          - alert: KubernetesReplicassetMismatch
+            expr: kube_replicaset_spec_replicas != kube_replicaset_status_ready_replicas
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: Kubernetes ReplicasSet mismatch (instance {{ $labels.instance }})
+              description: "Deployment Replicas mismatch\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Deployment Replicas mismatch\n  VALUE = {{ $value }}"
+
+          - alert: KubernetesDeploymentReplicasMismatch
+            expr: kube_deployment_spec_replicas != kube_deployment_status_replicas_available
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: Kubernetes Deployment replicas mismatch (instance {{ $labels.instance }})
+              description: "Deployment Replicas mismatch\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Deployment Replicas mismatch\n  VALUE = {{ $value }}"
+
+          - alert: KubernetesStatefulsetReplicasMismatch
+            expr: kube_statefulset_status_replicas_ready != kube_statefulset_status_replicas
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: Kubernetes StatefulSet replicas mismatch (instance {{ $labels.instance }})
+              description: "A StatefulSet has not matched the expected number of replicas for longer than 15 minutes.\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "A StatefulSet has not matched the expected number of replicas for longer than 15 minutes.\n  VALUE = {{ $value }}"
+          
+          - alert: KubernetesDeploymentGenerationMismatch
+            expr: kube_deployment_status_observed_generation != kube_deployment_metadata_generation
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: Kubernetes Deployment generation mismatch (instance {{ $labels.instance }})
+              description: "A Deployment has failed but has not been rolled back.\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "A Deployment has failed but has not been rolled back.\n  VALUE = {{ $value }}"
+
+          - alert: KubernetesStatefulsetGenerationMismatch
+            expr: kube_statefulset_status_observed_generation != kube_statefulset_metadata_generation
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: Kubernetes StatefulSet generation mismatch (instance {{ $labels.instance }})
+              description: "A StatefulSet has failed but has not been rolled back.\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "A StatefulSet has failed but has not been rolled back.\n  VALUE = {{ $value }}"
+
+          - alert: KubernetesStatefulsetUpdateNotRolledOut
+            expr: max without (revision) (kube_statefulset_status_current_revision unless kube_statefulset_status_update_revision) * (kube_statefulset_replicas != kube_statefulset_status_replicas_updated)
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: Kubernetes StatefulSet update not rolled out (instance {{ $labels.instance }})
+              description: "StatefulSet update has not been rolled out.\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "StatefulSet update has not been rolled out.\n  VALUE = {{ $value }}"
+
+          - alert: KubernetesDaemonsetRolloutStuck
+            expr: kube_daemonset_status_number_ready / kube_daemonset_status_desired_number_scheduled * 100 < 100 or kube_daemonset_status_desired_number_scheduled - kube_daemonset_status_current_number_scheduled > 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: Kubernetes DaemonSet rollout stuck (instance {{ $labels.instance }})
+              description: "Some Pods of DaemonSet are not scheduled or not ready\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Some Pods of DaemonSet are not scheduled or not ready\n  VALUE = {{ $value }}"
+
+          - alert: KubernetesDaemonsetMisscheduled
+            expr: kube_daemonset_status_number_misscheduled > 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: Kubernetes DaemonSet misscheduled (instance {{ $labels.instance }})
+              description: "Some DaemonSet Pods are running where they are not supposed to run\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Some DaemonSet Pods are running where they are not supposed to run\n  VALUE = {{ $value }}"
+          
+          - alert: KubernetesPodRestart
+            expr: sum(changes(kube_pod_container_status_restarts_total[15m])) by (container,container_name,endpoint,instance,job,name,namespace, pod, pod_name,service) > 0
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: Kubernetes pod restarted (instance {{ $labels.instance }})
+              description: "Pod {{ $labels.pod }} is restarted\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Pod {{ $labels.pod }} is restarted\n  VALUE = {{ $value }}"
+
+          - alert: KubernetesCronjobTooLong
+            expr: time() - kube_cronjob_next_schedule_time > 3600
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: Kubernetes CronJob too long (instance {{ $labels.instance }})
+              description: "CronJob {{ $labels.namespace }}/{{ $labels.cronjob }} is taking more than 1h to complete.\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "CronJob {{ $labels.namespace }}/{{ $labels.cronjob }} is taking more than 1h to complete.\n  VALUE = {{ $value }}"
+
+          - alert: KubernetesJobCompletion
+            expr: kube_job_spec_completions - kube_job_status_succeeded > 0 or kube_job_status_failed > 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: Kubernetes job completion (instance {{ $labels.instance }})
+              description: "Kubernetes Job failed to complete\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Kubernetes Job failed to complete\n  VALUE = {{ $value }}"
+
+          - alert: KubernetesApiServerErrors
+            expr: sum(rate(apiserver_request_count{job="apiserver",code=~"^(?:5..)$"}[2m])) / sum(rate(apiserver_request_count{job="apiserver"}[2m])) * 100 > 3
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: Kubernetes API server errors (instance {{ $labels.instance }})
+              description: "Kubernetes API server is experiencing high error rate\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Kubernetes API server is experiencing high error rate\n  VALUE = {{ $value }}"
+
+          - alert: KubernetesApiClientErrors
+            expr: (sum(rate(rest_client_requests_total{code=~"(4|5).."}[2m])) by (instance, job) / sum(rate(rest_client_requests_total[2m])) by (instance, job)) * 100 > 1
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: Kubernetes API client errors (instance {{ $labels.instance }})
+              description: "Kubernetes API client is experiencing high error rate\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Kubernetes API client is experiencing high error rate\n  VALUE = {{ $value }}"
+
+          - alert: KubernetesClientCertificateExpiresNextWeek
+            expr: apiserver_client_certificate_expiration_seconds_count{job="apiserver"} > 0 and histogram_quantile(0.01, sum by (job, le) (rate(apiserver_client_certificate_expiration_seconds_bucket{job="apiserver"}[5m]))) < 7*24*60*60
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: Kubernetes client certificate expires next week (instance {{ $labels.instance }})
+              description: "A client certificate used to authenticate to the apiserver is expiring next week.\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "A client certificate used to authenticate to the apiserver is expiring next week.\n  VALUE = {{ $value }}"
+
+          - alert: KubernetesClientCertificateExpiresSoon
+            expr: apiserver_client_certificate_expiration_seconds_count{job="apiserver"} > 0 and histogram_quantile(0.01, sum by (job, le) (rate(apiserver_client_certificate_expiration_seconds_bucket{job="apiserver"}[5m]))) < 24*60*60
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: Kubernetes client certificate expires soon (instance {{ $labels.instance }})
+              description: "A client certificate used to authenticate to the apiserver is expiring in less than 24.0 hours.\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "A client certificate used to authenticate to the apiserver is expiring in less than 24.0 hours.\n  VALUE = {{ $value }}"
+
+          - alert: KubernetesApiServerLatency
+            expr: histogram_quantile(0.99, sum(apiserver_request_latencies_bucket{verb!~"CONNECT|WATCHLIST|WATCH|PROXY"}) WITHOUT (instance, resource)) / 1e+06 > 10
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: Kubernetes API server latency (instance {{ $labels.instance }})
+              description: "Kubernetes API server has a 90th percentile latency of {{ $value }} seconds for {{ $labels.verb }} {{ $labels.resource }}.\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Kubernetes API server has a 90th percentile latency of {{ $value }} seconds for {{ $labels.verb }} {{ $labels.resource }}.\n  VALUE = {{ $value }}"
+
+      - name: CloudWatch
+        rules:
+          - alert: CPUUtilization
+            expr: last_over_time(aws_ec2_cpuutilization_average[30m]) > 80
+            labels:
+              severity: warning
+            annotations:
+              summary: "EC2 {{ $labels.instance_id }}"
+              description: "CPU utilization above 80% on EC2 instances\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+              description_ms: "CPU utilization above 80% on EC2 instances\n  VALUE = {{ $value }}"
+                         
+          - alert: RDSReadIOPS
+            expr: last_over_time(aws_rds_read_iops_sum[30m]) > 200
+            labels:
+              severity: warning
+            annotations:
+              summary: "ReadIOPS for {{ $labels.dbinstance_identifier }}"
+              description: "Sum ReadIOPS over 200\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+              description_ms: "Sum ReadIOPS over 200\n  VALUE = {{ $value }}"
+
+          #- alert: APIGateway4xx
+          #  expr: last_over_time(aws_apigateway_4_xxerror_sum[30m]) > 0
+          #  labels:
+          #    severity: warning
+          #  annotations:
+          #    summary: "APIGateway4xx for {{ $labels.dbinstance_identifier }}"
+          #    description: "Sum APIGateway4xx over 0\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+          #    description_ms: "Sum APIGateway4xx over 0\n  VALUE = {{ $value }}"
+          #
+          #- alert: APIGateway5xx
+          #  expr: last_over_time(aws_apigateway_5_xxerror_sum[30m]) > 0
+          #  labels:
+          #    severity: warning
+          #  annotations:
+          #    summary: "APIGateway5xx for {{ $labels.dbinstance_identifier }}"
+          #    description: "Sum APIGateway5xx over 0\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+          #    description_ms: "Sum APIGateway5xx over 0\n  VALUE = {{ $value }}"
+
+          - alert: CloudFront4xx
+            expr: last_over_time(aws_cloudfront_4xx_error_rate_sum{distribution_id!="EN86FA4FK4TAC"}[30m]) > 0
+            labels:
+              severity: warning
+            annotations:
+              summary: "CloudFront4xx for {{ $labels.dbinstance_identifier }}"
+              description: "Sum CloudFront4xx over 0\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+              description_ms: "Sum CloudFront4xx over 0\n  VALUE = {{ $value }}"
+          
+          - alert: CloudFront5xx
+            expr: last_over_time(aws_cloudfront_5xx_error_rate_sum{distribution_id!="EN86FA4FK4TAC"}[30m]) > 0
+            labels:
+              severity: warning
+            annotations:
+              summary: "CloudFront5xx for {{ $labels.dbinstance_identifier }}"
+              description: "Sum CloudFront5xx over 0\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+              description_ms: "Sum CloudFront5xx over 0\n  VALUE = {{ $value }}"
+              
+          - alert: RDSWriteIOPS
+            expr: last_over_time(aws_rds_write_iops_sum[30m]) > 300
+            for: 15m
+            labels:
+              severity: warning
+            annotations:
+              summary: "WriteIOPS for {{ $labels.dbinstance_identifier }}"
+              description: "Sum WriteIOPS over 300\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+              description_ms: "Sum WriteIOPS over 300\n  VALUE = {{ $value }}"
+              
+          - alert: RDSCPUUtilization
+            expr: last_over_time(aws_rds_cpuutilization_average[30m]) > 75
+            labels:
+              severity: warning
+            annotations:
+              summary: "RDSCPUUtilization for {{ $labels.dbinstance_identifier }}"
+              description: "CPUUtilization over 75%\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+              description_ms: "CPUUtilization over 75%\n  VALUE = {{ $value }}"
+              
+          - alert: FreeableMemory
+            expr: last_over_time(aws_rds_freeable_memory_average[30m]) < 128*1024*1024
+            labels:
+              severity: warning
+            annotations:
+              summary: "FreeableMemory for {{ $labels.dbinstance_identifier }}"
+              description: "FreeableMemory less than  128 Mb\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+              description_ms: "FreeableMemory less than  128 Mb\n  VALUE = {{ $value }}"
+              
+          - alert: FreeStorageSpace
+            expr: last_over_time(aws_rds_free_storage_space_average[30m]) < 10240*1024*1024
+            labels:
+              severity: warning
+            annotations:
+              summary: "FreeableMemory for {{ $labels.dbinstance_identifier }}"
+              description: "FreeStorageSpace less than 10 Gb\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+              description_ms: "FreeStorageSpace less than 10 Gb\n  VALUE = {{ $value }}"
+              
+          - alert: HTTPCode_ELB_5XX_Count
+            expr: aws_applicationelb_httpcode_elb_5_xx_count_sum > 30
+            for: 15m
+            labels:
+              severity: warning
+            annotations:
+              summary: "HTTPCode_ELB_5XX_Count for {{ $labels.load_balancer }}"
+              description: "HTTPCode_ELB_5XX_Count over 30\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+              description_ms: "HTTPCode_ELB_5XX_Count over 30\n  VALUE = {{ $value }}"
+              
+          - alert: HTTPCode_Target_5XX_Count
+            expr: aws_applicationelb_httpcode_target_5_xx_count_sum > 5
+            for: 15m
+            labels:
+              severity: warning
+            annotations:
+              summary: "HTTPCode_Target_5XX_Count for {{ $labels.load_balancer }}/{{ $labels.target_group}}"
+              description: "HTTPCode_Target_5XX_Count over 50\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+              description_ms: "HTTPCode_Target_5XX_Count over 50\n  VALUE = {{ $value }}"
+              
+          - alert: UnHealthyHostCount
+            expr: aws_applicationelb_un_healthy_host_count_sum > 0
+            for: 15m
+            labels:
+              severity: warning
+            annotations:
+              summary: "UnHealthyHostCount {{ $labels.load_balancer }}/{{ $labels.target_group}}"
+              description: "You have UnHealthyHostCount"
+              description_ms: "You have UnHealthyHostCount"
+
+          - alert: TargetResponseTimeELB
+            expr: last_over_time(aws_applicationelb_target_response_time_sum[30m]) > 500
+            for: 15m
+            labels:
+              severity: warning
+            annotations:
+              summary: "TargetResponseTime {{ $labels.load_balancer }}/{{ $labels.target_group}}"
+              description: "You have TargetResponseTime over 5 second"
+              description_ms: "You have TargetResponseTime over 5 second"
+              
+          - alert: ApproximateAgeOfOldestMessage
+            expr: aws_sqs_approximate_age_of_oldest_message_sum / 3600 > 1
+            for: 15m
+            labels:
+              severity: warning
+            annotations:
+              summary: "ApproximateAgeOfOldestMessage for {{ $labels.queue_name }}"
+              description: "You have message oldest than 1 day"
+              description_ms: "You have message oldest than 1 day"
+              
+          - alert: LambdaErrorSum
+            expr: last_over_time(aws_lambda_errors_sum[30m]) > 5
+            labels:
+              severity: warning
+            annotations:
+              summary: "Lambda Error by {{ $labels.function_name }}"
+              description: "Lambda have over 5 errors"
+              description_ms: "Lambda have over 5 errors"
+
+      - name: Etcd
+        rules:
+          - alert: EtcdInsufficientMembers
+            expr: count(etcd_server_id) % 2 == 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: Etcd insufficient Members (instance {{ $labels.instance }})
+              description: "Etcd cluster should have an odd number of members\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Etcd cluster should have an odd number of members\n  VALUE = {{ $value }}"
+      
+          - alert: EtcdNoLeader
+            expr: etcd_server_has_leader == 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: Etcd no Leader (instance {{ $labels.instance }})
+              description: "Etcd cluster have no leader\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Etcd cluster have no leader\n  VALUE = {{ $value }}"
+      
+          - alert: EtcdHighNumberOfLeaderChanges
+            expr: increase(etcd_server_leader_changes_seen_total[1h]) > 3
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: Etcd high number of leader changes (instance {{ $labels.instance }})
+              description: "Etcd leader changed more than 3 times during last hour\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Etcd leader changed more than 3 times during last hour\n  VALUE = {{ $value }}"
+      
+          - alert: EtcdHighNumberOfFailedGrpcRequests
+            expr: sum(rate(grpc_server_handled_total{grpc_code!="OK"}[5m])) BY (grpc_service, grpc_method) / sum(rate(grpc_server_handled_total[5m])) BY (grpc_service, grpc_method) > 0.01
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: Etcd high number of failed GRPC requests (instance {{ $labels.instance }})
+              description: "More than 1% GRPC request failure detected in Etcd for 5 minutes\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "More than 1% GRPC request failure detected in Etcd for 5 minutes\n  VALUE = {{ $value }}"
+      
+          - alert: EtcdHighNumberOfFailedGrpcRequests
+            expr: sum(rate(grpc_server_handled_total{grpc_code!="OK"}[5m])) BY (grpc_service, grpc_method) / sum(rate(grpc_server_handled_total[5m])) BY (grpc_service, grpc_method) > 0.05
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: Etcd high number of failed GRPC requests (instance {{ $labels.instance }})
+              description: "More than 5% GRPC request failure detected in Etcd for 5 minutes\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "More than 5% GRPC request failure detected in Etcd for 5 minutes\n  VALUE = {{ $value }}"
+      
+          - alert: EtcdGrpcRequestsSlow
+            expr: histogram_quantile(0.99, sum(rate(grpc_server_handling_seconds_bucket{grpc_type="unary"}[5m])) by (grpc_service, grpc_method, le)) > 0.15
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: Etcd GRPC requests slow (instance {{ $labels.instance }})
+              description: "GRPC requests slowing down, 99th percentil is over 0.15s for 5 minutes\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "GRPC requests slowing down, 99th percentil is over 0.15s for 5 minutes\n  VALUE = {{ $value }}"
+      
+          - alert: EtcdHighNumberOfFailedHttpRequests
+            expr: sum(rate(etcd_http_failed_total[5m])) BY (method) / sum(rate(etcd_http_received_total[5m])) BY (method) > 0.01
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: Etcd high number of failed HTTP requests (instance {{ $labels.instance }})
+              description: "More than 1% HTTP failure detected in Etcd for 5 minutes\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "More than 1% HTTP failure detected in Etcd for 5 minutes\n  VALUE = {{ $value }}"
+      
+          - alert: EtcdHighNumberOfFailedHttpRequests
+            expr: sum(rate(etcd_http_failed_total[5m])) BY (method) / sum(rate(etcd_http_received_total[5m])) BY (method) > 0.05
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: Etcd high number of failed HTTP requests (instance {{ $labels.instance }})
+              description: "More than 5% HTTP failure detected in Etcd for 5 minutes\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "More than 5% HTTP failure detected in Etcd for 5 minutes\n  VALUE = {{ $value }}"
+      
+          - alert: EtcdHttpRequestsSlow
+            expr: histogram_quantile(0.99, rate(etcd_http_successful_duration_seconds_bucket[5m])) > 0.15
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: Etcd HTTP requests slow (instance {{ $labels.instance }})
+              description: "HTTP requests slowing down, 99th percentil is over 0.15s for 5 minutes\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "HTTP requests slowing down, 99th percentil is over 0.15s for 5 minutes\n  VALUE = {{ $value }}"
+      
+          - alert: EtcdMemberCommunicationSlow
+            expr: histogram_quantile(0.99, rate(etcd_network_peer_round_trip_time_seconds_bucket[5m])) > 0.15
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: Etcd member communication slow (instance {{ $labels.instance }})
+              description: "Etcd member communication slowing down, 99th percentil is over 0.15s for 5 minutes\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Etcd member communication slowing down, 99th percentil is over 0.15s for 5 minutes\n  VALUE = {{ $value }}"
+      
+          - alert: EtcdHighNumberOfFailedProposals
+            expr: increase(etcd_server_proposals_failed_total[1h]) > 5
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: Etcd high number of failed proposals (instance {{ $labels.instance }})
+              description: "Etcd server got more than 5 failed proposals past hour\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Etcd server got more than 5 failed proposals past hour\n  VALUE = {{ $value }}"
+      
+          - alert: EtcdHighFsyncDurations
+            expr: histogram_quantile(0.99, rate(etcd_disk_wal_fsync_duration_seconds_bucket[5m])) > 0.5
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: Etcd high fsync durations (instance {{ $labels.instance }})
+              description: "Etcd WAL fsync duration increasing, 99th percentil is over 0.5s for 5 minutes\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Etcd WAL fsync duration increasing, 99th percentil is over 0.5s for 5 minutes\n  VALUE = {{ $value }}"
+      
+          - alert: EtcdHighCommitDurations
+            expr: histogram_quantile(0.99, rate(etcd_disk_backend_commit_duration_seconds_bucket[5m])) > 0.25
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: Etcd high commit durations (instance {{ $labels.instance }})
+              description: "Etcd commit duration increasing, 99th percentil is over 0.25s for 5 minutes\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+              description_ms: "Etcd commit duration increasing, 99th percentil is over 0.25s for 5 minutes\n  VALUE = {{ $value }}"
+
+      - name: Backend Java
+        rules:
+          - alert: BackendResponseError4xx
+            expr: sum_over_time(http_server_requests_seconds_count{kubernetes_namespace!="dev",kubernetes_namespace!="uat",status=~"4.."}[3m]) > sum_over_time(http_server_requests_seconds_count{kubernetes_namespace!="dev",kubernetes_namespace!="uat",status=~"4.."}[3m] offset 1m)
+            for: 0m
+            labels:
+              severity: warning
+            annotations:
+              summary: Backend response code is 4xx (micrometer)
+              description: "Backend response code is 4xx (micrometer),\n Response code: {{ $labels.status }},\n Method: {{ $labels.method }},\n URI: {{ $labels.uri }}"
+              description_ms: "Backend response code is 4xx (micrometer),\n Response code: {{ $labels.status }},\n Method: {{ $labels.method }},\n URI: {{ $labels.uri }}"
+
+          - alert: BackendResponseError5xx
+            expr: sum_over_time(http_server_requests_seconds_count{kubernetes_namespace!="dev",kubernetes_namespace!="uat",status=~"5.."}[3m]) > sum_over_time(http_server_requests_seconds_count{kubernetes_namespace!="dev",kubernetes_namespace!="uat",status=~"5.."}[3m] offset 1m)
+            for: 0m
+            labels:
+              severity: critical
+            annotations:
+              summary: Backend response code is 5xx (micrometer)
+              description: "Backend response code is 5xx (micrometer),\n Response code: {{ $labels.status }},\n Method: {{ $labels.method }},\n URI: {{ $labels.uri }}"
+              description_ms: "Backend response code is 5xx (micrometer),\n Response code: {{ $labels.status }},\n Method: {{ $labels.method }},\n URI: {{ $labels.uri }}"
+
+      - name: Fluent Bit
+        rules:
+          - alert: FluentBitParseError
+            expr: rate(fluentbit_output_retries_total[5m])*100 > 2
+            for: 1m
+            labels:
+              severity: warning
+            annotations:
+              summary: Fluent Bit log parse error (OUTPUT have retries)
+              description: "Fluent Bit log parse error ,\n Instance: {{ $labels.instance }},\n OUTPUT name: {{ $labels.name }},\n kubernetes pod name: {{ $labels.kubernetes_pod_name }}"
+              description_ms: "Fluent Bit log parse error ,\n Instance: {{ $labels.instance }},\n OUTPUT name: {{ $labels.name }},\n kubernetes pod name: {{ $labels.kubernetes_pod_name }}"
+
+          
+  prometheus.yml:
+
+    scrape_configs:
+      - job_name: prometheus
+        static_configs:
+          - targets:
+            - localhost:9090
+
+      - job_name: 'kubernetes-apiservers'
+        kubernetes_sd_configs:
+          - role: endpoints
+        scheme: https
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          insecure_skip_verify: true
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+            action: keep
+            regex: default;kubernetes;https
+
+      - job_name: 'kubernetes-nodes'
+        scheme: https
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          insecure_skip_verify: true
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        kubernetes_sd_configs:
+          - role: node
+        relabel_configs:
+          - action: labelmap
+            regex: __meta_kubernetes_node_label_(.+)
+          - target_label: __address__
+            replacement: kubernetes.default.svc:443
+          - source_labels: [__meta_kubernetes_node_name]
+            regex: (.+)
+            target_label: __metrics_path__
+            replacement: /api/v1/nodes/$1/proxy/metrics
+
+      - job_name: 'kubernetes-nodes-cadvisor'
+        scheme: https
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          insecure_skip_verify: true
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        kubernetes_sd_configs:
+          - role: node
+        relabel_configs:
+          - action: labelmap
+            regex: __meta_kubernetes_node_label_(.+)
+          - target_label: __address__
+            replacement: kubernetes.default.svc:443
+          - source_labels: [__meta_kubernetes_node_name]
+            regex: (.+)
+            target_label: __metrics_path__
+            replacement: /api/v1/nodes/$1/proxy/metrics/cadvisor
+
+      - job_name: 'kubernetes-service-endpoints'
+        kubernetes_sd_configs:
+          - role: endpoints
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
+            action: keep
+            regex: true
+          - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scheme]
+            action: replace
+            target_label: __scheme__
+            regex: (https?)
+          - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
+            action: replace
+            target_label: __address__
+            regex: ([^:]+)(?::\d+)?;(\d+)
+            replacement: $1:$2
+          - action: labelmap
+            regex: __meta_kubernetes_service_annotation_prometheus_io_param_(.+)
+            replacement: __param_$1
+          - action: labelmap
+            regex: __meta_kubernetes_service_label_(.+)
+          - source_labels: [__meta_kubernetes_namespace]
+            action: replace
+            target_label: kubernetes_namespace
+          - source_labels: [__meta_kubernetes_service_name]
+            action: replace
+            target_label: kubernetes_name
+          - source_labels: [__meta_kubernetes_pod_node_name]
+            action: replace
+            target_label: kubernetes_node
+
+      - job_name: 'kubernetes-service-endpoints-slow'
+        scrape_interval: 5m
+        scrape_timeout: 30s
+        kubernetes_sd_configs:
+          - role: endpoints
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape_slow]
+            action: keep
+            regex: true
+          - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scheme]
+            action: replace
+            target_label: __scheme__
+            regex: (https?)
+          - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
+            action: replace
+            target_label: __address__
+            regex: ([^:]+)(?::\d+)?;(\d+)
+            replacement: $1:$2
+          - action: labelmap
+            regex: __meta_kubernetes_service_annotation_prometheus_io_param_(.+)
+            replacement: __param_$1
+          - action: labelmap
+            regex: __meta_kubernetes_service_label_(.+)
+          - source_labels: [__meta_kubernetes_namespace]
+            action: replace
+            target_label: kubernetes_namespace
+          - source_labels: [__meta_kubernetes_service_name]
+            action: replace
+            target_label: kubernetes_name
+          - source_labels: [__meta_kubernetes_pod_node_name]
+            action: replace
+            target_label: kubernetes_node
+
+      - job_name: 'prometheus-pushgateway'
+        honor_labels: true
+        kubernetes_sd_configs:
+          - role: service
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_probe]
+            action: keep
+            regex: pushgateway
+
+      - job_name: 'kubernetes-services'
+        metrics_path: /probe
+        params:
+          module: [http_2xx]
+        kubernetes_sd_configs:
+          - role: service
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_probe]
+            action: keep
+            regex: true
+          - source_labels: [__address__]
+            target_label: __param_target
+          - target_label: __address__
+            replacement: blackbox
+          - source_labels: [__param_target]
+            target_label: instance
+          - action: labelmap
+            regex: __meta_kubernetes_service_label_(.+)
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: kubernetes_namespace
+          - source_labels: [__meta_kubernetes_service_name]
+            target_label: kubernetes_name
+
+      - job_name: 'kubernetes-pods'
+        kubernetes_sd_configs:
+          - role: pod
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: true
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scheme]
+            action: replace
+            regex: (https?)
+            target_label: __scheme__
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            regex: ([^:]+)(?::\d+)?;(\d+)
+            replacement: $1:$2
+            target_label: __address__
+          - action: labelmap
+            regex: __meta_kubernetes_pod_annotation_prometheus_io_param_(.+)
+            replacement: __param_$1
+          - action: labelmap
+            regex: __meta_kubernetes_pod_label_(.+)
+          - source_labels: [__meta_kubernetes_namespace]
+            action: replace
+            target_label: kubernetes_namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: kubernetes_pod_name
+          - source_labels: [__meta_kubernetes_pod_phase]
+            regex: Pending|Succeeded|Failed|Completed
+            action: drop
+
+      - job_name: 'kubernetes-pods-slow'
+        scrape_interval: 5m
+        scrape_timeout: 30s
+        kubernetes_sd_configs:
+          - role: pod
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape_slow]
+            action: keep
+            regex: true
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scheme]
+            action: replace
+            regex: (https?)
+            target_label: __scheme__
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            regex: ([^:]+)(?::\d+)?;(\d+)
+            replacement: $1:$2
+            target_label: __address__
+          - action: labelmap
+            regex: __meta_kubernetes_pod_annotation_prometheus_io_param_(.+)
+            replacement: __param_$1
+          - action: labelmap
+            regex: __meta_kubernetes_pod_label_(.+)
+          - source_labels: [__meta_kubernetes_namespace]
+            action: replace
+            target_label: kubernetes_namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: kubernetes_pod_name
+          - source_labels: [__meta_kubernetes_pod_phase]
+            regex: Pending|Succeeded|Failed|Completed
+            action: drop

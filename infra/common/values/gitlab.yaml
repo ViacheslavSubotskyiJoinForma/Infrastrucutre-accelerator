@@ -1,0 +1,60 @@
+concurrent: 20
+
+rbac:
+  create: true
+  serviceAccountName: "${role_id}"
+  serviceAccountAnnotations: 
+    eks.amazonaws.com/role-arn: "${role_arn}"
+
+gitlabUrl: "https://gitlab.com"
+
+runners:
+  config: |
+    [[runners]]
+      output_limit = 16384
+      [runners.kubernetes]
+        namespace = "{{.Release.Namespace}}"
+        image = "public.ecr.aws/ubuntu/ubuntu:21.10_stable"
+        helper_cpu_limit = "200m"
+        cpu_request = "4000m"
+        service_cpu_request = "1000m"
+        service_account = "${role_id}"
+        privileged = true
+        allow_privilege_escalation = true
+        [runners.kubernetes.node_selector]
+          "karpenter.sh/provisioner-name" = "spot"
+        [runners.cache]
+          Type = "s3"
+          Path = "runner"
+          Shared = true
+          [runners.cache.s3]
+            BucketName = "${bucket}"
+            BucketLocation = "${region}"
+            Insecure = false
+      [[runners.kubernetes.volumes.empty_dir]]
+        name = "docker-certs"
+        mount_path = "/certs/client"
+        medium = "Memory"
+
+
+
+resources:
+  limits:
+    memory: 256Mi
+    cpu: 100m
+  requests:
+    memory: 128Mi
+    cpu: 50m
+
+#hpa:
+#  minReplicas: 1
+#  maxReplicas: 10
+#  metrics:
+#    - type: Resource
+#      resource:
+#        name: memory
+#        targetAverageUtilization: 75
+#    - type: Resource
+#      resource:
+#        name: cpu
+#        targetAverageUtilization: 70

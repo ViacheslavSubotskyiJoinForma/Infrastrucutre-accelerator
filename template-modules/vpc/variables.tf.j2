@@ -1,0 +1,44 @@
+variable "project_name" {
+  description = "Project name used for resource naming"
+  type        = string
+  default     = "{{ project_name }}"
+}
+
+variable "env" {
+  description = "Environment name (dev/uat/prod)"
+  type        = string
+}
+
+variable "repository" {
+  description = "Repository name for resource tagging"
+  type        = string
+  default     = "{{ repository }}"
+}
+
+variable "region" {
+  description = "AWS Region"
+  type        = string
+  default     = "{{ region }}"
+}
+
+variable "aws_profile" {
+  description = "AWS Profile for local authentication"
+  type        = string
+  default     = "{{ aws_profile }}"
+}
+
+variable "cidr" {
+  description = "CIDR blocks for each environment"
+  type        = map(any)
+  default = {
+    dev  = "10.1"
+    uat  = "10.2"
+    prod = "10.3"
+  }
+}
+
+variable "enable_flow_logs" {
+  description = "Enable VPC Flow Logs (requires IAM permissions). Set to false for local testing with limited IAM permissions."
+  type        = bool
+  default     = true
+}

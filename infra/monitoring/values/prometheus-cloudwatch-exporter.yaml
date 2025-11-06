@@ -1,0 +1,129 @@
+---
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+aws:
+  role: ${role_id}
+serviceAccount:
+  create: true
+  name: ${role_id}
+  annotations:
+    eks.amazonaws.com/role-arn: ${role_arn}
+  automountServiceAccountToken: true
+service:
+  annotations: 
+    prometheus.io/scrape: "true"
+
+config: |-
+  region: ${region}
+  period_seconds: 600
+  metrics:
+  ### Lambda ###
+  - aws_namespace: AWS/Lambda
+    aws_dimensions: [FunctionName, Resource]
+    aws_metric_name: Errors
+    aws_statistics:
+    - Sum
+  ### API Gatewat ###
+  - aws_dimensions:
+    - Stage
+    - ApiName
+    aws_metric_name: 4XXError
+    aws_namespace: AWS/ApiGateway
+    aws_statistics:
+    - Sum
+  - aws_dimensions:
+    - Stage
+    - ApiName
+    aws_metric_name: 5XXError
+    aws_namespace: AWS/ApiGateway
+    aws_statistics:
+    - Sum
+  ### RDS ###
+  - aws_dimensions:
+    - DBInstanceIdentifier
+    aws_metric_name: FreeStorageSpace
+    aws_namespace: AWS/RDS
+    aws_statistics:
+    - Average
+  - aws_dimensions:
+    - DBInstanceIdentifier
+    aws_metric_name: FreeableMemory
+    aws_namespace: AWS/RDS
+    aws_statistics:
+    - Average
+  - aws_dimensions:
+    - DBInstanceIdentifier
+    aws_metric_name: CPUUtilization
+    aws_namespace: AWS/RDS
+    aws_statistics:
+    - Average
+  - aws_dimensions:
+    - DBInstanceIdentifier
+    aws_metric_name: ReadIOPS
+    aws_namespace: AWS/RDS
+    aws_statistics:
+    - Sum
+  - aws_dimensions:
+    - DBInstanceIdentifier
+    aws_metric_name: WriteIOPS
+    aws_namespace: AWS/RDS
+    aws_statistics:
+    - Sum
+  ### CloudFront ###
+  - aws_dimensions:
+    - DistributionId
+    - Region
+    aws_metric_name: 4xxErrorRate
+    aws_namespace: AWS/CloudFront
+    aws_statistics:
+    - Sum
+  - aws_dimensions:
+    - DistributionId
+    - Region
+    aws_metric_name: 5xxErrorRate
+    aws_namespace: AWS/CloudFront
+    aws_statistics:
+    - Sum
+  ### ApplicationELB ###
+  - aws_namespace: AWS/ApplicationELB
+    aws_metric_name: HTTPCode_Target_4XX_Count
+    aws_dimensions: [LoadBalancer, TargetGroup]
+    aws_statistics:
+    - Sum
+  - aws_namespace: AWS/ApplicationELB
+    aws_metric_name: HTTPCode_Target_5XX_Count
+    aws_dimensions: [LoadBalancer, TargetGroup]
+    aws_statistics:
+    - Sum
+  - aws_namespace: AWS/ApplicationELB
+    aws_metric_name: HTTPCode_ELB_4XX_Count
+    aws_dimensions:
+    - LoadBalancer
+    aws_statistics:
+    - Sum
+  - aws_namespace: AWS/ApplicationELB
+    aws_metric_name: HTTPCode_ELB_5XX_Count
+    aws_dimensions:
+    - LoadBalancer
+    aws_statistics:
+    - Sum
+  - aws_namespace: AWS/ApplicationELB
+    aws_metric_name: HealthyHostCount
+    aws_dimensions: [LoadBalancer, TargetGroup]
+    aws_statistics:
+    - Sum
+  - aws_namespace: AWS/ApplicationELB
+    aws_metric_name: UnHealthyHostCount
+    aws_dimensions: [LoadBalancer, TargetGroup]
+    aws_statistics:
+    - Sum
+  - aws_namespace: AWS/ApplicationELB
+    aws_metric_name: TargetResponseTime
+    aws_dimensions: [LoadBalancer, TargetGroup]
+    aws_statistics:
+    - Sum

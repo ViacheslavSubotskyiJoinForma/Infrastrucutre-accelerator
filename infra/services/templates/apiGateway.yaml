@@ -1,0 +1,14 @@
+---
+swagger: "2.0"
+info:
+  title: "${title}"
+host: "${gateway_url}"
+schemes:
+- "https"
+x-amazon-apigateway-gateway-responses:
+  ACCESS_DENIED:
+    statusCode: 403
+    responseTemplates:
+      application/json: "{\"message\":\"Denied\"}"
+x-amazon-apigateway-endpoint-configuration:
+  disableExecuteApiEndpoint: true

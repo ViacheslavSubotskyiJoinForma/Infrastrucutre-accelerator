@@ -1,0 +1,36 @@
+defaultArgs:
+  - --cert-dir=/tmp
+  - --kubelet-use-node-status-port
+  - --metric-resolution=15s
+  - --logtostderr
+  - --kubelet-insecure-tls=true
+  - --kubelet-preferred-address-types=InternalIP
+  - --kubelet-use-node-status-port
+  - --v=2
+
+replicas: 1
+
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 0
+    maxUnavailable: 1
+
+resources:
+  limits:
+    memory: 200Mi
+    cpu: 100m
+  requests:
+    memory: 200Mi
+    cpu: 100m  
+
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+    - labelSelector:
+        matchExpressions:
+        - key: "app"
+          operator: In
+          values:
+          - metrics-server
+      topologyKey: "kubernetes.io/hostname"

@@ -1,0 +1,54 @@
+variable "project_name" {
+  description = "Project name used for resource naming"
+  type        = string
+  default     = "{{ project_name }}"
+}
+
+variable "repository" {
+  description = "Repository name for resource tagging"
+  type        = string
+  default     = "{{ repository }}"
+}
+
+variable "env" {
+  description = "Environment name (dev, uat, prod)"
+  type        = string
+}
+
+variable "region" {
+  description = "AWS region"
+  type        = string
+  default     = "{{ region }}"
+}
+
+{% if backend_type == 's3' %}
+variable "state_bucket" {
+  description = "S3 bucket for Terraform state"
+  type        = string
+  default     = "{{ state_bucket }}"
+}
+
+variable "dynamodb_table" {
+  description = "DynamoDB table for state locking"
+  type        = string
+  default     = "{{ dynamodb_table }}"
+}
+{% endif %}
+
+variable "cluster_version" {
+  description = "Kubernetes version"
+  type        = string
+  default     = "1.32"
+}
+
+variable "endpoint_public_access" {
+  description = "Enable public access to EKS cluster endpoint"
+  type        = bool
+  default     = true
+}
+
+variable "tags" {
+  description = "Additional tags for resources"
+  type        = map(string)
+  default     = {}
+}

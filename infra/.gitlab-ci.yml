@@ -1,0 +1,193 @@
+stages:
+  - Init
+  - Plan
+  - Apply
+
+image:
+  name: postgres:15.3-alpine3.18
+  entrypoint: [""]
+
+variables:
+  PLAN: plan.cache
+  DOCKER_REGISTRY: <acc_id>.dkr.ecr.us-east-1.amazonaws.com
+
+cache:
+  key: "$TF_ROOT-$ENV"
+  paths:
+    - ${TF_ROOT}/.terraform/
+
+.terraform_init:
+  before_script:
+    - apk update
+    - apk add git
+    - apk add openssl
+    - openssl version
+    - |-
+      wget https://releases.hashicorp.com/terraform/1.5.4/terraform_1.5.4_linux_amd64.zip \
+      && unzip terraform_1.5.4_linux_amd64.zip && rm terraform_1.5.4_linux_amd64.zip \
+      && mv terraform /usr/bin/terraform
+    - cd ${TF_ROOT}
+    - |-
+      cat <<EOF > ~/.terraformrc
+      credentials "gitlab.com" {
+        token = "${CI_JOB_TOKEN}"
+      }
+      EOF
+    - terraform init -backend-config="key=${ENV}/${TF_ROOT}/tf.state"
+    - terraform validate
+
+Terraform_Plan_monitoring:
+  stage: Plan
+  extends: .terraform_init
+  script:
+    - terraform plan -var-file=../config/${ENV}.tfvars -out=${TF_ROOT}-${ENV}-${PLAN}
+  parallel:
+    matrix:
+      - ENV: [dev, uat, prod]
+        TF_ROOT: [monitoring]
+  rules:
+    - if: $CI_COMMIT_REF_NAME != $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"
+      changes:
+        paths:
+          - monitoring/**/*
+        compare_to: 'refs/heads/main'
+      when: always
+
+Terraform_Plan_vpc:
+  stage: Plan
+  extends: .terraform_init
+  script:
+    - terraform plan -var-file=../config/${ENV}.tfvars -out=${TF_ROOT}-${ENV}-${PLAN}
+  parallel:
+    matrix:
+      - ENV: [dev, uat, prod]
+        TF_ROOT: [vpc]
+  rules:
+    - if: $CI_COMMIT_REF_NAME != $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"
+      changes:
+        paths:
+          - vpc/**/*
+        compare_to: 'refs/heads/main'
+      when: always
+
+Terraform_Plan_rds:
+  stage: Plan
+  extends: .terraform_init
+  script:
+    - terraform plan -var-file=../config/${ENV}.tfvars -out=${TF_ROOT}-${ENV}-${PLAN}
+  parallel:
+    matrix:
+      - ENV: [dev, uat, prod]
+        TF_ROOT: [rds]
+  rules:
+    - if: $CI_COMMIT_REF_NAME != $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"
+      changes:
+        paths:
+          - rds/**/*
+        compare_to: 'refs/heads/main'
+      when: always
+
+Terraform_Plan_secrets:
+  stage: Plan
+  extends: .terraform_init
+  script:
+    - terraform plan -var-file=../config/${ENV}.tfvars -out=${TF_ROOT}-${ENV}-${PLAN}
+  parallel:
+    matrix:
+      - ENV: [dev, uat, prod]
+        TF_ROOT: [secrets]
+  rules:
+    - if: $CI_COMMIT_REF_NAME != $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"
+      changes:
+        paths:
+          - secrets/**/*
+        compare_to: 'refs/heads/main'
+      when: always
+
+Terraform_Plan_eks:
+  stage: Plan
+  extends: .terraform_init
+  script:
+    - terraform plan -var-file=../config/${ENV}.tfvars -out=${TF_ROOT}-${ENV}-${PLAN}
+  parallel:
+    matrix:
+      - ENV: [dev, uat, prod]
+        TF_ROOT: [eks]
+  rules:
+    - if: $CI_COMMIT_REF_NAME != $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"
+      changes:
+        paths:
+          - eks/**/*
+        compare_to: 'refs/heads/main'
+      when: always
+
+Terraform_Plan_services:
+  stage: Plan
+  extends: .terraform_init
+  script:
+    - terraform plan -var-file=../config/${ENV}.tfvars -out=${TF_ROOT}-${ENV}-${PLAN}
+  parallel:
+    matrix:
+      - ENV: [dev, uat, prod]
+        TF_ROOT: [services]
+  rules:
+    - if: $CI_COMMIT_REF_NAME != $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"
+      changes:
+        paths:
+          - services/**/*
+        compare_to: 'refs/heads/main'
+      when: always
+
+Terraform_Plan_opensearch:
+  stage: Plan
+  extends: .terraform_init
+  script:
+    - terraform plan -var-file=../config/${ENV}.tfvars -out=${TF_ROOT}-${ENV}-${PLAN}
+  parallel:
+    matrix:
+      - ENV: [dev, uat, prod]
+        TF_ROOT: [opensearch]
+  rules:
+    - if: $CI_COMMIT_REF_NAME != $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"
+      changes:
+        paths:
+          - opensearch/**/*
+        compare_to: 'refs/heads/main'
+      when: always
+
+Terraform_Plan:
+  stage: Plan
+  extends: .terraform_init
+  when: manual
+  script:
+    - terraform plan -var-file=../config/${ENV}.tfvars -out=${TF_ROOT}-${ENV}-${PLAN}
+  artifacts:
+    paths:
+      - ${TF_ROOT}/${TF_ROOT}-${ENV}-${PLAN}
+      - ${TF_ROOT}/*.zip
+    expire_in: 2 hrs
+  parallel:
+    matrix:
+      - ENV: [dev, uat, prod]
+        TF_ROOT: [vpc, rds, secrets, eks, services, opensearch, monitoring]
+  rules:
+    - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
+
+
+Terraform_Apply:
+  stage: Apply
+  extends: .terraform_init
+  when: manual
+  script:
+    - ls -lah
+    - terraform apply -auto-approve -input=false ${TF_ROOT}-${ENV}-${PLAN}
+  artifacts:
+    paths:
+      - ${TF_ROOT}/${TF_ROOT}-${ENV}-${PLAN}
+      - ${TF_ROOT}/*.zip
+  parallel:
+    matrix:
+      - ENV: [dev, uat, prod]
+        TF_ROOT: [vpc, rds, secrets, eks, services, opensearch, monitoring]
+  rules:
+    - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
