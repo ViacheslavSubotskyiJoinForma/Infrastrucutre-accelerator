@@ -6,8 +6,89 @@ const WORKFLOW_NAME = 'Generate Infrastructure Template (MVP)';
 let selectedComponents = ['vpc'];
 let selectedEnvironments = ['dev'];
 
+// Theme Management
+const theme = {
+    STORAGE_KEY: 'theme-preference',
+    DARK: 'dark',
+    LIGHT: 'light',
+
+    init() {
+        // Load saved theme or default to light
+        const savedTheme = localStorage.getItem(this.STORAGE_KEY) || this.LIGHT;
+        this.set(savedTheme);
+
+        // Set up toggle button
+        const toggleBtn = document.getElementById('themeToggle');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', () => this.toggle());
+        }
+    },
+
+    set(newTheme) {
+        const root = document.documentElement;
+        const icon = document.getElementById('themeIcon');
+
+        if (newTheme === this.DARK) {
+            root.setAttribute('data-theme', 'dark');
+            if (icon) icon.textContent = '☀️';
+        } else {
+            root.removeAttribute('data-theme');
+            if (icon) icon.textContent = '🌙';
+        }
+
+        localStorage.setItem(this.STORAGE_KEY, newTheme);
+    },
+
+    toggle() {
+        const current = localStorage.getItem(this.STORAGE_KEY) || this.LIGHT;
+        const newTheme = current === this.LIGHT ? this.DARK : this.LIGHT;
+        this.set(newTheme);
+
+        // Redraw diagram with new theme colors
+        if (typeof updateDiagram === 'function') {
+            updateDiagram();
+        }
+    },
+
+    isDark() {
+        return (localStorage.getItem(this.STORAGE_KEY) || this.LIGHT) === this.DARK;
+    }
+};
+
+// Get theme-aware colors for SVG diagram
+function getThemeColors() {
+    const isDark = theme.isDark();
+
+    return {
+        // Environment box
+        envBg: isDark ? '#1e293b' : '#f3f4f6',
+        envBgProd: isDark ? '#1e3a52' : '#dbeafe',
+        envBorder: isDark ? '#3b82f6' : '#3b82f6',
+
+        // VPC
+        vpcBg: isDark ? '#334155' : '#ffffff',
+        vpcBorder: isDark ? '#10b981' : '#10b981',
+
+        // Public subnet
+        publicBg: isDark ? '#1e3a52' : '#e0f2fe',
+        publicBorder: isDark ? '#0ea5e9' : '#0ea5e9',
+
+        // Private subnet
+        privateBg: isDark ? '#422006' : '#fef3c7',
+        privateBorder: isDark ? '#f59e0b' : '#f59e0b',
+
+        // EKS
+        eksBg: isDark ? '#3730a3' : '#ddd6fe',
+        eksBorder: isDark ? '#8b5cf6' : '#8b5cf6',
+
+        // Text
+        text: isDark ? '#f1f5f9' : '#1f2937'
+    };
+};
+
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
+    theme.init();
     await auth.init();
     setupEventListeners();
     updateDiagram();
@@ -103,9 +184,10 @@ function updateDiagram() {
 
     const envCount = selectedEnvironments.length;
     const hasEKS = selectedComponents.includes('eks-auto');
+    const colors = getThemeColors();
 
     // Title
-    addText(svg, width / 2, 30, `Architecture: ${selectedEnvironments.join(', ').toUpperCase()}`, 'bold', 'middle');
+    addText(svg, width / 2, 30, `Architecture: ${selectedEnvironments.join(', ').toUpperCase()}`, 'bold', 'middle', colors.text);
 
     // Draw environments
     const envWidth = (width - 80) / envCount;
@@ -114,35 +196,35 @@ function updateDiagram() {
         const y = 60;
 
         // Environment box
-        addRect(svg, x, y, envWidth - 20, height - 100, env === 'prod' ? '#dbeafe' : '#f3f4f6', '#3b82f6');
-        addText(svg, x + (envWidth - 20) / 2, y + 30, env.toUpperCase(), 'bold', 'middle');
+        addRect(svg, x, y, envWidth - 20, height - 100, env === 'prod' ? colors.envBgProd : colors.envBg, colors.envBorder);
+        addText(svg, x + (envWidth - 20) / 2, y + 30, env.toUpperCase(), 'bold', 'middle', colors.text);
 
         // VPC
-        addRect(svg, x + 20, y + 60, envWidth - 60, hasEKS ? 220 : 120, '#ffffff', '#10b981');
-        addText(svg, x + envWidth / 2, y + 90, 'VPC', 'normal', 'middle');
+        addRect(svg, x + 20, y + 60, envWidth - 60, hasEKS ? 220 : 120, colors.vpcBg, colors.vpcBorder);
+        addText(svg, x + envWidth / 2, y + 90, 'VPC', 'normal', 'middle', colors.text);
 
         // Subnets
         const subnetY = y + 110;
-        addRect(svg, x + 30, subnetY, (envWidth - 80) / 2 - 5, 50, '#e0f2fe', '#0ea5e9');
-        addText(svg, x + 30 + (envWidth - 80) / 4, subnetY + 25, 'Public', 'small', 'middle');
+        addRect(svg, x + 30, subnetY, (envWidth - 80) / 2 - 5, 50, colors.publicBg, colors.publicBorder);
+        addText(svg, x + 30 + (envWidth - 80) / 4, subnetY + 25, 'Public', 'small', 'middle', colors.text);
 
-        addRect(svg, x + envWidth / 2 + 5, subnetY, (envWidth - 80) / 2 - 5, 50, '#fef3c7', '#f59e0b');
-        addText(svg, x + envWidth / 2 + 5 + (envWidth - 80) / 4, subnetY + 25, 'Private', 'small', 'middle');
+        addRect(svg, x + envWidth / 2 + 5, subnetY, (envWidth - 80) / 2 - 5, 50, colors.privateBg, colors.privateBorder);
+        addText(svg, x + envWidth / 2 + 5 + (envWidth - 80) / 4, subnetY + 25, 'Private', 'small', 'middle', colors.text);
 
         // EKS if selected
         if (hasEKS) {
             const eksY = subnetY + 70;
-            addRect(svg, x + 30, eksY, envWidth - 60, 80, '#ddd6fe', '#8b5cf6');
-            addText(svg, x + envWidth / 2, eksY + 25, 'EKS Cluster', 'normal', 'middle');
-            addText(svg, x + envWidth / 2, eksY + 50, 'Auto Mode', 'small', 'middle');
+            addRect(svg, x + 30, eksY, envWidth - 60, 80, colors.eksBg, colors.eksBorder);
+            addText(svg, x + envWidth / 2, eksY + 25, 'EKS Cluster', 'normal', 'middle', colors.text);
+            addText(svg, x + envWidth / 2, eksY + 50, 'Auto Mode', 'small', 'middle', colors.text);
         }
     });
 
     // Legend
     const legendY = height - 30;
-    addText(svg, 40, legendY, '● VPC', 'small', 'start', '#10b981');
+    addText(svg, 40, legendY, '● VPC', 'small', 'start', colors.vpcBorder);
     if (hasEKS) {
-        addText(svg, 120, legendY, '● EKS', 'small', 'start', '#8b5cf6');
+        addText(svg, 120, legendY, '● EKS', 'small', 'start', colors.eksBorder);
     }
 }
 
