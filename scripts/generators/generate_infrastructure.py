@@ -10,8 +10,15 @@ import json
 import argparse
 import shutil
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Optional
 from jinja2 import Environment, FileSystemLoader, Template
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
+
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from security.validator import SecurityValidator, validate_all_inputs
 
 
 class InfrastructureGenerator:
@@ -52,13 +59,32 @@ class InfrastructureGenerator:
 
     def __init__(self, project_name: str, components: List[str],
                  environments: List[str], config: Dict):
-        self.project_name = project_name
-        self.components = components
-        self.environments = environments
+        # Validate all inputs first
+        validated = validate_all_inputs(
+            project_name=project_name,
+            components=components,
+            environments=environments,
+            region=config.get('region', 'us-east-1'),
+            aws_account_id=config.get('aws_account_id', '')
+        )
+
+        self.project_name = validated['project_name']
+        self.components = validated['components']
+        self.environments = validated['environments']
         self.config = config
         self.output_dir = Path(config.get('output_dir', 'generated-infra'))
         self.template_dir = Path(config.get('template_dir', 'template-modules'))
         self.needs_modules = False
+
+        # Performance: Cache Jinja2 environment
+        self._jinja_env_cache: Optional[Environment] = None
+
+        # Security: Validate paths
+        self.output_dir = SecurityValidator.validate_path(self.output_dir.resolve())
+        if self.template_dir.exists():
+            self.template_dir = SecurityValidator.validate_path(
+                self.template_dir.resolve()
+            )
 
     def validate_components(self):
         """Validate selected components and their dependencies"""
@@ -104,6 +130,29 @@ class InfrastructureGenerator:
                 print(f"Component {component} requires modules, will copy modules/ directory")
                 break
 
+    def _get_jinja_env(self, component_dir: Path) -> Environment:
+        """
+        Get or create cached Jinja2 environment for better performance
+
+        Args:
+            component_dir: Template component directory
+
+        Returns:
+            Jinja2 Environment
+        """
+        if self._jinja_env_cache is None:
+            self._jinja_env_cache = Environment(
+                loader=FileSystemLoader(str(component_dir)),
+                autoescape=True,  # Security: Enable autoescaping
+                trim_blocks=True,
+                lstrip_blocks=True
+            )
+        else:
+            # Update loader for new component
+            self._jinja_env_cache.loader = FileSystemLoader(str(component_dir))
+
+        return self._jinja_env_cache
+
     def _copy_modules(self, output_dir: Path):
         """Copy modules directory to generated infrastructure"""
         print("Copying modules directory...")
@@ -113,6 +162,8 @@ class InfrastructureGenerator:
             print("Warning: modules/ directory not found, skipping")
             return
 
+        # Security: Validate paths
+        modules_src = SecurityValidator.validate_path(modules_src.resolve())
         modules_dest = output_dir / 'modules'
 
         # Remove existing modules directory if present
@@ -120,7 +171,11 @@ class InfrastructureGenerator:
             shutil.rmtree(modules_dest)
 
         # Copy entire modules directory
-        shutil.copytree(modules_src, modules_dest, ignore=shutil.ignore_patterns('.git*', '__pycache__', '*.pyc'))
+        shutil.copytree(
+            modules_src,
+            modules_dest,
+            ignore=shutil.ignore_patterns('.git*', '__pycache__', '*.pyc', '*.pyo')
+        )
         print(f"Copied modules/ directory to {modules_dest}")
 
     def generate(self):
@@ -195,8 +250,8 @@ class InfrastructureGenerator:
                         print(f"  Copied directory: {subdir.name}/")
             return
 
-        # Setup Jinja2 environment
-        env = Environment(loader=FileSystemLoader(str(template_component_dir)))
+        # Setup Jinja2 environment (cached for performance)
+        env = self._get_jinja_env(template_component_dir)
 
         # Template context
         context = {
@@ -208,14 +263,26 @@ class InfrastructureGenerator:
             **self.config
         }
 
+        # Security: Sanitize template context to prevent SSTI
+        context = SecurityValidator.sanitize_template_context(context)
+
         # Render templates
         for template_file in template_component_dir.glob('*.j2'):
+            # Security: Validate template filename
+            SecurityValidator.validate_filename(template_file.name)
+
             output_file = component_dir / template_file.stem
+
+            # Security: Validate output path
+            output_file = SecurityValidator.validate_path(
+                output_file.resolve(),
+                base_dir=component_dir.resolve()
+            )
 
             template = env.get_template(template_file.name)
             rendered_content = template.render(**context)
 
-            output_file.write_text(rendered_content)
+            output_file.write_text(rendered_content, encoding='utf-8')
             print(f"  Generated: {output_file.name}")
 
     def _generate_gitlab_ci(self, output_dir: Path):
