@@ -6,8 +6,57 @@ const WORKFLOW_NAME = 'Generate Infrastructure Template (MVP)';
 let selectedComponents = ['vpc'];
 let selectedEnvironments = ['dev'];
 
+// Theme management
+const theme = {
+    init() {
+        // Load saved theme or detect system preference
+        const savedTheme = localStorage.getItem('theme');
+        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+        if (savedTheme === 'dark' || (!savedTheme && systemPrefersDark)) {
+            this.enable();
+        }
+
+        // Listen for system theme changes
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+            if (!localStorage.getItem('theme')) {
+                if (e.matches) {
+                    this.enable();
+                } else {
+                    this.disable();
+                }
+            }
+        });
+    },
+
+    toggle() {
+        if (document.body.classList.contains('dark-mode')) {
+            this.disable();
+        } else {
+            this.enable();
+        }
+    },
+
+    enable() {
+        document.body.classList.add('dark-mode');
+        localStorage.setItem('theme', 'dark');
+        updateDiagram();
+    },
+
+    disable() {
+        document.body.classList.remove('dark-mode');
+        localStorage.setItem('theme', 'light');
+        updateDiagram();
+    },
+
+    isDark() {
+        return document.body.classList.contains('dark-mode');
+    }
+};
+
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
+    theme.init();
     await auth.init();
     setupEventListeners();
     updateDiagram();
@@ -15,6 +64,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function setupEventListeners() {
+    // Theme toggle
+    document.getElementById('themeToggle').addEventListener('click', () => theme.toggle());
+
     // Component checkboxes
     document.querySelectorAll('.checkbox-group:not(.environments) input[type="checkbox"]').forEach(cb => {
         cb.addEventListener('change', handleComponentChange);
@@ -103,9 +155,43 @@ function updateDiagram() {
 
     const envCount = selectedEnvironments.length;
     const hasEKS = selectedComponents.includes('eks-auto');
+    const isDark = theme.isDark();
+
+    // Theme-aware colors
+    const colors = isDark ? {
+        envLight: '#374151',
+        envProd: '#1e3a5f',
+        vpc: '#1f2937',
+        public: '#1e3a5f',
+        private: '#78350f',
+        eks: '#4c1d95',
+        text: '#f9fafb',
+        border: {
+            env: '#3b82f6',
+            vpc: '#10b981',
+            public: '#0ea5e9',
+            private: '#f59e0b',
+            eks: '#8b5cf6'
+        }
+    } : {
+        envLight: '#f3f4f6',
+        envProd: '#dbeafe',
+        vpc: '#ffffff',
+        public: '#e0f2fe',
+        private: '#fef3c7',
+        eks: '#ddd6fe',
+        text: '#1f2937',
+        border: {
+            env: '#3b82f6',
+            vpc: '#10b981',
+            public: '#0ea5e9',
+            private: '#f59e0b',
+            eks: '#8b5cf6'
+        }
+    };
 
     // Title
-    addText(svg, width / 2, 30, `Architecture: ${selectedEnvironments.join(', ').toUpperCase()}`, 'bold', 'middle');
+    addText(svg, width / 2, 30, `Architecture: ${selectedEnvironments.join(', ').toUpperCase()}`, 'bold', 'middle', colors.text);
 
     // Draw environments
     const envWidth = (width - 80) / envCount;
@@ -114,35 +200,35 @@ function updateDiagram() {
         const y = 60;
 
         // Environment box
-        addRect(svg, x, y, envWidth - 20, height - 100, env === 'prod' ? '#dbeafe' : '#f3f4f6', '#3b82f6');
-        addText(svg, x + (envWidth - 20) / 2, y + 30, env.toUpperCase(), 'bold', 'middle');
+        addRect(svg, x, y, envWidth - 20, height - 100, env === 'prod' ? colors.envProd : colors.envLight, colors.border.env);
+        addText(svg, x + (envWidth - 20) / 2, y + 30, env.toUpperCase(), 'bold', 'middle', colors.text);
 
         // VPC
-        addRect(svg, x + 20, y + 60, envWidth - 60, hasEKS ? 220 : 120, '#ffffff', '#10b981');
-        addText(svg, x + envWidth / 2, y + 90, 'VPC', 'normal', 'middle');
+        addRect(svg, x + 20, y + 60, envWidth - 60, hasEKS ? 220 : 120, colors.vpc, colors.border.vpc);
+        addText(svg, x + envWidth / 2, y + 90, 'VPC', 'normal', 'middle', colors.text);
 
         // Subnets
         const subnetY = y + 110;
-        addRect(svg, x + 30, subnetY, (envWidth - 80) / 2 - 5, 50, '#e0f2fe', '#0ea5e9');
-        addText(svg, x + 30 + (envWidth - 80) / 4, subnetY + 25, 'Public', 'small', 'middle');
+        addRect(svg, x + 30, subnetY, (envWidth - 80) / 2 - 5, 50, colors.public, colors.border.public);
+        addText(svg, x + 30 + (envWidth - 80) / 4, subnetY + 25, 'Public', 'small', 'middle', colors.text);
 
-        addRect(svg, x + envWidth / 2 + 5, subnetY, (envWidth - 80) / 2 - 5, 50, '#fef3c7', '#f59e0b');
-        addText(svg, x + envWidth / 2 + 5 + (envWidth - 80) / 4, subnetY + 25, 'Private', 'small', 'middle');
+        addRect(svg, x + envWidth / 2 + 5, subnetY, (envWidth - 80) / 2 - 5, 50, colors.private, colors.border.private);
+        addText(svg, x + envWidth / 2 + 5 + (envWidth - 80) / 4, subnetY + 25, 'Private', 'small', 'middle', colors.text);
 
         // EKS if selected
         if (hasEKS) {
             const eksY = subnetY + 70;
-            addRect(svg, x + 30, eksY, envWidth - 60, 80, '#ddd6fe', '#8b5cf6');
-            addText(svg, x + envWidth / 2, eksY + 25, 'EKS Cluster', 'normal', 'middle');
-            addText(svg, x + envWidth / 2, eksY + 50, 'Auto Mode', 'small', 'middle');
+            addRect(svg, x + 30, eksY, envWidth - 60, 80, colors.eks, colors.border.eks);
+            addText(svg, x + envWidth / 2, eksY + 25, 'EKS Cluster', 'normal', 'middle', colors.text);
+            addText(svg, x + envWidth / 2, eksY + 50, 'Auto Mode', 'small', 'middle', colors.text);
         }
     });
 
     // Legend
     const legendY = height - 30;
-    addText(svg, 40, legendY, '● VPC', 'small', 'start', '#10b981');
+    addText(svg, 40, legendY, '● VPC', 'small', 'start', colors.border.vpc);
     if (hasEKS) {
-        addText(svg, 120, legendY, '● EKS', 'small', 'start', '#8b5cf6');
+        addText(svg, 120, legendY, '● EKS', 'small', 'start', colors.border.eks);
     }
 }
 
