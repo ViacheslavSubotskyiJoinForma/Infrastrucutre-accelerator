@@ -39,6 +39,24 @@ terraform.rc
 # Test generated infrastructure
 test-generated-infra/
 
+# Python cache and coverage
+__pycache__/
+*.py[cod]
+*$py.class
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+.pytest_cache/
+.hypothesis/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
 # Local configuration for development/testing
 .github/workflows/config.local.yml
 infra/config/*.tfvars

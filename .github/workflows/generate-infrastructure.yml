@@ -58,6 +58,21 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
+          pip install pytest pytest-cov
+
+      - name: Run Python tests
+        run: |
+          echo "Running unit tests..."
+          python3 -m pytest tests/ -v --cov=scripts.generators --cov-report=term-missing --cov-report=xml
+          echo "✅ All tests passed!"
+
+      - name: Upload coverage to Codecov (optional)
+        uses: codecov/codecov-action@v4
+        continue-on-error: true
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
 
       - name: Generate infrastructure
         run: |

@@ -3,6 +3,8 @@
 > 🚀 Production-ready AWS infrastructure generator using Terraform
 
 [![GitHub Pages](https://img.shields.io/badge/demo-live-success)](https://viacheslavsubotskyijoinforma.github.io/Infrastrucutre-accelerator/)
+[![Tests](https://img.shields.io/badge/tests-39%20passed-success)](tests/)
+[![Coverage](https://img.shields.io/badge/coverage-60%25-yellow)](tests/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Generate complete, production-ready AWS infrastructure with a single command. Built with Terraform and automated via GitHub Actions.
@@ -170,13 +172,38 @@ python3 -m http.server 8000
 
 ## 🧪 Testing
 
-The generator is automatically tested via GitHub Actions:
+### Automated Testing
 
+**Python Unit Tests** - 39 tests with 60% code coverage:
+```bash
+# Run all tests
+pytest tests/ -v
+
+# Run with coverage report
+pytest tests/ --cov=scripts.generators --cov-report=html
+```
+
+Test coverage:
+- ✅ **InputValidator** - 20 tests (100% coverage)
+  - Project name validation
+  - AWS Account ID validation
+  - Region validation
+  - Environment validation
+- ✅ **InfrastructureGenerator** - 19 tests (60% coverage)
+  - Initialization and validation
+  - Component dependency resolution
+  - Error handling
+  - Integration tests
+
+**Infrastructure Validation** via GitHub Actions:
+- ✅ Python unit tests (Python 3.9-3.12)
 - ✅ Terraform initialization
 - ✅ Code formatting (terraform fmt)
 - ✅ Configuration validation
 - ✅ TFLint static analysis
 - ✅ GitLab CI pipeline validation
+
+See [tests/README.md](tests/README.md) for detailed testing documentation.
 
 ## 🔐 Security
 
