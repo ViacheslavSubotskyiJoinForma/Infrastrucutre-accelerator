@@ -2,78 +2,235 @@
 
 This guide will help you set up automatic deployments to Vercel using GitHub Actions.
 
+## 📋 Quick Checklist
+
+Перед початком переконайтеся що у вас є:
+
+- [ ] Акаунт на Vercel (реєстрація: https://vercel.com)
+- [ ] Проєкт вже задеплоєний на Vercel хоча б один раз вручну
+- [ ] Admin доступ до GitHub репозиторію
+- [ ] GitHub OAuth App створений (для OAuth функціональності)
+
+## 🚀 Швидкий старт
+
+**Потрібно отримати 6 значень:**
+
+### GitHub Secrets (3 шт):
+1. ✅ `VERCEL_TOKEN` → Vercel API токен
+2. ✅ `VERCEL_ORG_ID` → ID організації/користувача
+3. ✅ `VERCEL_PROJECT_ID` → ID проєкту
+
+### Vercel Environment Variables (2 шт):
+4. ✅ `GITHUB_CLIENT_ID` → `Ov23li70Q9xYHNx6bOVB` (вже є)
+5. ✅ `GITHUB_CLIENT_SECRET` → GitHub OAuth App secret
+
+---
+
 ## Prerequisites
 
 1. A Vercel account (sign up at [vercel.com](https://vercel.com))
 2. Your project already deployed to Vercel (at least once manually)
 3. Admin access to this GitHub repository
 
-## Step 1: Get Your Vercel Token
+## Step 1: Get Your Vercel Token (VERCEL_TOKEN)
 
-1. Go to [Vercel Account Settings](https://vercel.com/account/tokens)
-2. Click **"Create Token"**
-3. Give it a name (e.g., "GitHub Actions - Infrastructure Accelerator")
-4. Set scope to **Full Account**
-5. Click **"Create"** and copy the token (starts with `vercel_...`)
+**Пряме посилання:** https://vercel.com/account/tokens
 
-⚠️ **Important:** Save this token securely - you won't be able to see it again!
+### Детальна інструкція:
+
+1. **Увійдіть у Vercel** → https://vercel.com/login
+2. **Відкрийте налаштування токенів** → https://vercel.com/account/tokens
+3. Натисніть кнопку **"Create Token"** (синя кнопка справа)
+4. У вікні що відкрилося:
+   - **Token Name:** `GitHub Actions - Infrastructure Accelerator` (або будь-яка назва)
+   - **Scope:** Оберіть **"Full Account"** (доступ до всіх проєктів)
+   - **Expiration:** Рекомендую `No Expiration` (без терміну дії)
+5. Натисніть **"Create Token"**
+6. **СКОПІЮЙТЕ токен негайно!** Він виглядає так: `vercel_xxxxxxxxxxxxx`
+
+⚠️ **ВАЖЛИВО:**
+- Токен показується тільки один раз!
+- Зберігайте його в безпечному місці
+- Якщо втратили - створіть новий токен
 
 ## Step 2: Get Your Vercel Project ID and Org ID
 
-### Option A: From Vercel Dashboard
+### Варіант A: Через Vercel Dashboard (рекомендовано)
 
-1. Go to your project on [Vercel Dashboard](https://vercel.com/dashboard)
-2. Click on **Settings** → **General**
-3. Scroll down to **Project ID** - copy this value
-4. Your **Org ID** (Team ID) is in the URL: `vercel.com/[ORG_ID]/[project-name]`
+**Пряме посилання:** https://vercel.com/dashboard
 
-### Option B: From Local Vercel CLI
+#### 1. Знайдіть Project ID (VERCEL_PROJECT_ID):
+
+1. **Відкрийте дашборд** → https://vercel.com/dashboard
+2. **Знайдіть ваш проєкт** в списку (наприклад, `infrastructure-accelerator-backend`)
+3. **Клікніть на проєкт** → відкриється сторінка проєкту
+4. **Натисніть Settings** (шестерня зліва в меню)
+5. **Оберіть General** (перша вкладка)
+6. **Прокрутіть вниз** до розділу **"Project ID"**
+7. **Скопіюйте ID** - він виглядає так: `prj_xxxxxxxxxxxxx`
+
+```
+Example URL structure:
+https://vercel.com/[YOUR-USERNAME]/[PROJECT-NAME]/settings
+                    └──────┬──────┘
+                       Це ваш Org ID!
+```
+
+#### 2. Знайдіть Org ID (VERCEL_ORG_ID):
+
+**Спосіб 1 - З URL (найпростіше):**
+- Подивіться на URL вашого проєкту: `https://vercel.com/YOUR-ORG-ID/project-name`
+- **Org ID** - це частина після `vercel.com/` і перед назвою проєкту
+- Для особистого акаунту: починається з вашого username
+- Для команди: починається з назви команди
+
+**Спосіб 2 - З Settings:**
+1. Перейдіть на головний дашборд: https://vercel.com/dashboard
+2. Натисніть на аватар користувача (правий верхній кут)
+3. Оберіть **"Account Settings"** або **"Team Settings"**
+4. В URL побачите: `https://vercel.com/account` або `https://vercel.com/teams/[TEAM_ID]`
+
+**Приклади:**
+- Особистий акаунт: `team_abc123def456` або просто username
+- Team акаунт: `team_xyz789abc123`
+
+### Варіант B: Через Vercel CLI (якщо вже встановлено)
 
 ```bash
+# Перейдіть в директорію бекенду
 cd vercel-backend
-vercel link  # Link to your existing project
+
+# Залінкуйте проєкт (якщо ще не зроблено)
+vercel link
+
+# Подивіться ID з конфіг файлу
 cat .vercel/project.json
 ```
 
-You'll see:
+Ви побачите:
 ```json
 {
-  "projectId": "prj_...",
-  "orgId": "team_..."
+  "projectId": "prj_abc123...",     ← VERCEL_PROJECT_ID
+  "orgId": "team_xyz789..."         ← VERCEL_ORG_ID
 }
 ```
 
-## Step 3: Add Secrets to GitHub
+### 📋 Що у вас має вийти:
 
-1. Go to your GitHub repository
-2. Navigate to **Settings** → **Secrets and variables** → **Actions**
-3. Click **"New repository secret"** and add the following:
+✅ `VERCEL_TOKEN` → `vercel_xxxxxxxxxxxxx` (довгий токен)
+✅ `VERCEL_ORG_ID` → `team_xxxxx` або ваш username
+✅ `VERCEL_PROJECT_ID` → `prj_xxxxxxxxxxxxx`
 
-### Required Secrets:
+## Step 3: Додайте Secrets в GitHub
 
-| Secret Name | Description | Example Value |
-|------------|-------------|---------------|
-| `VERCEL_TOKEN` | Your Vercel authentication token | `vercel_xxx...` |
-| `VERCEL_ORG_ID` | Your Vercel organization/team ID | `team_xxx...` or `user_xxx...` |
-| `VERCEL_PROJECT_ID` | Your Vercel project ID | `prj_xxx...` |
+**Пряме посилання до вашого репо:**
+```
+https://github.com/ViacheslavSubotskyiJoinForma/Infrastrucutre-accelerator/settings/secrets/actions
+```
 
-### Optional Secrets (for OAuth functionality):
+### Детальна інструкція:
 
-| Secret Name | Description | Example Value |
-|------------|-------------|---------------|
-| `GITHUB_CLIENT_SECRET` | GitHub OAuth App Client Secret | From GitHub OAuth App settings |
+1. **Відкрийте ваш репозиторій** на GitHub
+2. **Натисніть Settings** (вкладка зверху)
+3. **В лівому меню** знайдіть **"Secrets and variables"** → **"Actions"**
+4. **Натисніть "New repository secret"** (зелена кнопка)
+5. **Додайте кожен secret окремо:**
 
-## Step 4: Configure Vercel Environment Variables
+### ✅ Обов'язкові Secrets:
 
-Add environment variables in Vercel Dashboard:
+#### 1. VERCEL_TOKEN
+- **Name:** `VERCEL_TOKEN`
+- **Secret:** Вставте токен зі Step 1 (`vercel_xxxxxxxxxxxxx`)
+- Натисніть **"Add secret"**
 
-1. Go to **Project Settings** → **Environment Variables**
-2. Add the following:
+#### 2. VERCEL_ORG_ID
+- **Name:** `VERCEL_ORG_ID`
+- **Secret:** Вставте Org ID зі Step 2 (`team_xxxxx` або username)
+- Натисніть **"Add secret"**
 
-| Variable | Value | Environment |
-|----------|-------|-------------|
-| `GITHUB_CLIENT_ID` | `Ov23li70Q9xYHNx6bOVB` | Production, Preview, Development |
-| `GITHUB_CLIENT_SECRET` | Your GitHub OAuth secret | Production, Preview, Development |
+#### 3. VERCEL_PROJECT_ID
+- **Name:** `VERCEL_PROJECT_ID`
+- **Secret:** Вставте Project ID зі Step 2 (`prj_xxxxxxxxxxxxx`)
+- Натисніть **"Add secret"**
+
+### 📋 Перевірка:
+Після додавання у вас має бути мінімум 3 secrets:
+```
+✅ VERCEL_TOKEN          ******************
+✅ VERCEL_ORG_ID         ******************
+✅ VERCEL_PROJECT_ID     ******************
+```
+
+## Step 4: Налаштуйте Environment Variables в Vercel
+
+Ці змінні потрібні для роботи OAuth авторизації через GitHub.
+
+### Де знайти GitHub OAuth App?
+
+**Пряме посилання:** https://github.com/settings/developers
+
+1. **Відкрийте GitHub Settings** → https://github.com/settings/profile
+2. **В лівому меню прокрутіть вниз** → **"Developer settings"** (останній пункт)
+3. **Оберіть "OAuth Apps"** в лівому меню
+4. Знайдіть ваш OAuth App (наприклад, `Infrastructure Accelerator`)
+
+### Отримати GITHUB_CLIENT_SECRET:
+
+⚠️ **Якщо ви вже створили OAuth App раніше, але не зберегли secret:**
+
+1. Відкрийте ваш OAuth App в списку
+2. Натисніть **"Generate a new client secret"**
+3. **СКОПІЮЙТЕ новий secret** - він показується тільки один раз!
+4. Виглядає так: `abc123def456ghi789...` (40 символів)
+
+### Додати змінні в Vercel:
+
+**Пряме посилання до settings проєкту:**
+```
+https://vercel.com/[YOUR-ORG-ID]/[PROJECT-NAME]/settings/environment-variables
+```
+
+**Детальна інструкція:**
+
+1. **Відкрийте Vercel Dashboard** → https://vercel.com/dashboard
+2. **Клікніть на ваш проєкт** (vercel-backend)
+3. **Натисніть Settings** (вкладка зверху)
+4. **В лівому меню оберіть "Environment Variables"**
+5. **Додайте 2 змінні:**
+
+#### 1. GITHUB_CLIENT_ID
+
+- **Key:** `GITHUB_CLIENT_ID`
+- **Value:** `Ov23li70Q9xYHNx6bOVB` (вже в коді)
+- **Environment:** Оберіть всі три: ✅ Production ✅ Preview ✅ Development
+- Натисніть **"Save"**
+
+#### 2. GITHUB_CLIENT_SECRET
+
+- **Key:** `GITHUB_CLIENT_SECRET`
+- **Value:** Вставте ваш GitHub OAuth App Client Secret
+- **Environment:** Оберіть всі три: ✅ Production ✅ Preview ✅ Development
+- Натисніть **"Save"**
+
+### 📋 Перевірка Vercel Environment Variables:
+
+Після додавання у вас має бути:
+```
+✅ GITHUB_CLIENT_ID        Ov23li70Q9xYHNx6bOVB
+✅ GITHUB_CLIENT_SECRET    ********************************
+```
+
+### 🔄 Redeploy після додавання змінних:
+
+⚠️ **ВАЖЛИВО:** Після додавання environment variables потрібно зробити redeploy!
+
+**Опція 1 - Через Vercel Dashboard:**
+1. Перейдіть на вкладку **"Deployments"**
+2. Знайдіть останній deploy
+3. Натисніть ⋮ (три крапки) → **"Redeploy"**
+
+**Опція 2 - Через GitHub Actions:**
+Просто запустіть workflow вручну або зробіть push змін
 
 ## Step 5: Test the Deployment
 
