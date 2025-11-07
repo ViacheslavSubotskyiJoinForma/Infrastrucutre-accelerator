@@ -8,9 +8,9 @@ data "terraform_remote_state" "vpc" {
     key    = "${var.env}/vpc/terraform.tfstate"
     region = var.region
   }
-  {%- else -%}
+  {% else -%}
   config = {
     path = "../vpc/terraform.tfstate"
   }
-  {%- endif %}
+  {% endif %}
 }
