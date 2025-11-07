@@ -1,0 +1,30 @@
+terraform {
+  required_version = ">= 1.5.7"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.0"
+    }
+  }
+}
+
+provider "aws" {
+  region  = var.region
+  profile = var.aws_profile
+
+  default_tags {
+    tags = {
+      Project     = var.project_name
+      Environment = var.env
+      ManagedBy   = "Terraform"
+      Component   = "vpc"
+      Repository  = var.repository
+    }
+  }
+
+  # For local testing, AWS_PROFILE environment variable can override this
+  # For production with role assumption, uncomment:
+  # assume_role {
+  #   role_arn = "arn:aws:iam::${var.account}:role/OrganizationAccountAccessRole"
+  # }
+}

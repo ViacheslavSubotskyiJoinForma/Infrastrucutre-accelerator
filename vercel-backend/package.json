@@ -1,0 +1,13 @@
+{
+  "name": "infrastructure-accelerator-backend",
+  "version": "1.0.0",
+  "description": "OAuth backend for Infrastructure Accelerator",
+  "main": "api/auth/callback.js",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "keywords": ["oauth", "github", "serverless"],
+  "author": "",
+  "license": "MIT"
+}

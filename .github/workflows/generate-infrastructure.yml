@@ -1,0 +1,316 @@
+name: Generate Infrastructure Template (MVP)
+
+run-name: Generate "${{ inputs.project_name }}" infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      project_name:
+        description: 'Project name (used for naming resources)'
+        required: true
+        type: string
+
+      components:
+        description: 'Components (comma-separated: vpc,eks-auto)'
+        required: true
+        type: string
+        default: 'vpc,eks-auto'
+
+      environments:
+        description: 'Environments (comma-separated: dev,uat,prod)'
+        required: true
+        type: string
+        default: 'dev,uat,prod'
+
+      region:
+        description: 'AWS Region'
+        required: true
+        type: string
+        default: 'us-east-1'
+
+      aws_account_id:
+        description: 'AWS Account ID'
+        required: true
+        type: string
+        default: '123456789012'
+
+      repository:
+        description: 'Repository name for resource tagging (e.g., infrastructure-accelerator)'
+        required: false
+        type: string
+        default: 'infrastructure-accelerator'
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install jinja2
+
+      - name: Generate infrastructure
+        run: |
+          python3 scripts/generators/generate_infrastructure.py \
+            --project-name "${{ inputs.project_name }}" \
+            --components "${{ inputs.components }}" \
+            --environments "${{ inputs.environments }}" \
+            --region "${{ inputs.region }}" \
+            --aws-account-id "${{ inputs.aws_account_id }}" \
+            --repository "${{ inputs.repository }}" \
+            --output-dir generated-infra
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+
+      - name: Validate Terraform - Init
+        run: |
+          echo "Validating generated Terraform code..."
+
+          for dir in generated-infra/infra/*/ ; do
+            if [ -d "$dir" ]; then
+              component=$(basename "$dir")
+              echo "Initializing $component..."
+
+              cd "$dir"
+
+              # Initialize without backend (for validation only)
+              terraform init -backend=false || {
+                echo "❌ Failed to initialize $component"
+                exit 1
+              }
+
+              cd - > /dev/null
+            fi
+          done
+
+      - name: Validate Terraform - Format Check
+        run: |
+          echo "Checking Terraform formatting..."
+
+          for dir in generated-infra/infra/*/ ; do
+            if [ -d "$dir" ]; then
+              component=$(basename "$dir")
+              echo "Checking format for $component..."
+
+              cd "$dir"
+
+              terraform fmt -check -recursive || {
+                echo "⚠️  Warning: $component has formatting issues"
+                echo "Running terraform fmt to fix..."
+                terraform fmt -recursive
+              }
+
+              cd - > /dev/null
+            fi
+          done
+
+      - name: Validate Terraform - Validate
+        run: |
+          echo "Validating Terraform configuration..."
+
+          for dir in generated-infra/infra/*/ ; do
+            if [ -d "$dir" ]; then
+              component=$(basename "$dir")
+              echo "Validating $component..."
+
+              cd "$dir"
+
+              terraform validate || {
+                echo "❌ Failed to validate $component"
+                exit 1
+              }
+
+              cd - > /dev/null
+            fi
+          done
+
+      - name: Install tflint
+        run: |
+          curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
+
+      - name: Run tflint
+        continue-on-error: true
+        run: |
+          echo "Running tflint..."
+
+          for dir in generated-infra/infra/*/ ; do
+            if [ -d "$dir" ]; then
+              component=$(basename "$dir")
+              echo "Linting $component..."
+
+              cd "$dir"
+              tflint --init
+              tflint || echo "⚠️  tflint found issues in $component"
+              cd - > /dev/null
+            fi
+          done
+
+      - name: Install gitlab-ci-local
+        run: |
+          npm install -g gitlab-ci-local
+
+      - name: Validate GitLab CI configuration
+        run: |
+          cd generated-infra
+
+          # Clean up .terraform directories and lock files to avoid git warnings about embedded repos
+          echo "Cleaning up .terraform directories and lock files..."
+          find . -type d -name ".terraform" -exec rm -rf {} + 2>/dev/null || true
+          find . -type f -name ".terraform.lock.hcl" -delete 2>/dev/null || true
+          echo "✅ Cleanup complete"
+          echo ""
+
+          # Initialize git repo for gitlab-ci-local to work properly
+          git init
+          git config user.email "ci@example.com"
+          git config user.name "CI"
+          git add .
+          git commit -m "Initial commit"
+
+          echo "Validating GitLab CI configuration..."
+          echo ""
+          gitlab-ci-local --list-all
+
+          echo ""
+          echo "Validating job dependency chain..."
+          gitlab-ci-local --validate-dependency-chain
+
+          echo ""
+          echo "✅ GitLab CI configuration is valid"
+
+      - name: Generate validation report
+        run: |
+          cat > generated-infra/VALIDATION_REPORT.md << EOF
+          # Terraform Validation Report
+
+          ## Project Information
+          - **Project Name**: ${{ inputs.project_name }}
+          - **Components**: ${{ inputs.components }}
+          - **Environments**: ${{ inputs.environments }}
+          - **Region**: ${{ inputs.region }}
+          - **AWS Account**: ${{ inputs.aws_account_id }}
+          - **Generated**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+
+          ## Validation Checks
+
+          ✅ Terraform initialization successful
+          ✅ Terraform formatting checked
+          ✅ Terraform validation passed
+          ✅ tflint analysis completed
+          ✅ GitLab CI configuration validated
+
+          ## Next Steps
+
+          1. Download and extract the artifact
+          2. Review the generated infrastructure code
+          3. Create tfvars files with your values (one per environment)
+          4. Initialize Terraform: \`cd infra/<component> && terraform init\`
+          5. Plan changes: \`terraform plan -var-file=../config/<env>.tfvars\`
+          6. Apply infrastructure: \`terraform apply -var-file=../config/<env>.tfvars\`
+
+          ## Important Notes
+
+          - This is an MVP version with **local state backend**
+          - Configure your AWS credentials before running Terraform
+          - Review all configuration files before applying
+          - State files will be stored locally in each component directory
+          EOF
+
+      - name: Verify generated files
+        run: |
+          echo "=== Verifying generated files ==="
+          echo ""
+          echo "Directory structure:"
+          ls -la generated-infra/
+          echo ""
+
+          if [ -f "generated-infra/.gitlab-ci.yml" ]; then
+            echo "✅ .gitlab-ci.yml exists"
+            echo "File size: $(stat -f%z generated-infra/.gitlab-ci.yml 2>/dev/null || stat -c%s generated-infra/.gitlab-ci.yml) bytes"
+          else
+            echo "❌ ERROR: .gitlab-ci.yml NOT FOUND"
+            exit 1
+          fi
+
+          if [ -f "generated-infra/README.md" ]; then
+            echo "✅ README.md exists"
+          else
+            echo "❌ ERROR: README.md NOT FOUND"
+            exit 1
+          fi
+
+          if [ -d "generated-infra/infra" ]; then
+            echo "✅ infra/ directory exists"
+            echo "Components: $(ls -d generated-infra/infra/*/ | xargs -n1 basename | tr '\n' ', ' | sed 's/,$//')"
+          else
+            echo "❌ ERROR: infra/ directory NOT FOUND"
+            exit 1
+          fi
+
+      - name: Create archive
+        run: |
+          cd generated-infra
+
+          # Create ZIP archive excluding temporary files
+          zip -r ../infrastructure-${{ inputs.project_name }}-$(date +%Y%m%d-%H%M%S).zip . \
+            -x '.terraform/*' \
+            -x '.terraform.lock.hcl' \
+            -x '*.tfstate' \
+            -x '*.tfstate.backup' \
+            -x '*.tfplan' \
+            -x '.git/*'
+
+          cd ..
+
+          echo "✅ Archive created successfully"
+          ls -lh infrastructure-*.zip
+
+          # Verify archive contents
+          echo ""
+          echo "Archive contents (first 20 files):"
+          unzip -l infrastructure-*.zip | head -30
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: infrastructure-${{ inputs.project_name }}
+          path: infrastructure-*.zip
+          retention-days: 30
+
+      - name: Summary
+        run: |
+          echo "## 🎉 Infrastructure Generation Complete! (MVP)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "- **Project**: ${{ inputs.project_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Components**: ${{ inputs.components }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environments**: ${{ inputs.environments }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Region**: ${{ inputs.region }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **AWS Account**: ${{ inputs.aws_account_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### ✅ Validation Results" >> $GITHUB_STEP_SUMMARY
+          echo "- Terraform initialization: ✅ Passed" >> $GITHUB_STEP_SUMMARY
+          echo "- Terraform formatting: ✅ Passed" >> $GITHUB_STEP_SUMMARY
+          echo "- Terraform validation: ✅ Passed" >> $GITHUB_STEP_SUMMARY
+          echo "- tflint analysis: ✅ Completed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Artifact" >> $GITHUB_STEP_SUMMARY
+          echo "Download the generated infrastructure archive from the Actions artifacts." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📚 Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "1. Download and extract the artifact" >> $GITHUB_STEP_SUMMARY
+          echo "2. Review the generated code" >> $GITHUB_STEP_SUMMARY
+          echo "3. Create config/<env>.tfvars files" >> $GITHUB_STEP_SUMMARY
+          echo "4. Deploy using Terraform (local state)" >> $GITHUB_STEP_SUMMARY

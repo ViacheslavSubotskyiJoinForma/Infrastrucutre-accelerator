@@ -1,0 +1,25 @@
+module "eks" {
+  source  = "terraform-aws-modules/eks/aws"
+  version = "~> 21.0"
+
+  name               = local.cluster_name
+  kubernetes_version = var.cluster_version
+
+  # Public endpoint for easier access in MVP
+  # Change to false in production for better security
+  endpoint_public_access = var.endpoint_public_access
+
+  # Automatically grants admin permissions to the IAM entity creating the cluster
+  enable_cluster_creator_admin_permissions = true
+
+  # EKS Auto Mode - AWS automatically manages nodes
+  compute_config = {
+    enabled    = true
+    node_pools = ["general-purpose"]
+  }
+
+  vpc_id     = data.terraform_remote_state.vpc.outputs.vpc_id
+  subnet_ids = data.terraform_remote_state.vpc.outputs.private_subnets
+
+  tags = local.tags
+}

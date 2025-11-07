@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infrastructure Accelerator - AWS Terraform Generator</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="apple-touch-icon" sizes="180x180" href="favicon.svg">
+    <link rel="stylesheet" href="css/style.css?v=7">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 Infrastructure Accelerator</h1>
+            <p class="subtitle">Generate production-ready AWS infrastructure with Terraform</p>
+            <div class="auth-section">
+                <button id="loginBtn" class="btn-secondary">
+                    <svg width="16" height="16" fill="currentColor" style="vertical-align: middle; margin-right: 0.5rem;">
+                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                    </svg>
+                    Sign in with GitHub
+                </button>
+                <div id="userInfo" style="display: none;">
+                    <span id="userName"></span>
+                    <button id="logoutBtn" class="btn-secondary" style="margin-left: 1rem;">Sign out</button>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <div class="config-panel">
+                <h2>Configure Your Infrastructure</h2>
+
+                <div class="form-group">
+                    <label for="projectName">Project Name</label>
+                    <input type="text" id="projectName" placeholder="my-project" required>
+                    <small>Used for naming AWS resources</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Components</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox">
+                            <input type="checkbox" value="vpc" checked disabled>
+                            <span>VPC (Required)</span>
+                            <small>Virtual Private Cloud with public/private subnets</small>
+                        </label>
+                        <label class="checkbox">
+                            <input type="checkbox" value="eks-auto" id="eks-auto">
+                            <span>EKS Auto Mode</span>
+                            <small>Managed Kubernetes cluster with automatic node provisioning</small>
+                        </label>
+                        <label class="checkbox disabled">
+                            <input type="checkbox" value="rds" disabled>
+                            <span>RDS (Coming Soon)</span>
+                            <small>Managed PostgreSQL database</small>
+                        </label>
+                        <label class="checkbox disabled">
+                            <input type="checkbox" value="services" disabled>
+                            <span>Services (Coming Soon)</span>
+                            <small>API Gateway, Lambda, S3, CloudFront</small>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Environments</label>
+                    <div class="checkbox-group environments">
+                        <label class="checkbox">
+                            <input type="checkbox" value="dev" checked>
+                            <span>Development</span>
+                        </label>
+                        <label class="checkbox">
+                            <input type="checkbox" value="staging">
+                            <span>Staging</span>
+                        </label>
+                        <label class="checkbox">
+                            <input type="checkbox" value="prod">
+                            <span>Production</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="region">AWS Region</label>
+                    <select id="region">
+                        <option value="us-east-1" selected>US East (N. Virginia)</option>
+                        <option value="us-west-2">US West (Oregon)</option>
+                        <option value="eu-west-1">EU (Ireland)</option>
+                        <option value="eu-central-1">EU (Frankfurt)</option>
+                        <option value="ap-southeast-1">Asia Pacific (Singapore)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="awsAccountId">AWS Account ID</label>
+                    <input type="text" id="awsAccountId" placeholder="123456789012" pattern="[0-9]{12}" required>
+                    <small>Your 12-digit AWS account number</small>
+                </div>
+
+                <button id="generateBtn" class="btn-primary">
+                    🚀 Open GitHub Actions
+                </button>
+
+                <div class="helper-text">
+                    <small>💡 You'll be redirected to GitHub Actions to trigger the workflow with your configuration</small>
+                </div>
+            </div>
+
+            <div class="preview-panel">
+                <h2>Architecture Preview</h2>
+                <div id="architectureDiagram" class="diagram-container">
+                    <svg id="diagram" width="100%" height="400"></svg>
+                </div>
+
+                <div class="info-box">
+                    <h3>What will be generated?</h3>
+                    <ul id="componentList">
+                        <li>✅ VPC with multi-AZ subnets</li>
+                        <li>✅ NAT Gateway and Internet Gateway</li>
+                        <li>✅ Security Groups and Network ACLs</li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>Built with ❤️ for DevOps teams | <a href="https://github.com/ViacheslavSubotskyiJoinForma/Infrastrucutre-accelerator">View on GitHub</a></p>
+        </footer>
+    </div>
+
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <h3>⚡ Triggering Workflow</h3>
+            <p id="modalMessage">Please wait...</p>
+            <button id="closeModal" class="btn-secondary">Close</button>
+        </div>
+    </div>
+
+    <script src="js/auth.js?v=7"></script>
+    <script src="js/app.js?v=7"></script>
+</body>
+</html>

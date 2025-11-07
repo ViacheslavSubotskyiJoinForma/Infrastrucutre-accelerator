@@ -1,0 +1,27 @@
+locals {
+  private_subnets = [
+    "${var.cidr[var.env]}.1.0/24",
+    "${var.cidr[var.env]}.2.0/24",
+    "${var.cidr[var.env]}.3.0/24"
+  ]
+
+  database_subnets = [
+    "${var.cidr[var.env]}.61.0/24",
+    "${var.cidr[var.env]}.62.0/24",
+    "${var.cidr[var.env]}.63.0/24"
+  ]
+
+  public_subnets = [
+    "${var.cidr[var.env]}.21.0/24",
+    "${var.cidr[var.env]}.22.0/24",
+    "${var.cidr[var.env]}.23.0/24"
+  ]
+
+  cluster_name = "{{ project_name }}_${upper(var.env)}"
+
+  tags = {
+    env                      = var.env
+    project                  = "{{ project_name }}"
+    "karpenter.sh/discovery" = local.cluster_name
+  }
+}
