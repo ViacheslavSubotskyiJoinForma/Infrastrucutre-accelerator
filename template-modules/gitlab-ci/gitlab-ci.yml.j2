@@ -1,0 +1,65 @@
+# GitLab CI/CD Configuration (MVP with local state)
+# Note: This configuration uses local state backend for simplicity
+# For production use, consider using S3 backend with state locking
+
+stages:
+  - Validate
+  - Plan
+  - Apply
+
+image:
+  name: hashicorp/terraform:1.5.4
+  entrypoint: [""]
+
+variables:
+  TF_CLI_ARGS: "-no-color"
+
+{%- for component in components %}
+.terraform_base_{{ component }}:
+  before_script:
+    - cd infra/{{ component }}
+    - terraform init
+
+Validate_{{ component }}:
+  stage: Validate
+  extends: .terraform_base_{{ component }}
+  script:
+    - terraform fmt -check
+    - terraform validate
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - infra/{{ component }}/**/*
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+{%- for env in environments %}
+Plan_{{ component }}_{{ env }}:
+  stage: Plan
+  extends: .terraform_base_{{ component }}
+  script:
+    - terraform plan -var-file=../config/{{ env }}.tfvars -out=tfplan-{{ env }}
+  artifacts:
+    paths:
+      - infra/{{ component }}/tfplan-{{ env }}
+    expire_in: 2 hrs
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - infra/{{ component }}/**/*
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+
+Apply_{{ component }}_{{ env }}:
+  stage: Apply
+  extends: .terraform_base_{{ component }}
+  when: manual
+  script:
+    - terraform apply -auto-approve tfplan-{{ env }}
+  needs:
+    - Plan_{{ component }}_{{ env }}
+  dependencies:
+    - Plan_{{ component }}_{{ env }}
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+{%- endfor %}
+{%- endfor %}

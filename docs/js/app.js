@@ -1,13 +1,44 @@
-// Configuration
+/**
+ * @file Infrastructure Generator Web UI
+ * @description Interactive interface for generating Terraform infrastructure templates
+ */
+
+/**
+ * GitHub repository identifier
+ * @constant {string}
+ */
 const GITHUB_REPO = 'ViacheslavSubotskyiJoinForma/Infrastrucutre-accelerator';
+
+/**
+ * GitHub Actions workflow name
+ * @constant {string}
+ */
 const WORKFLOW_NAME = 'Generate Infrastructure Template (MVP)';
 
-// State
+/**
+ * Currently selected infrastructure components
+ * @type {string[]}
+ */
 let selectedComponents = ['vpc'];
+
+/**
+ * Currently selected deployment environments
+ * @type {string[]}
+ */
 let selectedEnvironments = ['dev'];
 
-// Theme management
+/**
+ * Theme management module
+ * Handles dark mode toggle with localStorage persistence
+ * @namespace theme
+ */
 const theme = {
+    /**
+     * Initialize theme system
+     * - Loads saved theme or detects system preference
+     * - Listens for system theme changes
+     * @returns {void}
+     */
     init() {
         // Load saved theme or detect system preference
         const savedTheme = localStorage.getItem('theme');
@@ -29,6 +60,10 @@ const theme = {
         });
     },
 
+    /**
+     * Toggle between light and dark mode
+     * @returns {void}
+     */
     toggle() {
         if (document.body.classList.contains('dark-mode')) {
             this.disable();
@@ -37,18 +72,30 @@ const theme = {
         }
     },
 
+    /**
+     * Enable dark mode
+     * @returns {void}
+     */
     enable() {
         document.body.classList.add('dark-mode');
         localStorage.setItem('theme', 'dark');
         updateDiagram();
     },
 
+    /**
+     * Disable dark mode (enable light mode)
+     * @returns {void}
+     */
     disable() {
         document.body.classList.remove('dark-mode');
         localStorage.setItem('theme', 'light');
         updateDiagram();
     },
 
+    /**
+     * Check if dark mode is currently enabled
+     * @returns {boolean} true if dark mode is active
+     */
     isDark() {
         return document.body.classList.contains('dark-mode');
     }
@@ -63,6 +110,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateComponentList();
 });
 
+/**
+ * Setup all event listeners for the UI
+ * Attaches handlers for theme toggle, component/environment selection,
+ * generation button, modal, and auth buttons
+ * @returns {void}
+ */
 function setupEventListeners() {
     // Theme toggle
     document.getElementById('themeToggle').addEventListener('click', () => theme.toggle());
@@ -88,6 +141,14 @@ function setupEventListeners() {
     document.getElementById('logoutBtn').addEventListener('click', () => auth.logout());
 }
 
+/**
+ * Handle component checkbox changes
+ * - Adds/removes components from selection
+ * - Enforces VPC as required dependency
+ * - Updates diagram and component list
+ * @param {Event} e - Checkbox change event
+ * @returns {void}
+ */
 function handleComponentChange(e) {
     const value = e.target.value;
     if (e.target.checked) {
@@ -108,6 +169,14 @@ function handleComponentChange(e) {
     updateComponentList();
 }
 
+/**
+ * Handle environment checkbox changes
+ * - Adds/removes environments from selection
+ * - Ensures at least one environment is always selected (defaults to dev)
+ * - Updates diagram and component list
+ * @param {Event} e - Checkbox change event
+ * @returns {void}
+ */
 function handleEnvironmentChange(e) {
     const value = e.target.value;
     if (e.target.checked) {
@@ -127,6 +196,12 @@ function handleEnvironmentChange(e) {
     updateDiagram();
 }
 
+/**
+ * Update component list display based on selected components
+ * Displays a checklist of infrastructure components that will be generated
+ * Dynamically shows EKS-specific components if eks-auto is selected
+ * @returns {void}
+ */
 function updateComponentList() {
     const list = document.getElementById('componentList');
     const items = [];
@@ -144,6 +219,13 @@ function updateComponentList() {
     list.innerHTML = items.map(item => `<li>${item}</li>`).join('');
 }
 
+/**
+ * Update the architecture diagram SVG based on selected components and environments
+ * Renders a visual representation of the infrastructure with theme-aware colors
+ * Displays environments, VPCs, subnets, and EKS clusters if selected
+ * Side effect: Updates the diagram SVG element with new content
+ * @returns {void}
+ */
 function updateDiagram() {
     const svg = document.getElementById('diagram');
     const width = svg.clientWidth || 600;
@@ -232,6 +314,18 @@ function updateDiagram() {
     }
 }
 
+/**
+ * Add a rectangle element to an SVG diagram
+ * Creates a rect element with rounded corners and appends it to the SVG
+ * @param {SVGElement} svg - Target SVG element
+ * @param {number} x - X coordinate of rectangle top-left corner
+ * @param {number} y - Y coordinate of rectangle top-left corner
+ * @param {number} width - Width of the rectangle
+ * @param {number} height - Height of the rectangle
+ * @param {string} fill - Fill color (hex or CSS color)
+ * @param {string} stroke - Stroke color (hex or CSS color)
+ * @returns {void}
+ */
 function addRect(svg, x, y, width, height, fill, stroke) {
     const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     rect.setAttribute('x', x);
@@ -245,6 +339,18 @@ function addRect(svg, x, y, width, height, fill, stroke) {
     svg.appendChild(rect);
 }
 
+/**
+ * Add a text element to an SVG diagram
+ * Creates a text element with specified styling and appends it to the SVG
+ * @param {SVGElement} svg - Target SVG element
+ * @param {number} x - X coordinate of text position
+ * @param {number} y - Y coordinate of text position
+ * @param {string} text - Text content to display
+ * @param {string} weight - Font weight: 'bold', 'normal', or 'small' (for sizing)
+ * @param {string} anchor - Text anchor alignment: 'start', 'middle', or 'end'
+ * @param {string} [fill='#1f2937'] - Text color (hex or CSS color)
+ * @returns {void}
+ */
 function addText(svg, x, y, text, weight, anchor, fill = '#1f2937') {
     const textEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     textEl.setAttribute('x', x);
@@ -257,6 +363,14 @@ function addText(svg, x, y, text, weight, anchor, fill = '#1f2937') {
     svg.appendChild(textEl);
 }
 
+/**
+ * Handle infrastructure generation workflow trigger
+ * Validates input, triggers GitHub Actions workflow if authenticated,
+ * or shows manual instructions if not authenticated
+ * Side effects: May show modals, redirect to GitHub, or trigger workflow
+ * @returns {Promise<void>}
+ * @throws {Error} If workflow trigger fails (caught and displayed in modal)
+ */
 async function handleGenerate() {
     const projectName = Security.sanitizeInput(
         document.getElementById('projectName').value.trim()
@@ -404,6 +518,15 @@ aws_account_id: ${awsAccountId}`;
     }
 }
 
+/**
+ * Display a modal with sanitized content and optional buttons
+ * Uses Security.createSafeElement to prevent XSS attacks
+ * Displays modal with title, message, and action buttons
+ * @param {string} title - Modal title (will be HTML-escaped)
+ * @param {string} message - Modal message (will be HTML-escaped)
+ * @param {Array<{text: string, href: string, className?: string}>} [buttons=[]] - Action buttons
+ * @returns {void}
+ */
 function showModalSafe(title, message, buttons = []) {
     const modal = document.getElementById('modalMessage');
     modal.innerHTML = '';
@@ -428,6 +551,15 @@ function showModalSafe(title, message, buttons = []) {
     document.getElementById('modal').classList.add('show');
 }
 
+/**
+ * Display a modal with unsanitized HTML content (legacy function)
+ * WARNING: Does not sanitize content - use showModalSafe for user input
+ * Optionally shows close button with auto-enable after 2 seconds
+ * @param {string} message - HTML content to display (not escaped)
+ * @param {boolean} [allowClose=false] - Whether to allow closing the modal
+ * @returns {void}
+ * @deprecated Use showModalSafe instead for security
+ */
 function showModal(message, allowClose = false) {
     const modal = document.getElementById('modal');
     const modalMessage = document.getElementById('modalMessage');
@@ -444,6 +576,11 @@ function showModal(message, allowClose = false) {
     }
 }
 
+/**
+ * Close the modal dialog
+ * Removes the 'show' class to hide the modal
+ * @returns {void}
+ */
 function closeModal() {
     document.getElementById('modal').classList.remove('show');
 }

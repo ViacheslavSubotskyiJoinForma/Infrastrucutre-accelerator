@@ -5,11 +5,23 @@ const GITHUB_SCOPE = 'repo,workflow';
 const VERCEL_BACKEND_URL = 'https://vercel-backend-three-gilt.vercel.app';
 
 class GitHubAuth {
+    /**
+     * Initialize GitHub authentication
+     * Loads token and user info from localStorage if available
+     * @constructor
+     */
     constructor() {
         this.token = localStorage.getItem('github_token');
         this.user = null;
     }
 
+    /**
+     * Initialize authentication system
+     * Handles OAuth callback if present, verifies stored token, and updates UI
+     * Side effects: May update localStorage, modify window history, and update DOM
+     * @async
+     * @returns {Promise<void>}
+     */
     async init() {
         // Check for OAuth callback
         const params = new URLSearchParams(window.location.search);
@@ -29,6 +41,12 @@ class GitHubAuth {
         this.updateUI();
     }
 
+    /**
+     * Initiate GitHub OAuth login flow
+     * Redirects to GitHub authorization endpoint
+     * Side effect: Redirects browser to GitHub login page
+     * @returns {void}
+     */
     login() {
         const authUrl = `https://github.com/login/oauth/authorize?` +
             `client_id=${GITHUB_CLIENT_ID}&` +
@@ -38,6 +56,12 @@ class GitHubAuth {
         window.location.href = authUrl;
     }
 
+    /**
+     * Clear authentication state
+     * Removes token and user from localStorage and component state
+     * Updates UI to reflect logged-out state
+     * @returns {void}
+     */
     logout() {
         localStorage.removeItem('github_token');
         localStorage.removeItem('github_user');
@@ -46,6 +70,16 @@ class GitHubAuth {
         this.updateUI();
     }
 
+    /**
+     * Handle OAuth callback from GitHub
+     * Exchanges authorization code for access token via Vercel backend
+     * Stores token, verifies it, and updates UI with success/error messages
+     * Side effects: Updates localStorage, calls showModalSafe/closeModal if available
+     * @async
+     * @param {string} code - OAuth authorization code from GitHub
+     * @returns {Promise<void>}
+     * @throws {Error} If token exchange or verification fails (caught and displayed in modal)
+     */
     async handleCallback(code) {
         try {
             if (typeof showModalSafe === 'function') {
@@ -97,6 +131,14 @@ class GitHubAuth {
         }
     }
 
+    /**
+     * Verify GitHub access token validity
+     * Fetches current user info from GitHub API to validate token
+     * Updates user info and UI on success, logs out on failure
+     * Side effects: Updates localStorage, DOM, and authentication state
+     * @async
+     * @returns {Promise<boolean>} True if token is valid, false otherwise
+     */
     async verifyToken() {
         try {
             const response = await fetch('https://api.github.com/user', {
@@ -122,6 +164,12 @@ class GitHubAuth {
         }
     }
 
+    /**
+     * Update UI elements based on authentication state
+     * Shows/hides login button, user info, and updates generate button state
+     * Side effect: Modifies DOM elements display and content
+     * @returns {void}
+     */
     updateUI() {
         const loginBtn = document.getElementById('loginBtn');
         const userInfo = document.getElementById('userInfo');
@@ -144,6 +192,20 @@ class GitHubAuth {
         }
     }
 
+    /**
+     * Trigger GitHub Actions workflow with provided inputs
+     * Dispatches workflow_dispatch event to generate-infrastructure.yml
+     * Attempts to retrieve and return the created workflow run ID
+     * @async
+     * @param {Object} inputs - Workflow input parameters
+     * @param {string} inputs.project_name - Project name for infrastructure
+     * @param {string} inputs.components - Comma-separated list of components to generate
+     * @param {string} inputs.environments - Comma-separated list of environments (dev, uat, prod)
+     * @param {string} inputs.region - AWS region for deployment
+     * @param {string} inputs.aws_account_id - 12-digit AWS account ID
+     * @returns {Promise<?number>} Workflow run ID if found, null if unable to retrieve
+     * @throws {Error} If not authenticated or workflow dispatch fails
+     */
     async triggerWorkflow(inputs) {
         if (!this.token) {
             throw new Error('Not authenticated');
@@ -200,6 +262,10 @@ class GitHubAuth {
         return null;
     }
 
+    /**
+     * Check if user is currently authenticated
+     * @returns {boolean} True if both token and user info are present
+     */
     isAuthenticated() {
         return this.token !== null && this.user !== null;
     }

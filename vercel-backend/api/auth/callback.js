@@ -4,7 +4,75 @@
  *
  * This serverless function handles the OAuth callback from GitHub
  */
+
+// Rate limiting state (in-memory, resets on cold start)
+const rateLimitStore = new Map();
+
+/**
+ * Check rate limit for an IP address
+ * Limit: 10 requests per minute per IP
+ *
+ * @param {string} ip - Client IP address
+ * @returns {boolean} true if request is allowed, false if rate limited
+ */
+function checkRateLimit(ip) {
+  const now = Date.now();
+  const limit = 10;
+  const windowMs = 60 * 1000; // 1 minute
+
+  if (!rateLimitStore.has(ip)) {
+    rateLimitStore.set(ip, { count: 1, resetTime: now + windowMs });
+    return true;
+  }
+
+  const data = rateLimitStore.get(ip);
+
+  // Reset if window expired
+  if (now > data.resetTime) {
+    rateLimitStore.set(ip, { count: 1, resetTime: now + windowMs });
+    return true;
+  }
+
+  // Check if limit exceeded
+  if (data.count >= limit) {
+    return false;
+  }
+
+  // Increment counter
+  data.count++;
+  return true;
+}
+
+/**
+ * Get client IP address from request
+ * @param {Object} req - Request object
+ * @returns {string} IP address
+ */
+function getClientIP(req) {
+  return (
+    req.headers['x-forwarded-for']?.split(',')[0].trim() ||
+    req.headers['x-real-ip'] ||
+    req.connection?.remoteAddress ||
+    req.socket?.remoteAddress ||
+    'unknown'
+  );
+}
+
 export default async function handler(req, res) {
+  // Get client IP for rate limiting
+  const clientIP = getClientIP(req);
+
+  // Check rate limit
+  if (!checkRateLimit(clientIP)) {
+    console.warn(`Rate limit exceeded for IP: ${clientIP}`);
+    res.status(429).json({
+      error: 'Too many requests',
+      message: 'Please try again in 1 minute',
+      retryAfter: 60
+    });
+    return;
+  }
+
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     res.status(200).end();
