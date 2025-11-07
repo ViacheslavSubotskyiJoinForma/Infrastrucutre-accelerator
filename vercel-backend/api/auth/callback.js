@@ -1,6 +1,8 @@
 /**
  * GitHub OAuth callback handler
  * Exchanges authorization code for access token
+ *
+ * This serverless function handles the OAuth callback from GitHub
  */
 export default async function handler(req, res) {
   // Handle CORS preflight
