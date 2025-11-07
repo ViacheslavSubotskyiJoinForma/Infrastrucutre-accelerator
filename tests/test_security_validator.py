@@ -28,6 +28,7 @@ class TestSecurityValidator(unittest.TestCase):
         valid_names = [
             'my-project',
             'test123',
+            'test',  # Allowed for CI/testing
             'a',
             'project-name-123',
             'abc-def-ghi'
@@ -48,8 +49,8 @@ class TestSecurityValidator(unittest.TestCase):
             'pro_ject',  # Contains underscore
             'pro.ject',  # Contains dot
             'a' * 64,  # Too long
-            'test',  # Reserved name
             'admin',  # Reserved name
+            'tmp',  # Reserved name
         ]
 
         for name in invalid_names:

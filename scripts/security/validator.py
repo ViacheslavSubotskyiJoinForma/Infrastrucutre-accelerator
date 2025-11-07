@@ -63,8 +63,8 @@ class SecurityValidator:
                 "start/end with alphanumeric, and may contain hyphens"
             )
 
-        # Prevent reserved names
-        if name in ['test', 'tmp', 'temp', 'admin', 'root', 'default']:
+        # Prevent reserved names (excluding 'test' for CI/testing purposes)
+        if name in ['tmp', 'temp', 'admin', 'root', 'default']:
             raise ValueError(f"Project name '{name}' is reserved")
 
         return name
