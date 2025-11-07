@@ -14,7 +14,7 @@ image:
 variables:
   TF_CLI_ARGS: "-no-color"
 
-{%- for component in components %}
+{% for component in components -%}
 .terraform_base_{{ component }}:
   before_script:
     - cd infra/{{ component }}
@@ -32,7 +32,7 @@ Validate_{{ component }}:
         - infra/{{ component }}/**/*
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
-{%- for env in environments %}
+{% for env in environments -%}
 Plan_{{ component }}_{{ env }}:
   stage: Plan
   extends: .terraform_base_{{ component }}
@@ -61,5 +61,5 @@ Apply_{{ component }}_{{ env }}:
     - Plan_{{ component }}_{{ env }}
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-{%- endfor %}
-{%- endfor %}
+{% endfor -%}
+{% endfor -%}
