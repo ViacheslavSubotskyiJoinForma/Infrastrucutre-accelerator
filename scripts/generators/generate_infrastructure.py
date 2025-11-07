@@ -10,9 +10,8 @@ import json
 import argparse
 import shutil
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any, Tuple
 from jinja2 import Environment, FileSystemLoader, Template
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 
 # Add parent directory to path for imports
@@ -58,7 +57,7 @@ class InfrastructureGenerator:
     }
 
     def __init__(self, project_name: str, components: List[str],
-                 environments: List[str], config: Dict):
+                 environments: List[str], config: Dict[str, Any]) -> None:
         # Validate all inputs first
         validated = validate_all_inputs(
             project_name=project_name,
@@ -86,21 +85,26 @@ class InfrastructureGenerator:
                 self.template_dir.resolve()
             )
 
-    def validate_components(self):
+    def validate_components(self) -> None:
         """Validate selected components and their dependencies"""
         for component in self.components:
             if component not in self.AVAILABLE_COMPONENTS:
-                raise ValueError(f"Unknown component: {component}")
+                available = ', '.join(self.AVAILABLE_COMPONENTS)
+                raise ValueError(
+                    f"❌ Unknown component: '{component}'\n"
+                    f"   Available components: {available}\n"
+                    f"   For custom components, ensure templates exist in 'template-modules/{component}/'"
+                )
 
             # Check dependencies
             for dep in self.DEPENDENCIES.get(component, []):
                 if dep not in self.components:
-                    print(f"Warning: {component} requires {dep}, adding it...")
+                    print(f"⚠️  Auto-adding dependency: '{component}' requires '{dep}'")
                     self.components.append(dep)
 
         # Sort components by dependency order
         self.components = self._sort_by_dependencies(self.components)
-        print(f"Components to generate (in order): {self.components}")
+        print(f"✓ Components to generate (in order): {self.components}")
 
     def _sort_by_dependencies(self, components: List[str]) -> List[str]:
         """Sort components based on their dependencies"""
@@ -116,13 +120,15 @@ class InfrastructureGenerator:
                     remaining.remove(component)
                     break
             else:
-                # Circular dependency or missing dependency
+                # Circular dependency detected
+                print(f"⚠️  Warning: Possible circular dependency detected in: {remaining}")
+                print(f"   Adding remaining components in arbitrary order")
                 sorted_components.extend(remaining)
                 break
 
         return sorted_components
 
-    def _check_modules_needed(self):
+    def _check_modules_needed(self) -> None:
         """Check if any components require local modules"""
         for component in self.components:
             if component in self.REQUIRES_MODULES:
@@ -153,13 +159,14 @@ class InfrastructureGenerator:
 
         return self._jinja_env_cache
 
-    def _copy_modules(self, output_dir: Path):
+    def _copy_modules(self, output_dir: Path) -> None:
         """Copy modules directory to generated infrastructure"""
         print("Copying modules directory...")
 
         modules_src = Path('modules')
         if not modules_src.exists():
-            print("Warning: modules/ directory not found, skipping")
+            print("⚠️  Warning: modules/ directory not found")
+            print("   Skipping module copy - only needed for components with local modules")
             return
 
         # Security: Validate paths
@@ -176,12 +183,14 @@ class InfrastructureGenerator:
             modules_dest,
             ignore=shutil.ignore_patterns('.git*', '__pycache__', '*.pyc', '*.pyo')
         )
-        print(f"Copied modules/ directory to {modules_dest}")
+        print(f"✓ Copied modules/ directory to {modules_dest}")
 
-    def generate(self):
+    def generate(self) -> None:
         """Generate infrastructure code"""
-        print(f"Generating infrastructure for project: {self.project_name}")
-        print(f"Environments: {self.environments}")
+        print(f"\n{'='*60}")
+        print(f"🚀 Generating infrastructure for project: {self.project_name}")
+        print(f"📦 Environments: {', '.join(self.environments)}")
+        print(f"{'='*60}\n")
 
         # Create output directory
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -208,11 +217,14 @@ class InfrastructureGenerator:
         # Generate README
         self._generate_readme(infra_dir.parent)
 
-        print(f"\nInfrastructure generated successfully in: {self.output_dir}")
+        print(f"\n{'='*60}")
+        print(f"✅ Infrastructure generated successfully!")
+        print(f"📁 Output directory: {self.output_dir}")
+        print(f"{'='*60}\n")
 
-    def _generate_component(self, component: str, infra_dir: Path):
+    def _generate_component(self, component: str, infra_dir: Path) -> None:
         """Generate a single component"""
-        print(f"Generating component: {component}")
+        print(f"📝 Generating component: {component}")
 
         component_dir = infra_dir / component
         component_dir.mkdir(exist_ok=True)
@@ -285,78 +297,28 @@ class InfrastructureGenerator:
             output_file.write_text(rendered_content, encoding='utf-8')
             print(f"  Generated: {output_file.name}")
 
-    def _generate_gitlab_ci(self, output_dir: Path):
-        """Generate GitLab CI/CD configuration (simplified for MVP with local state)"""
-        print("Generating GitLab CI/CD config...")
+    def _generate_gitlab_ci(self, output_dir: Path) -> None:
+        """Generate GitLab CI/CD configuration from template"""
+        print("🔧 Generating GitLab CI/CD config...")
 
-        gitlab_template = """# GitLab CI/CD Configuration (MVP with local state)
-# Note: This configuration uses local state backend for simplicity
-# For production use, consider using S3 backend with state locking
+        # Load template from file instead of hardcoded string
+        gitlab_template_dir = self.template_dir / 'gitlab-ci'
 
-stages:
-  - Validate
-  - Plan
-  - Apply
+        if not gitlab_template_dir.exists():
+            raise FileNotFoundError(
+                f"❌ GitLab CI template directory not found: {gitlab_template_dir}\n"
+                f"   Expected location: template-modules/gitlab-ci/\n"
+                f"   Please ensure the template directory exists."
+            )
 
-image:
-  name: hashicorp/terraform:1.5.4
-  entrypoint: [""]
+        env = Environment(
+            loader=FileSystemLoader(str(gitlab_template_dir)),
+            autoescape=False,
+            trim_blocks=True,
+            lstrip_blocks=True
+        )
 
-variables:
-  TF_CLI_ARGS: "-no-color"
-
-{% for component in components %}
-.terraform_base_{{ component }}:
-  before_script:
-    - cd infra/{{ component }}
-    - terraform init
-
-Validate_{{ component }}:
-  stage: Validate
-  extends: .terraform_base_{{ component }}
-  script:
-    - terraform fmt -check
-    - terraform validate
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      changes:
-        - infra/{{ component }}/**/*
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-
-{% for env in environments %}
-Plan_{{ component }}_{{ env }}:
-  stage: Plan
-  extends: .terraform_base_{{ component }}
-  script:
-    - terraform plan -var-file=../config/{{ env }}.tfvars -out=tfplan-{{ env }}
-  artifacts:
-    paths:
-      - infra/{{ component }}/tfplan-{{ env }}
-    expire_in: 2 hrs
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      changes:
-        - infra/{{ component }}/**/*
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-      when: manual
-
-Apply_{{ component }}_{{ env }}:
-  stage: Apply
-  extends: .terraform_base_{{ component }}
-  when: manual
-  script:
-    - terraform apply -auto-approve tfplan-{{ env }}
-  needs:
-    - Plan_{{ component }}_{{ env }}
-  dependencies:
-    - Plan_{{ component }}_{{ env }}
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-{% endfor %}
-{% endfor %}
-"""
-
-        template = Template(gitlab_template)
+        template = env.get_template('gitlab-ci.yml.j2')
         rendered = template.render(
             components=self.components,
             environments=self.environments
@@ -364,11 +326,11 @@ Apply_{{ component }}_{{ env }}:
 
         gitlab_ci_file = output_dir / '.gitlab-ci.yml'
         gitlab_ci_file.write_text(rendered)
-        print(f"Generated: {gitlab_ci_file}")
+        print(f"✓ Generated: {gitlab_ci_file}")
 
-    def _generate_config_structure(self, output_dir: Path):
+    def _generate_config_structure(self, output_dir: Path) -> None:
         """Generate config directory structure with sample tfvars"""
-        print("Generating config structure...")
+        print("⚙️  Generating config structure...")
 
         config_dir = output_dir / 'infra' / 'config'
         config_dir.mkdir(parents=True, exist_ok=True)
@@ -402,9 +364,11 @@ dns     = "example.com"
 
         (config_dir / 'README.md').write_text(readme)
         (config_dir / 'sample.tfvars.example').write_text(sample_tfvars)
+        print(f"✓ Generated config templates in {config_dir}")
 
-    def _generate_readme(self, output_dir: Path):
+    def _generate_readme(self, output_dir: Path) -> None:
         """Generate README with instructions"""
+        print("📄 Generating README...")
         readme = f"""# {self.project_name} Infrastructure
 
 Generated Terraform infrastructure using template generator.
@@ -498,10 +462,11 @@ enable_flow_logs = false
 """
 
         (output_dir / 'README.md').write_text(readme)
-        print(f"Generated: README.md")
+        print(f"✓ Generated: README.md with deployment instructions")
 
 
-def main():
+def main() -> None:
+    """Main entry point for infrastructure generator CLI"""
     parser = argparse.ArgumentParser(
         description='Generate Terraform infrastructure from templates'
     )

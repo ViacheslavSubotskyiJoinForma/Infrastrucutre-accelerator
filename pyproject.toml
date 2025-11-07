@@ -1,0 +1,105 @@
+[tool.poetry]
+name = "infrastructure-accelerator"
+version = "1.0.0"
+description = "AWS Terraform infrastructure template generator"
+authors = ["Infrastructure Team"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/ViacheslavSubotskyiJoinForma/Infrastrucutre-accelerator"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+jinja2 = "^3.1.0"
+
+[tool.poetry.group.dev.dependencies]
+# Testing
+coverage = "^7.4.0"
+pytest = "^7.4.0"
+
+# Code Quality
+black = "^24.3.0"
+isort = "^5.13.0"
+flake8 = "^7.0.0"
+pylint = "^3.0.0"
+mypy = "^1.9.0"
+
+# Security
+bandit = "^1.7.0"
+
+# Git Hooks
+pre-commit = "^3.6.0"
+
+[tool.poetry.scripts]
+generate-infra = "scripts.generators.generate_infrastructure:main"
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+  | generated-infra
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 100
+skip_gitignore = true
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+disallow_untyped_decorators = false
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+strict_optional = true
+
+[[tool.mypy.overrides]]
+module = "jinja2.*"
+ignore_missing_imports = true
+
+[tool.coverage.run]
+source = ["scripts"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+
+[tool.pylint.messages_control]
+disable = [
+    "C0111",  # missing-docstring
+    "R0903",  # too-few-public-methods
+]
+
+[tool.pylint.format]
+max-line-length = 100
+
+[tool.bandit]
+exclude_dirs = ["tests", "test_*.py"]
+tests = ["B201", "B301", "B302", "B303", "B304", "B305", "B306", "B307", "B308", "B309", "B310", "B311", "B312", "B313", "B314", "B315", "B316", "B317", "B318", "B319", "B320", "B321", "B323", "B324", "B325"]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

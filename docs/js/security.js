@@ -113,6 +113,7 @@ const Security = {
      * Only allows specific safe tags and strips dangerous content
      * @param {HTMLElement} element - Target element
      * @param {string} html - HTML content to set
+     * @returns {void}
      */
     setSafeInnerHTML(element, html) {
         // Create a template to parse HTML
@@ -243,14 +244,27 @@ const Security = {
 
     /**
      * Rate limiter for operations
+     * Prevents abuse by limiting operations within a time window
+     * @class RateLimiter
      */
     RateLimiter: class {
+        /**
+         * Initialize rate limiter
+         * @constructor
+         * @param {number} [maxOperations=10] - Maximum operations allowed in time window
+         * @param {number} [timeWindow=60000] - Time window in milliseconds (default: 60 seconds)
+         */
         constructor(maxOperations = 10, timeWindow = 60000) {
             this.maxOperations = maxOperations;
             this.timeWindow = timeWindow;
             this.operations = [];
         }
 
+        /**
+         * Check if operation can proceed and record it if allowed
+         * Cleans up old operations outside the time window before checking
+         * @returns {boolean} True if operation is allowed, false if rate limit exceeded
+         */
         canProceed() {
             const now = Date.now();
 
@@ -269,6 +283,10 @@ const Security = {
             return true;
         }
 
+        /**
+         * Reset rate limiter by clearing all recorded operations
+         * @returns {void}
+         */
         reset() {
             this.operations = [];
         }
