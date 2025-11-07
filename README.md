@@ -174,6 +174,24 @@ cd docs
 python3 -m http.server 8000
 ```
 
+### Vercel Backend Auto-Deploy
+
+The OAuth backend (`vercel-backend/`) is automatically deployed to Vercel via GitHub Actions:
+
+- **Production**: Deployed on push to `main` branch
+- **Preview**: Deployed on push to `claude/**` branches
+
+**Setup:**
+1. See [.github/VERCEL_SETUP.md](.github/VERCEL_SETUP.md) for detailed instructions
+2. Add required GitHub Secrets: `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`
+3. Push changes - deployment happens automatically!
+
+**Manual deployment:**
+```bash
+cd vercel-backend
+vercel --prod
+```
+
 ## 🧪 Testing & Quality Assurance
 
 ### Comprehensive Test Suite

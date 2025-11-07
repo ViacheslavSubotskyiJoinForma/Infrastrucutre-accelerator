@@ -2,7 +2,22 @@
 
 Vercel serverless function for handling GitHub OAuth callbacks.
 
-## Setup
+## 🚀 Automatic Deployment (Recommended)
+
+This backend is **automatically deployed** to Vercel via GitHub Actions whenever changes are pushed to:
+- `main` branch → Production deployment
+- `claude/**` branches → Preview deployment
+
+### Setup Auto-Deploy
+
+See [**VERCEL_SETUP.md**](../.github/VERCEL_SETUP.md) for complete setup instructions.
+
+**Quick setup:**
+1. Add GitHub Secrets: `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`
+2. Configure environment variables in Vercel Dashboard
+3. Push changes - deployment happens automatically!
+
+## Manual Deployment (Alternative)
 
 ### 1. Install Vercel CLI
 
@@ -30,7 +45,7 @@ vercel dev
 
 The function will be available at: `http://localhost:3000/api/auth/callback`
 
-### 4. Deploy to Vercel
+### 4. Deploy to Vercel Manually
 
 ```bash
 vercel --prod
@@ -86,6 +101,13 @@ Test the endpoint locally:
 
 ```bash
 curl -X POST http://localhost:3000/api/auth/callback \
+  -H "Content-Type: application/json" \
+  -d '{"code":"test_code"}'
+```
+
+Or use the deployed endpoint:
+```bash
+curl -X POST https://vercel-backend-three-gilt.vercel.app/api/auth/callback \
   -H "Content-Type: application/json" \
   -d '{"code":"test_code"}'
 ```
