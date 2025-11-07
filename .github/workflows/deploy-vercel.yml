@@ -26,9 +26,32 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
 
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Verify Vercel Secrets
+        run: |
+          if [ -z "${{ secrets.VERCEL_TOKEN }}" ]; then
+            echo "❌ Error: VERCEL_TOKEN secret is not set!"
+            echo "Please add it in: Settings → Secrets and variables → Actions"
+            echo "See .github/VERCEL_SETUP.md for setup instructions"
+            exit 1
+          fi
+          if [ -z "${{ secrets.VERCEL_ORG_ID }}" ]; then
+            echo "❌ Error: VERCEL_ORG_ID secret is not set!"
+            exit 1
+          fi
+          if [ -z "${{ secrets.VERCEL_PROJECT_ID }}" ]; then
+            echo "❌ Error: VERCEL_PROJECT_ID secret is not set!"
+            exit 1
+          fi
+          echo "✅ All Vercel secrets are configured"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
