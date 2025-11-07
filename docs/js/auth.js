@@ -48,10 +48,9 @@ class GitHubAuth {
 
     async handleCallback(code) {
         try {
-            showModal(`
-                <h3>⚡ Authenticating...</h3>
-                <p>Exchanging authorization code for access token...</p>
-            `);
+            if (typeof showModalSafe === 'function') {
+                showModalSafe('⚡ Authenticating...', 'Exchanging authorization code for access token...');
+            }
 
             // Exchange code for token via Vercel backend
             const response = await fetch(`${VERCEL_BACKEND_URL}/api/auth/callback`, {
@@ -75,21 +74,26 @@ class GitHubAuth {
 
             await this.verifyToken();
 
-            closeModal();
+            if (typeof closeModal === 'function') {
+                closeModal();
+            }
 
-            showModal(`
-                <h3>✅ Authentication Successful!</h3>
-                <p>You are now signed in and can trigger workflows directly.</p>
-            `, true);
+            if (typeof showModalSafe === 'function') {
+                showModalSafe(
+                    '✅ Authentication Successful!',
+                    'You are now signed in and can trigger workflows directly.'
+                );
+            }
 
         } catch (error) {
             console.error('OAuth callback error:', error);
 
-            showModal(`
-                <h3>⚠️ OAuth Failed</h3>
-                <p>${error.message}</p>
-                <p>Please try again or contact support.</p>
-            `, true);
+            if (typeof showModalSafe === 'function' && typeof Security !== 'undefined') {
+                showModalSafe(
+                    '⚠️ OAuth Failed',
+                    `${Security.escapeHtml(error.message)}\n\nPlease try again or contact support.`
+                );
+            }
         }
     }
 

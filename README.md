@@ -3,9 +3,15 @@
 > 🚀 Production-ready AWS infrastructure generator using Terraform
 
 [![GitHub Pages](https://img.shields.io/badge/demo-live-success)](https://viacheslavsubotskyijoinforma.github.io/Infrastrucutre-accelerator/)
+[![Security & Tests](https://github.com/ViacheslavSubotskyiJoinForma/Infrastrucutre-accelerator/actions/workflows/security-tests.yml/badge.svg)](https://github.com/ViacheslavSubotskyiJoinForma/Infrastrucutre-accelerator/actions/workflows/security-tests.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![Security: bandit](https://img.shields.io/badge/security-bandit-yellow.svg)](https://github.com/PyCQA/bandit)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 Generate complete, production-ready AWS infrastructure with a single command. Built with Terraform and automated via GitHub Actions.
+
+**Security-first** design with comprehensive input validation, XSS protection, and automated testing.
 
 ## ✨ Features
 
@@ -168,22 +174,73 @@ cd docs
 python3 -m http.server 8000
 ```
 
-## 🧪 Testing
+## 🧪 Testing & Quality Assurance
 
-The generator is automatically tested via GitHub Actions:
+### Comprehensive Test Suite
 
-- ✅ Terraform initialization
-- ✅ Code formatting (terraform fmt)
-- ✅ Configuration validation
-- ✅ TFLint static analysis
-- ✅ GitLab CI pipeline validation
+**40+ automated tests** with continuous integration:
+
+```bash
+# Run all tests with coverage
+make test-coverage
+
+# Run specific test suites
+make test-security      # Security validator tests (24 tests)
+make test-generator     # Infrastructure generator tests (16 tests)
+make test-web          # Web security tests (25+ tests)
+
+# Code quality
+make lint              # Run all linters
+make security-scan     # Security vulnerability scan
+```
+
+### Test Coverage
+
+- **Security Module**: 97% ✅
+- **Overall Coverage**: 56.5% (growing)
+- **CI/CD**: Python 3.9, 3.10, 3.11
+
+### Automated CI/CD
+
+Every push and PR triggers:
+
+- ✅ **Security tests** - Input validation, XSS protection
+- ✅ **Integration tests** - Generator functionality
+- ✅ **Web tests** - Browser-based security validation
+- ✅ **Security scan** - Bandit, TruffleHog
+- ✅ **Code quality** - flake8, pylint, mypy
+- ✅ **Coverage reporting** - Automatic PR comments
+
+📊 [View test results in Actions](https://github.com/ViacheslavSubotskyiJoinForma/Infrastrucutre-accelerator/actions/workflows/security-tests.yml)
 
 ## 🔐 Security
 
-- No sensitive data in repository
-- Placeholder values in examples
-- Local configuration via `.gitignore`
-- Clean git history (no leaked credentials)
+### Security-First Design
+
+**Comprehensive security measures:**
+
+- 🛡️ **XSS Protection** - Safe DOM manipulation, HTML escaping
+- 🔒 **Input Validation** - Whitelist-based validation for all inputs
+- 🚫 **Path Traversal Prevention** - Validated file paths
+- 🔍 **SSTI Protection** - Template context sanitization
+- 🔑 **No Secrets** - Never commits sensitive data
+- ⚡ **Rate Limiting** - Protection against abuse
+
+### Security Standards Compliance
+
+- ✅ **OWASP Top 10** protection
+- ✅ **CWE-79** (XSS) - Mitigated
+- ✅ **CWE-22** (Path Traversal) - Mitigated
+- ✅ **CWE-20** (Input Validation) - Implemented
+
+### Security Scanning
+
+- **Automated scans** on every commit
+- **Bandit** - Python code security
+- **TruffleHog** - Secret detection
+- **Safety** - Dependency vulnerabilities
+
+📄 [Read full security audit](SECURITY_REPORT.md) | [CI/CD Documentation](CI_CD.md)
 
 ## 📝 License
 

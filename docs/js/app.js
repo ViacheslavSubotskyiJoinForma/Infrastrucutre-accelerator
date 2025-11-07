@@ -258,17 +258,26 @@ function addText(svg, x, y, text, weight, anchor, fill = '#1f2937') {
 }
 
 async function handleGenerate() {
-    const projectName = document.getElementById('projectName').value.trim();
+    const projectName = Security.sanitizeInput(
+        document.getElementById('projectName').value.trim()
+    );
     const region = document.getElementById('region').value;
-    const awsAccountId = document.getElementById('awsAccountId').value.trim();
+    const awsAccountId = Security.sanitizeInput(
+        document.getElementById('awsAccountId').value.trim()
+    );
 
-    // Validation
+    // Validation with security checks
     if (!projectName) {
         alert('Please enter a project name');
         return;
     }
 
-    if (!awsAccountId || !/^\d{12}$/.test(awsAccountId)) {
+    if (!Security.validateProjectName(projectName.toLowerCase())) {
+        alert('Project name must be lowercase alphanumeric with hyphens, and DNS-compliant (max 63 chars)');
+        return;
+    }
+
+    if (!Security.validateAwsAccountId(awsAccountId)) {
         alert('Please enter a valid 12-digit AWS Account ID');
         return;
     }
@@ -279,10 +288,7 @@ async function handleGenerate() {
     // If authenticated, trigger workflow directly
     if (auth.isAuthenticated()) {
         try {
-            showModal(`
-                <h3>⚡ Triggering Workflow</h3>
-                <p>Please wait...</p>
-            `);
+            showModalSafe('⚡ Triggering Workflow', 'Please wait...');
 
             const runId = await auth.triggerWorkflow({
                 project_name: projectName,
@@ -297,30 +303,49 @@ async function handleGenerate() {
                 ? `https://github.com/${GITHUB_REPO}/actions/runs/${runId}`
                 : `https://github.com/${GITHUB_REPO}/actions`;
 
-            showModal(`
-                <h3>✅ Workflow Triggered!</h3>
-                <p>Your infrastructure generation has been started.</p>
-                <p><strong>Configuration:</strong></p>
-                <ul style="text-align: left; margin: 1rem 0;">
-                    <li>Project: <code>${projectName}</code></li>
-                    <li>Components: <code>${components}</code></li>
-                    <li>Environments: <code>${environments}</code></li>
-                    <li>Region: <code>${region}</code></li>
-                    <li>Account: <code>${awsAccountId}</code></li>
-                </ul>
-                <a href="${workflowUrl}" target="_blank" class="btn-primary" style="display: inline-block; margin-top: 1rem; text-decoration: none;">
-                    View Workflow Run →
-                </a>
-            `, true);
+            // Create safe modal content
+            const modal = document.getElementById('modalMessage');
+            modal.innerHTML = '';
+
+            const title = Security.createSafeElement('h3', '✅ Workflow Triggered!');
+            modal.appendChild(title);
+
+            const p1 = Security.createSafeElement('p', 'Your infrastructure generation has been started.');
+            modal.appendChild(p1);
+
+            const p2 = Security.createSafeElement('strong', 'Configuration:');
+            modal.appendChild(p2);
+
+            const config = Security.createSafeConfigDisplay({
+                'Project': projectName,
+                'Components': components,
+                'Environments': environments,
+                'Region': region,
+                'Account': awsAccountId
+            });
+            modal.appendChild(config);
+
+            const link = Security.createSafeElement('a', 'View Workflow Run →', {
+                href: workflowUrl,
+                target: '_blank',
+                class: 'btn-primary',
+                style: 'display: inline-block; margin-top: 1rem; text-decoration: none;'
+            });
+            modal.appendChild(link);
+
+            document.getElementById('closeModal').style.display = 'inline-block';
+            document.getElementById('modal').classList.add('show');
+
         } catch (error) {
-            showModal(`
-                <h3>❌ Error</h3>
-                <p>${error.message}</p>
-                <p>Please try again or trigger manually via GitHub Actions.</p>
-                <a href="https://github.com/${GITHUB_REPO}/actions/workflows/generate-infrastructure.yml" target="_blank" class="btn-primary" style="display: inline-block; margin-top: 1rem; text-decoration: none;">
-                    Open Workflow →
-                </a>
-            `, true);
+            showModalSafe(
+                '❌ Error',
+                `${Security.escapeHtml(error.message)}\n\nPlease try again or trigger manually via GitHub Actions.`,
+                [{
+                    text: 'Open Workflow →',
+                    href: `https://github.com/${GITHUB_REPO}/actions/workflows/generate-infrastructure.yml`,
+                    className: 'btn-primary'
+                }]
+            );
         }
         return;
     }
@@ -328,36 +353,79 @@ async function handleGenerate() {
     // Not authenticated - show manual instructions
     const workflowUrl = `https://github.com/${GITHUB_REPO}/actions/workflows/generate-infrastructure.yml`;
 
-    showModal(`
-        <h3>🚀 Ready to Generate!</h3>
-        <p>You'll be redirected to GitHub Actions.</p>
-        <p><strong>Your configuration:</strong></p>
-        <ul style="text-align: left; margin: 1rem 0;">
-            <li>Project: <code>${projectName}</code></li>
-            <li>Components: <code>${components}</code></li>
-            <li>Environments: <code>${environments}</code></li>
-            <li>Region: <code>${region}</code></li>
-            <li>Account: <code>${awsAccountId}</code></li>
-        </ul>
-        <p>Click the workflow and enter these values manually.</p>
-        <a href="${workflowUrl}" target="_blank" class="btn-primary" style="display: inline-block; margin-top: 1rem; text-decoration: none;">
-            Open GitHub Actions →
-        </a>
-    `, true);
+    // Create safe modal content
+    const modal = document.getElementById('modalMessage');
+    modal.innerHTML = '';
+
+    const title = Security.createSafeElement('h3', '🚀 Ready to Generate!');
+    modal.appendChild(title);
+
+    const p1 = Security.createSafeElement('p', "You'll be redirected to GitHub Actions.");
+    modal.appendChild(p1);
+
+    const p2 = Security.createSafeElement('strong', 'Your configuration:');
+    modal.appendChild(p2);
+
+    const config = Security.createSafeConfigDisplay({
+        'Project': projectName,
+        'Components': components,
+        'Environments': environments,
+        'Region': region,
+        'Account': awsAccountId
+    });
+    modal.appendChild(config);
+
+    const p3 = Security.createSafeElement('p', 'Click the workflow and enter these values manually.');
+    modal.appendChild(p3);
+
+    const link = Security.createSafeElement('a', 'Open GitHub Actions →', {
+        href: workflowUrl,
+        target: '_blank',
+        class: 'btn-primary',
+        style: 'display: inline-block; margin-top: 1rem; text-decoration: none;'
+    });
+    modal.appendChild(link);
+
+    document.getElementById('closeModal').style.display = 'inline-block';
+    document.getElementById('modal').classList.add('show');
 
     // Copy configuration to clipboard
-    const config = `project_name: ${projectName}
+    const configText = `project_name: ${projectName}
 components: ${components}
 environments: ${environments}
 region: ${region}
 aws_account_id: ${awsAccountId}`;
 
     try {
-        await navigator.clipboard.writeText(config);
+        await navigator.clipboard.writeText(configText);
         console.log('Configuration copied to clipboard');
     } catch (err) {
         console.log('Could not copy to clipboard:', err);
     }
+}
+
+function showModalSafe(title, message, buttons = []) {
+    const modal = document.getElementById('modalMessage');
+    modal.innerHTML = '';
+
+    const h3 = Security.createSafeElement('h3', title);
+    modal.appendChild(h3);
+
+    const p = Security.createSafeElement('p', message);
+    modal.appendChild(p);
+
+    buttons.forEach(button => {
+        const a = Security.createSafeElement('a', button.text, {
+            href: button.href,
+            target: '_blank',
+            class: button.className || 'btn-primary',
+            style: 'display: inline-block; margin-top: 1rem; text-decoration: none;'
+        });
+        modal.appendChild(a);
+    });
+
+    document.getElementById('closeModal').style.display = 'inline-block';
+    document.getElementById('modal').classList.add('show');
 }
 
 function showModal(message, allowClose = false) {

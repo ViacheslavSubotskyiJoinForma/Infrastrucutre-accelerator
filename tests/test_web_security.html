@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Security Tests</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-pass {
+            color: green;
+            font-weight: bold;
+        }
+        .test-fail {
+            color: red;
+            font-weight: bold;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-left: 4px solid #ccc;
+        }
+        .test-result.pass {
+            border-color: green;
+            background: #e8f5e9;
+        }
+        .test-result.fail {
+            border-color: red;
+            background: #ffebee;
+        }
+        h1 {
+            color: #333;
+        }
+        h2 {
+            color: #666;
+            margin-top: 20px;
+        }
+        #summary {
+            font-size: 1.2em;
+            margin: 20px 0;
+            padding: 15px;
+            background: #e3f2fd;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔒 Web Security Tests</h1>
+    <div id="summary"></div>
+    <div id="test-results"></div>
+
+    <script src="../docs/js/security.js"></script>
+    <script>
+        // Test runner
+        class TestRunner {
+            constructor() {
+                this.tests = [];
+                this.passed = 0;
+                this.failed = 0;
+            }
+
+            addTest(name, fn) {
+                this.tests.push({ name, fn });
+            }
+
+            async run() {
+                const resultsDiv = document.getElementById('test-results');
+                resultsDiv.innerHTML = '';
+
+                for (const test of this.tests) {
+                    try {
+                        await test.fn();
+                        this.passed++;
+                        this.logResult(test.name, true);
+                    } catch (error) {
+                        this.failed++;
+                        this.logResult(test.name, false, error.message);
+                    }
+                }
+
+                this.showSummary();
+            }
+
+            logResult(name, passed, error = '') {
+                const resultsDiv = document.getElementById('test-results');
+                const resultDiv = document.createElement('div');
+                resultDiv.className = `test-result ${passed ? 'pass' : 'fail'}`;
+
+                const status = passed ? '✓ PASS' : '✗ FAIL';
+                const statusClass = passed ? 'test-pass' : 'test-fail';
+
+                resultDiv.innerHTML = `
+                    <span class="${statusClass}">${status}</span>: ${name}
+                    ${error ? `<br><small>Error: ${error}</small>` : ''}
+                `;
+
+                resultsDiv.appendChild(resultDiv);
+            }
+
+            showSummary() {
+                const summary = document.getElementById('summary');
+                const total = this.passed + this.failed;
+                const percentage = Math.round((this.passed / total) * 100);
+
+                summary.innerHTML = `
+                    <strong>Test Results:</strong>
+                    ${this.passed} passed, ${this.failed} failed
+                    (${percentage}% success rate)
+                `;
+            }
+        }
+
+        // Helper function for assertions
+        function assert(condition, message) {
+            if (!condition) {
+                throw new Error(message || 'Assertion failed');
+            }
+        }
+
+        function assertEquals(actual, expected, message) {
+            if (actual !== expected) {
+                throw new Error(message || `Expected ${expected}, got ${actual}`);
+            }
+        }
+
+        // Initialize test runner
+        const runner = new TestRunner();
+
+        // ===== Security Tests =====
+
+        runner.addTest('Security.escapeHtml() escapes HTML tags', () => {
+            const unsafe = '<script>alert("XSS")</script>';
+            const safe = Security.escapeHtml(unsafe);
+            assert(!safe.includes('<script>'), 'HTML tags should be escaped');
+            assert(safe.includes('&lt;script&gt;'), 'Should contain escaped tags');
+        });
+
+        runner.addTest('Security.escapeHtml() handles quotes', () => {
+            const unsafe = '"test" and \'quotes\'';
+            const safe = Security.escapeHtml(unsafe);
+            assert(typeof safe === 'string', 'Should return string');
+        });
+
+        runner.addTest('Security.sanitizeInput() removes null bytes', () => {
+            const input = 'test\x00malicious';
+            const safe = Security.sanitizeInput(input);
+            assert(!safe.includes('\x00'), 'Null bytes should be removed');
+        });
+
+        runner.addTest('Security.sanitizeInput() removes control characters', () => {
+            const input = 'test\x01\x02\x03';
+            const safe = Security.sanitizeInput(input);
+            assert(safe === 'test', 'Control characters should be removed');
+        });
+
+        runner.addTest('Security.sanitizeInput() trims whitespace', () => {
+            const input = '  test  ';
+            const safe = Security.sanitizeInput(input);
+            assertEquals(safe, 'test', 'Should trim whitespace');
+        });
+
+        runner.addTest('Security.validateProjectName() accepts valid names', () => {
+            const valid = ['test', 'my-project', 'test-123', 'a'];
+            valid.forEach(name => {
+                assert(Security.validateProjectName(name), `${name} should be valid`);
+            });
+        });
+
+        runner.addTest('Security.validateProjectName() rejects invalid names', () => {
+            const invalid = ['', '-test', 'test-', 'TEST', 'test_name', 'a'.repeat(64)];
+            invalid.forEach(name => {
+                assert(!Security.validateProjectName(name), `${name} should be invalid`);
+            });
+        });
+
+        runner.addTest('Security.validateAwsAccountId() accepts valid IDs', () => {
+            const valid = ['123456789000', '999888777666'];
+            valid.forEach(id => {
+                assert(Security.validateAwsAccountId(id), `${id} should be valid`);
+            });
+        });
+
+        runner.addTest('Security.validateAwsAccountId() rejects invalid IDs', () => {
+            const invalid = ['', '12345', '123456789012', '000000000000', 'abcd12345678'];
+            invalid.forEach(id => {
+                assert(!Security.validateAwsAccountId(id), `${id} should be invalid`);
+            });
+        });
+
+        runner.addTest('Security.createSafeElement() creates elements with escaped content', () => {
+            const text = '<script>alert("XSS")</script>';
+            const element = Security.createSafeElement('div', text);
+            assert(element.textContent === text, 'Text should be set safely');
+            assert(!element.innerHTML.includes('<script>'), 'HTML should not be interpreted');
+        });
+
+        runner.addTest('Security.createSafeElement() sets safe attributes', () => {
+            const element = Security.createSafeElement('a', 'Link', {
+                href: 'https://example.com',
+                class: 'btn'
+            });
+            assertEquals(element.getAttribute('href'), 'https://example.com');
+            assertEquals(element.getAttribute('class'), 'btn');
+        });
+
+        runner.addTest('Security.createSafeElement() blocks javascript: URLs', () => {
+            const element = Security.createSafeElement('a', 'Link', {
+                href: 'javascript:alert("XSS")'
+            });
+            assert(!element.hasAttribute('href'), 'javascript: URL should be blocked');
+        });
+
+        runner.addTest('Security.createSafeElement() blocks event handlers', () => {
+            const element = Security.createSafeElement('div', 'Test', {
+                onclick: 'alert("XSS")',
+                onload: 'malicious()'
+            });
+            assert(!element.hasAttribute('onclick'), 'onclick should be blocked');
+            assert(!element.hasAttribute('onload'), 'onload should be blocked');
+        });
+
+        runner.addTest('Security.isValidUrl() accepts safe URLs', () => {
+            const valid = [
+                'https://example.com',
+                'http://example.com',
+                '/relative/path',
+                '#anchor'
+            ];
+            valid.forEach(url => {
+                assert(Security.isValidUrl(url), `${url} should be valid`);
+            });
+        });
+
+        runner.addTest('Security.isValidUrl() rejects dangerous URLs', () => {
+            const invalid = [
+                'javascript:alert("XSS")',
+                'data:text/html,<script>alert("XSS")</script>',
+                'vbscript:malicious',
+                'file:///etc/passwd'
+            ];
+            invalid.forEach(url => {
+                assert(!Security.isValidUrl(url), `${url} should be invalid`);
+            });
+        });
+
+        runner.addTest('Security.setSafeInnerHTML() sanitizes HTML', () => {
+            const div = document.createElement('div');
+            const html = '<p>Safe</p><script>alert("XSS")</script>';
+            Security.setSafeInnerHTML(div, html);
+
+            assert(div.querySelector('p') !== null, 'Should keep safe tags');
+            assert(div.querySelector('script') === null, 'Should remove script tags');
+        });
+
+        runner.addTest('Security.sanitizeNode() allows safe tags', () => {
+            const template = document.createElement('template');
+            template.innerHTML = '<div><p>Text</p><span>More</span></div>';
+
+            const sanitized = Security.sanitizeNode(template.content);
+            const div = document.createElement('div');
+            div.appendChild(sanitized);
+
+            assert(div.querySelector('p') !== null, 'Should keep p tags');
+            assert(div.querySelector('span') !== null, 'Should keep span tags');
+        });
+
+        runner.addTest('Security.sanitizeNode() removes dangerous tags', () => {
+            const template = document.createElement('template');
+            template.innerHTML = '<div><script>alert("XSS")</script><p>Text</p></div>';
+
+            const sanitized = Security.sanitizeNode(template.content);
+            const div = document.createElement('div');
+            div.appendChild(sanitized);
+
+            assert(div.querySelector('script') === null, 'Should remove script tags');
+            assert(div.querySelector('p') !== null, 'Should keep safe tags');
+        });
+
+        runner.addTest('Security.sanitizeNode() sanitizes href attributes', () => {
+            const template = document.createElement('template');
+            template.innerHTML = '<a href="javascript:alert()">Click</a>';
+
+            const sanitized = Security.sanitizeNode(template.content);
+            const div = document.createElement('div');
+            div.appendChild(sanitized);
+
+            const link = div.querySelector('a');
+            assert(link !== null, 'Link should exist');
+            assert(!link.hasAttribute('href'), 'javascript: href should be removed');
+        });
+
+        runner.addTest('Security.createSafeConfigDisplay() creates safe config display', () => {
+            const config = {
+                'Project': '<script>XSS</script>',
+                'Region': 'us-east-1'
+            };
+
+            const display = Security.createSafeConfigDisplay(config);
+
+            assert(display.tagName === 'UL', 'Should create ul element');
+            assert(display.children.length === 2, 'Should have 2 list items');
+            assert(!display.innerHTML.includes('<script>'), 'Should escape HTML');
+        });
+
+        runner.addTest('Security.RateLimiter enforces limits', () => {
+            const limiter = new Security.RateLimiter(3, 1000);
+
+            assert(limiter.canProceed() === true, 'First request should pass');
+            assert(limiter.canProceed() === true, 'Second request should pass');
+            assert(limiter.canProceed() === true, 'Third request should pass');
+            assert(limiter.canProceed() === false, 'Fourth request should fail');
+        });
+
+        runner.addTest('Security.RateLimiter can be reset', () => {
+            const limiter = new Security.RateLimiter(2, 1000);
+
+            limiter.canProceed();
+            limiter.canProceed();
+            assert(limiter.canProceed() === false, 'Should be rate limited');
+
+            limiter.reset();
+            assert(limiter.canProceed() === true, 'Should work after reset');
+        });
+
+        // Run all tests when page loads
+        window.addEventListener('DOMContentLoaded', () => {
+            runner.run();
+        });
+    </script>
+</body>
+</html>
