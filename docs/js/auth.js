@@ -1,13 +1,29 @@
-// GitHub OAuth Configuration
-const GITHUB_CLIENT_ID = 'Ov23li70Q9xYHNx6bOVB';
-const GITHUB_REDIRECT_URI = window.location.origin + window.location.pathname;
-const GITHUB_SCOPE = 'repo,workflow';
-const VERCEL_BACKEND_URL = 'https://vercel-backend-three-gilt.vercel.app';
+// Configuration (can be overridden via window.CONFIG)
+const CONFIG = window.CONFIG || {
+    GITHUB_CLIENT_ID: 'Ov23li70Q9xYHNx6bOVB',
+    GITHUB_REDIRECT_URI: window.location.origin + window.location.pathname,
+    GITHUB_SCOPE: 'repo,workflow',
+    VERCEL_BACKEND_URL: 'https://vercel-backend-three-gilt.vercel.app',
+    TOKEN_STORAGE: 'session' // 'session' or 'memory' (more secure than 'local')
+};
 
 class GitHubAuth {
     constructor() {
-        this.token = localStorage.getItem('github_token');
+        // Use sessionStorage (cleared on tab close) instead of localStorage for better security
+        // Tokens are only kept in memory and sessionStorage, not persistent localStorage
+        this.token = sessionStorage.getItem('github_token');
         this.user = null;
+
+        // Try to restore user from sessionStorage
+        const savedUser = sessionStorage.getItem('github_user');
+        if (savedUser) {
+            try {
+                this.user = JSON.parse(savedUser);
+            } catch (e) {
+                console.error('Failed to parse saved user:', e);
+                sessionStorage.removeItem('github_user');
+            }
+        }
     }
 
     async init() {
@@ -31,16 +47,17 @@ class GitHubAuth {
 
     login() {
         const authUrl = `https://github.com/login/oauth/authorize?` +
-            `client_id=${GITHUB_CLIENT_ID}&` +
-            `redirect_uri=${encodeURIComponent(GITHUB_REDIRECT_URI)}&` +
-            `scope=${GITHUB_SCOPE}`;
+            `client_id=${CONFIG.GITHUB_CLIENT_ID}&` +
+            `redirect_uri=${encodeURIComponent(CONFIG.GITHUB_REDIRECT_URI)}&` +
+            `scope=${CONFIG.GITHUB_SCOPE}`;
 
         window.location.href = authUrl;
     }
 
     logout() {
-        localStorage.removeItem('github_token');
-        localStorage.removeItem('github_user');
+        // Clear tokens from sessionStorage
+        sessionStorage.removeItem('github_token');
+        sessionStorage.removeItem('github_user');
         this.token = null;
         this.user = null;
         this.updateUI();
@@ -54,7 +71,7 @@ class GitHubAuth {
             `);
 
             // Exchange code for token via Vercel backend
-            const response = await fetch(`${VERCEL_BACKEND_URL}/api/auth/callback`, {
+            const response = await fetch(`${CONFIG.VERCEL_BACKEND_URL}/api/auth/callback`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -69,9 +86,9 @@ class GitHubAuth {
 
             const { access_token } = await response.json();
 
-            // Save token and verify
+            // Save token to sessionStorage (more secure than localStorage)
             this.token = access_token;
-            localStorage.setItem('github_token', access_token);
+            sessionStorage.setItem('github_token', access_token);
 
             await this.verifyToken();
 
@@ -104,7 +121,7 @@ class GitHubAuth {
 
             if (response.ok) {
                 this.user = await response.json();
-                localStorage.setItem('github_user', JSON.stringify(this.user));
+                sessionStorage.setItem('github_user', JSON.stringify(this.user));
                 this.updateUI();
                 return true;
             } else {

@@ -1,6 +1,8 @@
-// Configuration
-const GITHUB_REPO = 'ViacheslavSubotskyiJoinForma/Infrastrucutre-accelerator';
-const WORKFLOW_NAME = 'Generate Infrastructure Template (MVP)';
+// Configuration (can be overridden via window.APP_CONFIG)
+const APP_CONFIG = window.APP_CONFIG || {
+    GITHUB_REPO: 'ViacheslavSubotskyiJoinForma/Infrastrucutre-accelerator',
+    WORKFLOW_NAME: 'Generate Infrastructure Template (MVP)'
+};
 
 // State
 let selectedComponents = ['vpc'];
@@ -174,17 +176,28 @@ function updateComponentList() {
 }
 
 function updateDiagram() {
-    const svg = document.getElementById('diagram');
-    const width = svg.clientWidth || 600;
-    const height = 400;
+    try {
+        const svg = document.getElementById('diagram');
+        if (!svg) {
+            console.warn('SVG diagram element not found');
+            return;
+        }
 
-    // Clear existing
-    svg.innerHTML = '';
-    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+        const width = Math.max(300, svg.clientWidth || 600);
+        const height = Math.max(200, 400);
 
-    const envCount = selectedEnvironments.length;
-    const hasEKS = selectedComponents.includes('eks-auto');
-    const colors = getThemeColors();
+        // Clear existing
+        svg.innerHTML = '';
+        svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+
+        const envCount = selectedEnvironments.length;
+        if (envCount === 0) {
+            showFallbackDiagram(svg, 'No environments selected');
+            return;
+        }
+
+        const hasEKS = selectedComponents.includes('eks-auto');
+        const colors = getThemeColors();
 
     // Title
     addText(svg, width / 2, 30, `Architecture: ${selectedEnvironments.join(', ').toUpperCase()}`, 'bold', 'middle', colors.text);
@@ -220,12 +233,32 @@ function updateDiagram() {
         }
     });
 
-    // Legend
-    const legendY = height - 30;
-    addText(svg, 40, legendY, '● VPC', 'small', 'start', colors.vpcBorder);
-    if (hasEKS) {
-        addText(svg, 120, legendY, '● EKS', 'small', 'start', colors.eksBorder);
+        // Legend
+        const legendY = height - 30;
+        addText(svg, 40, legendY, '● VPC', 'small', 'start', colors.vpcBorder);
+        if (hasEKS) {
+            addText(svg, 120, legendY, '● EKS', 'small', 'start', colors.eksBorder);
+        }
+    } catch (error) {
+        console.error('Failed to render diagram:', error);
+        const svg = document.getElementById('diagram');
+        if (svg) {
+            showFallbackDiagram(svg, 'Failed to render architecture diagram');
+        }
     }
+}
+
+function showFallbackDiagram(svg, message) {
+    svg.innerHTML = '';
+    svg.setAttribute('viewBox', '0 0 600 400');
+
+    // Background
+    addRect(svg, 0, 0, 600, 400, '#f3f4f6', '#e5e7eb');
+
+    // Error message
+    addText(svg, 300, 180, '⚠️', 'bold', 'middle', '#f59e0b');
+    addText(svg, 300, 220, message, 'normal', 'middle', '#6b7280');
+    addText(svg, 300, 250, 'See console for details', 'small', 'middle', '#9ca3af');
 }
 
 function addRect(svg, x, y, width, height, fill, stroke) {
@@ -290,8 +323,8 @@ async function handleGenerate() {
 
             // Build workflow URL - specific run if we got the ID, otherwise general actions page
             const workflowUrl = runId
-                ? `https://github.com/${GITHUB_REPO}/actions/runs/${runId}`
-                : `https://github.com/${GITHUB_REPO}/actions`;
+                ? `https://github.com/${APP_CONFIG.GITHUB_REPO}/actions/runs/${runId}`
+                : `https://github.com/${APP_CONFIG.GITHUB_REPO}/actions`;
 
             showModal(`
                 <h3>✅ Workflow Triggered!</h3>
@@ -313,7 +346,7 @@ async function handleGenerate() {
                 <h3>❌ Error</h3>
                 <p>${error.message}</p>
                 <p>Please try again or trigger manually via GitHub Actions.</p>
-                <a href="https://github.com/${GITHUB_REPO}/actions/workflows/generate-infrastructure.yml" target="_blank" class="btn-primary" style="display: inline-block; margin-top: 1rem; text-decoration: none;">
+                <a href="https://github.com/${APP_CONFIG.GITHUB_REPO}/actions/workflows/generate-infrastructure.yml" target="_blank" class="btn-primary" style="display: inline-block; margin-top: 1rem; text-decoration: none;">
                     Open Workflow →
                 </a>
             `, true);
@@ -322,7 +355,7 @@ async function handleGenerate() {
     }
 
     // Not authenticated - show manual instructions
-    const workflowUrl = `https://github.com/${GITHUB_REPO}/actions/workflows/generate-infrastructure.yml`;
+    const workflowUrl = `https://github.com/${APP_CONFIG.GITHUB_REPO}/actions/workflows/generate-infrastructure.yml`;
 
     showModal(`
         <h3>🚀 Ready to Generate!</h3>
