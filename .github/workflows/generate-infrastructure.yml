@@ -106,11 +106,11 @@ jobs:
 
               cd "$dir"
 
-              terraform fmt -check -recursive || {
+              if ! terraform fmt -check -recursive; then
                 echo "⚠️  Warning: $component has formatting issues"
                 echo "Running terraform fmt to fix..."
                 terraform fmt -recursive
-              }
+              fi
 
               cd - > /dev/null
             fi
