@@ -105,6 +105,13 @@ curl -X POST http://localhost:3000/api/auth/callback \
   -d '{"code":"test_code"}'
 ```
 
+Or use the deployed endpoint:
+```bash
+curl -X POST https://vercel-backend-three-gilt.vercel.app/api/auth/callback \
+  -H "Content-Type: application/json" \
+  -d '{"code":"test_code"}'
+```
+
 ## Security
 
 - Client Secret is stored as environment variable (never in code)
