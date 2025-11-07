@@ -122,8 +122,8 @@ jobs:
 
       - name: Install Playwright
         run: |
-          npm install -g playwright
-          playwright install chromium
+          npm install playwright
+          npx playwright install chromium
 
       - name: Run web security tests
         run: |
