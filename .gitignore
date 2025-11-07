@@ -45,3 +45,10 @@ infra/config/*.tfvars
 .env.local
 README_LOCAL.md
 vercel-backend/.env.production
+
+# Test coverage and cache
+__pycache__/
+*.pyc
+*.pyo
+.coverage
+htmlcov/

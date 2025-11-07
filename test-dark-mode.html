@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dark Mode Test Suite</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 2rem;
+            background: #1a1a1a;
+            color: #00ff00;
+        }
+        .test {
+            margin: 1rem 0;
+            padding: 1rem;
+            border: 1px solid #333;
+            background: #2a2a2a;
+        }
+        .pass { color: #00ff00; }
+        .fail { color: #ff0000; }
+        .test-title { font-weight: bold; margin-bottom: 0.5rem; }
+        iframe {
+            width: 100%;
+            height: 600px;
+            border: 2px solid #333;
+            margin-top: 1rem;
+        }
+        button {
+            background: #00ff00;
+            color: #000;
+            border: none;
+            padding: 0.5rem 1rem;
+            margin: 0.5rem;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover {
+            background: #00cc00;
+        }
+        #results {
+            margin-top: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>🌓 Dark Mode Test Suite</h1>
+
+    <div id="controls">
+        <button onclick="runAllTests()">▶️ Run All Tests</button>
+        <button onclick="testInIframe()">🖼️ Test in IFrame</button>
+        <button onclick="clearResults()">🗑️ Clear Results</button>
+    </div>
+
+    <div id="results"></div>
+
+    <h2>Live Preview</h2>
+    <iframe id="preview" src="http://localhost:8000"></iframe>
+
+    <script>
+        const results = document.getElementById('results');
+        let testsPassed = 0;
+        let testsFailed = 0;
+
+        function addResult(title, passed, message) {
+            const div = document.createElement('div');
+            div.className = 'test';
+            div.innerHTML = `
+                <div class="test-title">${passed ? '✅' : '❌'} ${title}</div>
+                <div class="${passed ? 'pass' : 'fail'}">${message}</div>
+            `;
+            results.appendChild(div);
+
+            if (passed) testsPassed++;
+            else testsFailed++;
+        }
+
+        function clearResults() {
+            results.innerHTML = '';
+            testsPassed = 0;
+            testsFailed = 0;
+        }
+
+        async function testHTMLStructure() {
+            try {
+                const response = await fetch('http://localhost:8000');
+                const html = await response.text();
+
+                // Test 1: Theme toggle button exists
+                const hasToggle = html.includes('id="themeToggle"');
+                addResult(
+                    'HTML: Theme toggle button',
+                    hasToggle,
+                    hasToggle ? 'Theme toggle button found in HTML' : 'Theme toggle button NOT found'
+                );
+
+                // Test 2: Sun icon exists
+                const hasSunIcon = html.includes('class="sun-icon"');
+                addResult(
+                    'HTML: Sun icon',
+                    hasSunIcon,
+                    hasSunIcon ? 'Sun icon found' : 'Sun icon NOT found'
+                );
+
+                // Test 3: Moon icon exists
+                const hasMoonIcon = html.includes('class="moon-icon"');
+                addResult(
+                    'HTML: Moon icon',
+                    hasMoonIcon,
+                    hasMoonIcon ? 'Moon icon found' : 'Moon icon NOT found'
+                );
+
+                return hasToggle && hasSunIcon && hasMoonIcon;
+            } catch (error) {
+                addResult('HTML Structure Test', false, `Error: ${error.message}`);
+                return false;
+            }
+        }
+
+        async function testCSSVariables() {
+            try {
+                const response = await fetch('http://localhost:8000/css/style.css');
+                const css = await response.text();
+
+                // Test 1: Light theme variables
+                const hasLightVars = css.includes('--bg-primary:') && css.includes('--text-primary:');
+                addResult(
+                    'CSS: Light theme variables',
+                    hasLightVars,
+                    hasLightVars ? 'Light theme CSS variables defined' : 'Light theme variables MISSING'
+                );
+
+                // Test 2: Dark theme variables
+                const hasDarkVars = css.includes('body.dark-mode');
+                addResult(
+                    'CSS: Dark mode class',
+                    hasDarkVars,
+                    hasDarkVars ? 'Dark mode CSS class defined' : 'Dark mode class MISSING'
+                );
+
+                // Test 3: Theme toggle styles
+                const hasToggleStyles = css.includes('.theme-toggle');
+                addResult(
+                    'CSS: Theme toggle styles',
+                    hasToggleStyles,
+                    hasToggleStyles ? 'Theme toggle styles defined' : 'Toggle styles MISSING'
+                );
+
+                // Test 4: Diagram variables
+                const hasDiagramVars = css.includes('--diagram-bg:') && css.includes('--diagram-text:');
+                addResult(
+                    'CSS: Diagram theme variables',
+                    hasDiagramVars,
+                    hasDiagramVars ? 'Diagram theme variables defined' : 'Diagram variables MISSING'
+                );
+
+                // Test 5: Transitions
+                const hasTransitions = css.includes('transition:') && css.includes('0.3s');
+                addResult(
+                    'CSS: Smooth transitions',
+                    hasTransitions,
+                    hasTransitions ? 'Smooth transitions implemented' : 'Transitions MISSING'
+                );
+
+                return hasLightVars && hasDarkVars && hasToggleStyles && hasDiagramVars && hasTransitions;
+            } catch (error) {
+                addResult('CSS Variables Test', false, `Error: ${error.message}`);
+                return false;
+            }
+        }
+
+        async function testJavaScript() {
+            try {
+                const response = await fetch('http://localhost:8000/js/app.js');
+                const js = await response.text();
+
+                // Test 1: Theme object exists
+                const hasThemeObj = js.includes('const theme = {');
+                addResult(
+                    'JS: Theme object',
+                    hasThemeObj,
+                    hasThemeObj ? 'Theme management object defined' : 'Theme object MISSING'
+                );
+
+                // Test 2: LocalStorage integration
+                const hasLocalStorage = js.includes('localStorage.getItem(\'theme\')') &&
+                                       js.includes('localStorage.setItem(\'theme\'');
+                addResult(
+                    'JS: LocalStorage persistence',
+                    hasLocalStorage,
+                    hasLocalStorage ? 'Theme persistence with localStorage implemented' : 'LocalStorage MISSING'
+                );
+
+                // Test 3: System preference detection
+                const hasSystemPref = js.includes('prefers-color-scheme: dark');
+                addResult(
+                    'JS: System preference detection',
+                    hasSystemPref,
+                    hasSystemPref ? 'System dark mode preference detection implemented' : 'System preference MISSING'
+                );
+
+                // Test 4: Toggle functionality
+                const hasToggle = js.includes('theme.toggle()');
+                addResult(
+                    'JS: Toggle functionality',
+                    hasToggle,
+                    hasToggle ? 'Theme toggle function implemented' : 'Toggle function MISSING'
+                );
+
+                // Test 5: Diagram update on theme change
+                const hasDiagramUpdate = js.includes('updateDiagram()') && js.includes('theme.isDark()');
+                addResult(
+                    'JS: Diagram theme support',
+                    hasDiagramUpdate,
+                    hasDiagramUpdate ? 'Diagram updates with theme changes' : 'Diagram theme support MISSING'
+                );
+
+                // Test 6: Theme colors in diagram
+                const hasThemeColors = js.includes('const colors = isDark ?');
+                addResult(
+                    'JS: Diagram color switching',
+                    hasThemeColors,
+                    hasThemeColors ? 'Diagram uses theme-aware colors' : 'Diagram color switching MISSING'
+                );
+
+                return hasThemeObj && hasLocalStorage && hasSystemPref && hasToggle && hasDiagramUpdate && hasThemeColors;
+            } catch (error) {
+                addResult('JavaScript Test', false, `Error: ${error.message}`);
+                return false;
+            }
+        }
+
+        async function runAllTests() {
+            clearResults();
+
+            const htmlTests = await testHTMLStructure();
+            const cssTests = await testCSSVariables();
+            const jsTests = await testJavaScript();
+
+            // Summary
+            const summary = document.createElement('div');
+            summary.className = 'test';
+            summary.style.marginTop = '2rem';
+            summary.style.fontSize = '1.2rem';
+            summary.innerHTML = `
+                <div class="test-title">📊 Test Summary</div>
+                <div class="pass">✅ Passed: ${testsPassed}</div>
+                <div class="fail">❌ Failed: ${testsFailed}</div>
+                <div style="margin-top: 1rem;">
+                    ${testsFailed === 0 ? '<div class="pass">🎉 ALL TESTS PASSED!</div>' : '<div class="fail">⚠️ Some tests failed</div>'}
+                </div>
+            `;
+            results.appendChild(summary);
+        }
+
+        function testInIframe() {
+            const iframe = document.getElementById('preview');
+
+            addResult(
+                'Manual Test: IFrame loaded',
+                true,
+                'IFrame is loaded. Please manually test:\n' +
+                '1. Click the theme toggle button (top right)\n' +
+                '2. Verify page colors change\n' +
+                '3. Verify diagram colors change\n' +
+                '4. Reload page and verify theme persists\n' +
+                '5. Toggle EKS checkbox and verify diagram updates with correct colors'
+            );
+        }
+
+        // Auto-run tests on load
+        window.addEventListener('load', () => {
+            setTimeout(runAllTests, 1000);
+        });
+    </script>
+</body>
+</html>

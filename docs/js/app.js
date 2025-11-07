@@ -6,8 +6,57 @@ const WORKFLOW_NAME = 'Generate Infrastructure Template (MVP)';
 let selectedComponents = ['vpc'];
 let selectedEnvironments = ['dev'];
 
+// Theme management
+const theme = {
+    init() {
+        // Load saved theme or detect system preference
+        const savedTheme = localStorage.getItem('theme');
+        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+        if (savedTheme === 'dark' || (!savedTheme && systemPrefersDark)) {
+            this.enable();
+        }
+
+        // Listen for system theme changes
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+            if (!localStorage.getItem('theme')) {
+                if (e.matches) {
+                    this.enable();
+                } else {
+                    this.disable();
+                }
+            }
+        });
+    },
+
+    toggle() {
+        if (document.body.classList.contains('dark-mode')) {
+            this.disable();
+        } else {
+            this.enable();
+        }
+    },
+
+    enable() {
+        document.body.classList.add('dark-mode');
+        localStorage.setItem('theme', 'dark');
+        updateDiagram();
+    },
+
+    disable() {
+        document.body.classList.remove('dark-mode');
+        localStorage.setItem('theme', 'light');
+        updateDiagram();
+    },
+
+    isDark() {
+        return document.body.classList.contains('dark-mode');
+    }
+};
+
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
+    theme.init();
     await auth.init();
     setupEventListeners();
     updateDiagram();
@@ -15,6 +64,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function setupEventListeners() {
+    // Theme toggle
+    document.getElementById('themeToggle').addEventListener('click', () => theme.toggle());
+
     // Component checkboxes
     document.querySelectorAll('.checkbox-group:not(.environments) input[type="checkbox"]').forEach(cb => {
         cb.addEventListener('change', handleComponentChange);
@@ -103,9 +155,43 @@ function updateDiagram() {
 
     const envCount = selectedEnvironments.length;
     const hasEKS = selectedComponents.includes('eks-auto');
+    const isDark = theme.isDark();
+
+    // Theme-aware colors
+    const colors = isDark ? {
+        envLight: '#374151',
+        envProd: '#1e3a5f',
+        vpc: '#1f2937',
+        public: '#1e3a5f',
+        private: '#78350f',
+        eks: '#4c1d95',
+        text: '#f9fafb',
+        border: {
+            env: '#3b82f6',
+            vpc: '#10b981',
+            public: '#0ea5e9',
+            private: '#f59e0b',
+            eks: '#8b5cf6'
+        }
+    } : {
+        envLight: '#f3f4f6',
+        envProd: '#dbeafe',
+        vpc: '#ffffff',
+        public: '#e0f2fe',
+        private: '#fef3c7',
+        eks: '#ddd6fe',
+        text: '#1f2937',
+        border: {
+            env: '#3b82f6',
+            vpc: '#10b981',
+            public: '#0ea5e9',
+            private: '#f59e0b',
+            eks: '#8b5cf6'
+        }
+    };
 
     // Title
-    addText(svg, width / 2, 30, `Architecture: ${selectedEnvironments.join(', ').toUpperCase()}`, 'bold', 'middle');
+    addText(svg, width / 2, 30, `Architecture: ${selectedEnvironments.join(', ').toUpperCase()}`, 'bold', 'middle', colors.text);
 
     // Draw environments
     const envWidth = (width - 80) / envCount;
@@ -114,35 +200,35 @@ function updateDiagram() {
         const y = 60;
 
         // Environment box
-        addRect(svg, x, y, envWidth - 20, height - 100, env === 'prod' ? '#dbeafe' : '#f3f4f6', '#3b82f6');
-        addText(svg, x + (envWidth - 20) / 2, y + 30, env.toUpperCase(), 'bold', 'middle');
+        addRect(svg, x, y, envWidth - 20, height - 100, env === 'prod' ? colors.envProd : colors.envLight, colors.border.env);
+        addText(svg, x + (envWidth - 20) / 2, y + 30, env.toUpperCase(), 'bold', 'middle', colors.text);
 
         // VPC
-        addRect(svg, x + 20, y + 60, envWidth - 60, hasEKS ? 220 : 120, '#ffffff', '#10b981');
-        addText(svg, x + envWidth / 2, y + 90, 'VPC', 'normal', 'middle');
+        addRect(svg, x + 20, y + 60, envWidth - 60, hasEKS ? 220 : 120, colors.vpc, colors.border.vpc);
+        addText(svg, x + envWidth / 2, y + 90, 'VPC', 'normal', 'middle', colors.text);
 
         // Subnets
         const subnetY = y + 110;
-        addRect(svg, x + 30, subnetY, (envWidth - 80) / 2 - 5, 50, '#e0f2fe', '#0ea5e9');
-        addText(svg, x + 30 + (envWidth - 80) / 4, subnetY + 25, 'Public', 'small', 'middle');
+        addRect(svg, x + 30, subnetY, (envWidth - 80) / 2 - 5, 50, colors.public, colors.border.public);
+        addText(svg, x + 30 + (envWidth - 80) / 4, subnetY + 25, 'Public', 'small', 'middle', colors.text);
 
-        addRect(svg, x + envWidth / 2 + 5, subnetY, (envWidth - 80) / 2 - 5, 50, '#fef3c7', '#f59e0b');
-        addText(svg, x + envWidth / 2 + 5 + (envWidth - 80) / 4, subnetY + 25, 'Private', 'small', 'middle');
+        addRect(svg, x + envWidth / 2 + 5, subnetY, (envWidth - 80) / 2 - 5, 50, colors.private, colors.border.private);
+        addText(svg, x + envWidth / 2 + 5 + (envWidth - 80) / 4, subnetY + 25, 'Private', 'small', 'middle', colors.text);
 
         // EKS if selected
         if (hasEKS) {
             const eksY = subnetY + 70;
-            addRect(svg, x + 30, eksY, envWidth - 60, 80, '#ddd6fe', '#8b5cf6');
-            addText(svg, x + envWidth / 2, eksY + 25, 'EKS Cluster', 'normal', 'middle');
-            addText(svg, x + envWidth / 2, eksY + 50, 'Auto Mode', 'small', 'middle');
+            addRect(svg, x + 30, eksY, envWidth - 60, 80, colors.eks, colors.border.eks);
+            addText(svg, x + envWidth / 2, eksY + 25, 'EKS Cluster', 'normal', 'middle', colors.text);
+            addText(svg, x + envWidth / 2, eksY + 50, 'Auto Mode', 'small', 'middle', colors.text);
         }
     });
 
     // Legend
     const legendY = height - 30;
-    addText(svg, 40, legendY, '● VPC', 'small', 'start', '#10b981');
+    addText(svg, 40, legendY, '● VPC', 'small', 'start', colors.border.vpc);
     if (hasEKS) {
-        addText(svg, 120, legendY, '● EKS', 'small', 'start', '#8b5cf6');
+        addText(svg, 120, legendY, '● EKS', 'small', 'start', colors.border.eks);
     }
 }
 
@@ -172,17 +258,26 @@ function addText(svg, x, y, text, weight, anchor, fill = '#1f2937') {
 }
 
 async function handleGenerate() {
-    const projectName = document.getElementById('projectName').value.trim();
+    const projectName = Security.sanitizeInput(
+        document.getElementById('projectName').value.trim()
+    );
     const region = document.getElementById('region').value;
-    const awsAccountId = document.getElementById('awsAccountId').value.trim();
+    const awsAccountId = Security.sanitizeInput(
+        document.getElementById('awsAccountId').value.trim()
+    );
 
-    // Validation
+    // Validation with security checks
     if (!projectName) {
         alert('Please enter a project name');
         return;
     }
 
-    if (!awsAccountId || !/^\d{12}$/.test(awsAccountId)) {
+    if (!Security.validateProjectName(projectName.toLowerCase())) {
+        alert('Project name must be lowercase alphanumeric with hyphens, and DNS-compliant (max 63 chars)');
+        return;
+    }
+
+    if (!Security.validateAwsAccountId(awsAccountId)) {
         alert('Please enter a valid 12-digit AWS Account ID');
         return;
     }
@@ -193,10 +288,7 @@ async function handleGenerate() {
     // If authenticated, trigger workflow directly
     if (auth.isAuthenticated()) {
         try {
-            showModal(`
-                <h3>⚡ Triggering Workflow</h3>
-                <p>Please wait...</p>
-            `);
+            showModalSafe('⚡ Triggering Workflow', 'Please wait...');
 
             const runId = await auth.triggerWorkflow({
                 project_name: projectName,
@@ -211,30 +303,49 @@ async function handleGenerate() {
                 ? `https://github.com/${GITHUB_REPO}/actions/runs/${runId}`
                 : `https://github.com/${GITHUB_REPO}/actions`;
 
-            showModal(`
-                <h3>✅ Workflow Triggered!</h3>
-                <p>Your infrastructure generation has been started.</p>
-                <p><strong>Configuration:</strong></p>
-                <ul style="text-align: left; margin: 1rem 0;">
-                    <li>Project: <code>${projectName}</code></li>
-                    <li>Components: <code>${components}</code></li>
-                    <li>Environments: <code>${environments}</code></li>
-                    <li>Region: <code>${region}</code></li>
-                    <li>Account: <code>${awsAccountId}</code></li>
-                </ul>
-                <a href="${workflowUrl}" target="_blank" class="btn-primary" style="display: inline-block; margin-top: 1rem; text-decoration: none;">
-                    View Workflow Run →
-                </a>
-            `, true);
+            // Create safe modal content
+            const modal = document.getElementById('modalMessage');
+            modal.innerHTML = '';
+
+            const title = Security.createSafeElement('h3', '✅ Workflow Triggered!');
+            modal.appendChild(title);
+
+            const p1 = Security.createSafeElement('p', 'Your infrastructure generation has been started.');
+            modal.appendChild(p1);
+
+            const p2 = Security.createSafeElement('strong', 'Configuration:');
+            modal.appendChild(p2);
+
+            const config = Security.createSafeConfigDisplay({
+                'Project': projectName,
+                'Components': components,
+                'Environments': environments,
+                'Region': region,
+                'Account': awsAccountId
+            });
+            modal.appendChild(config);
+
+            const link = Security.createSafeElement('a', 'View Workflow Run →', {
+                href: workflowUrl,
+                target: '_blank',
+                class: 'btn-primary',
+                style: 'display: inline-block; margin-top: 1rem; text-decoration: none;'
+            });
+            modal.appendChild(link);
+
+            document.getElementById('closeModal').style.display = 'inline-block';
+            document.getElementById('modal').classList.add('show');
+
         } catch (error) {
-            showModal(`
-                <h3>❌ Error</h3>
-                <p>${error.message}</p>
-                <p>Please try again or trigger manually via GitHub Actions.</p>
-                <a href="https://github.com/${GITHUB_REPO}/actions/workflows/generate-infrastructure.yml" target="_blank" class="btn-primary" style="display: inline-block; margin-top: 1rem; text-decoration: none;">
-                    Open Workflow →
-                </a>
-            `, true);
+            showModalSafe(
+                '❌ Error',
+                `${Security.escapeHtml(error.message)}\n\nPlease try again or trigger manually via GitHub Actions.`,
+                [{
+                    text: 'Open Workflow →',
+                    href: `https://github.com/${GITHUB_REPO}/actions/workflows/generate-infrastructure.yml`,
+                    className: 'btn-primary'
+                }]
+            );
         }
         return;
     }
@@ -242,36 +353,79 @@ async function handleGenerate() {
     // Not authenticated - show manual instructions
     const workflowUrl = `https://github.com/${GITHUB_REPO}/actions/workflows/generate-infrastructure.yml`;
 
-    showModal(`
-        <h3>🚀 Ready to Generate!</h3>
-        <p>You'll be redirected to GitHub Actions.</p>
-        <p><strong>Your configuration:</strong></p>
-        <ul style="text-align: left; margin: 1rem 0;">
-            <li>Project: <code>${projectName}</code></li>
-            <li>Components: <code>${components}</code></li>
-            <li>Environments: <code>${environments}</code></li>
-            <li>Region: <code>${region}</code></li>
-            <li>Account: <code>${awsAccountId}</code></li>
-        </ul>
-        <p>Click the workflow and enter these values manually.</p>
-        <a href="${workflowUrl}" target="_blank" class="btn-primary" style="display: inline-block; margin-top: 1rem; text-decoration: none;">
-            Open GitHub Actions →
-        </a>
-    `, true);
+    // Create safe modal content
+    const modal = document.getElementById('modalMessage');
+    modal.innerHTML = '';
+
+    const title = Security.createSafeElement('h3', '🚀 Ready to Generate!');
+    modal.appendChild(title);
+
+    const p1 = Security.createSafeElement('p', "You'll be redirected to GitHub Actions.");
+    modal.appendChild(p1);
+
+    const p2 = Security.createSafeElement('strong', 'Your configuration:');
+    modal.appendChild(p2);
+
+    const config = Security.createSafeConfigDisplay({
+        'Project': projectName,
+        'Components': components,
+        'Environments': environments,
+        'Region': region,
+        'Account': awsAccountId
+    });
+    modal.appendChild(config);
+
+    const p3 = Security.createSafeElement('p', 'Click the workflow and enter these values manually.');
+    modal.appendChild(p3);
+
+    const link = Security.createSafeElement('a', 'Open GitHub Actions →', {
+        href: workflowUrl,
+        target: '_blank',
+        class: 'btn-primary',
+        style: 'display: inline-block; margin-top: 1rem; text-decoration: none;'
+    });
+    modal.appendChild(link);
+
+    document.getElementById('closeModal').style.display = 'inline-block';
+    document.getElementById('modal').classList.add('show');
 
     // Copy configuration to clipboard
-    const config = `project_name: ${projectName}
+    const configText = `project_name: ${projectName}
 components: ${components}
 environments: ${environments}
 region: ${region}
 aws_account_id: ${awsAccountId}`;
 
     try {
-        await navigator.clipboard.writeText(config);
+        await navigator.clipboard.writeText(configText);
         console.log('Configuration copied to clipboard');
     } catch (err) {
         console.log('Could not copy to clipboard:', err);
     }
+}
+
+function showModalSafe(title, message, buttons = []) {
+    const modal = document.getElementById('modalMessage');
+    modal.innerHTML = '';
+
+    const h3 = Security.createSafeElement('h3', title);
+    modal.appendChild(h3);
+
+    const p = Security.createSafeElement('p', message);
+    modal.appendChild(p);
+
+    buttons.forEach(button => {
+        const a = Security.createSafeElement('a', button.text, {
+            href: button.href,
+            target: '_blank',
+            class: button.className || 'btn-primary',
+            style: 'display: inline-block; margin-top: 1rem; text-decoration: none;'
+        });
+        modal.appendChild(a);
+    });
+
+    document.getElementById('closeModal').style.display = 'inline-block';
+    document.getElementById('modal').classList.add('show');
 }
 
 function showModal(message, allowClose = false) {
