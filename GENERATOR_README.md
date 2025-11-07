@@ -227,6 +227,139 @@ tflint
 ```
 Additional linting for best practices and potential issues.
 
+### 5. Python Unit Tests
+
+The generator includes a comprehensive test suite:
+
+```bash
+pytest tests/ -v --cov=scripts.generators
+```
+
+**Test Coverage**:
+- 39 unit tests
+- 60% code coverage
+- Tests validation, error handling, and component generation
+- Execution time: < 1 second
+
+See [tests/README.md](tests/README.md) for detailed testing documentation.
+
+## Testing & Quality Assurance
+
+### Unit Test Suite
+
+The generator includes **39 comprehensive unit tests** with **60% code coverage**:
+
+**test_validator.py** - 20 tests for InputValidator:
+- Project name validation (format, length, characters)
+- AWS Account ID validation
+- AWS Region validation
+- Environment validation
+
+**test_generator.py** - 19 tests for InfrastructureGenerator:
+- Initialization and validation
+- Component dependency resolution
+- Error handling
+- Configuration management
+- Integration tests
+
+### Running Tests Locally
+
+```bash
+# Install test dependencies
+pip install -r requirements-dev.txt
+
+# Run all tests
+pytest tests/ -v
+
+# Run with coverage report
+pytest tests/ --cov=scripts.generators --cov-report=html
+
+# View coverage report
+open htmlcov/index.html
+
+# Run specific test file
+pytest tests/test_validator.py -v
+
+# Run specific test
+pytest tests/test_validator.py::TestProjectNameValidation::test_valid_project_names -v
+```
+
+### Continuous Integration
+
+Tests run automatically in GitHub Actions:
+
+**test.yml workflow** - Runs on every push and PR:
+- Multi-version Python testing (3.9, 3.10, 3.11, 3.12)
+- Unit test execution
+- Coverage report generation
+- Codecov integration
+- Generator validation tests
+
+**generate-infrastructure.yml workflow** - Runs before generation:
+- Python unit tests
+- Terraform validation
+- Code formatting checks
+- Static analysis
+
+### Test Results
+
+```bash
+============================= test session starts ==============================
+platform linux -- Python 3.11.14, pytest-8.4.2, pluggy-1.6.0
+collected 39 items
+
+tests/test_generator.py ....................  [ 51%]
+tests/test_validator.py ...................   [100%]
+
+============================== 39 passed in 0.34s ===============================
+
+Coverage: 60%
+- InputValidator: 100% coverage
+- InfrastructureGenerator: 60% coverage (core functionality)
+```
+
+### Code Quality Improvements
+
+**Error Handling**:
+- Custom exception classes (GeneratorError, ValidationError, TemplateRenderError)
+- Try-catch blocks around critical operations
+- Helpful error messages with context
+
+**Input Validation**:
+- Project name: 3-31 chars, lowercase, alphanumeric + hyphens
+- AWS Account ID: 12 digits
+- Region: 12 supported AWS regions
+- Environment: dev, uat, staging, prod, test
+
+**Structured Logging**:
+```python
+logger.info("🚀 Generating infrastructure...")
+logger.warning("⚠️  No template found, using fallback")
+logger.error("❌ Failed to generate component")
+```
+
+**Example Validation**:
+```bash
+# Invalid project name
+$ python3 scripts/generators/generate_infrastructure.py \
+  --project-name INVALID_NAME \
+  --components vpc \
+  --environments dev
+
+❌ Validation error: Invalid project name 'INVALID_NAME'.
+Must be 3-31 chars, lowercase, start with letter, contain only alphanumeric and hyphens.
+
+# Invalid region
+$ python3 scripts/generators/generate_infrastructure.py \
+  --project-name test \
+  --components vpc \
+  --environments dev \
+  --region invalid-region
+
+❌ Validation error: Invalid region 'invalid-region'.
+Valid regions: us-east-1, us-west-2, eu-west-1, eu-central-1, ...
+```
+
 ## Customization
 
 ### Adding New Templates

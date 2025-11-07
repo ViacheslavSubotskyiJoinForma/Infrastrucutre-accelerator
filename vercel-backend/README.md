@@ -45,8 +45,17 @@ After deployment, configure environment variables in Vercel Dashboard:
 
 ### 5. Update Frontend
 
-After deployment, update `docs/js/auth.js` with your Vercel URL:
+After deployment, configure your frontend with the Vercel URL.
 
+**Option 1: Using window.CONFIG (Recommended)**
+```javascript
+// In your HTML or before loading auth.js
+window.CONFIG = {
+    VERCEL_BACKEND_URL: 'https://your-project.vercel.app'
+};
+```
+
+**Option 2: Edit auth.js directly**
 ```javascript
 const VERCEL_BACKEND_URL = 'https://your-project.vercel.app';
 ```
@@ -92,7 +101,20 @@ curl -X POST http://localhost:3000/api/auth/callback \
 
 ## Security
 
+**Backend Security**:
 - Client Secret is stored as environment variable (never in code)
 - CORS restricted to GitHub Pages domain only
 - No logging of sensitive data
 - Token exchange happens server-side only
+
+**Frontend Security** (as of 2025-11-07):
+- OAuth tokens stored in `sessionStorage` (auto-cleared on tab close)
+- Configurable OAuth settings via `window.CONFIG` for custom deployments
+- Minimal permission scopes (only `repo` and `workflow`)
+- No token persistence across browser sessions by default
+
+**Best Practices**:
+- Use `TOKEN_STORAGE: 'session'` (default) for production
+- Only use `TOKEN_STORAGE: 'local'` for development if needed
+- Regularly rotate GitHub OAuth App secrets
+- Monitor OAuth App usage in GitHub settings

@@ -24,9 +24,20 @@ Visit the live site at: [https://viacheslavsubotskyijoinforma.github.io/Infrastr
 
 ### Authentication
 
-The workflow trigger requires GitHub authentication. For now, you'll be redirected to manually trigger the workflow on GitHub Actions.
+The workflow trigger uses GitHub OAuth for seamless authentication:
+- **Secure token storage**: Uses sessionStorage (auto-cleared on tab close)
+- **Configurable OAuth settings**: Can be overridden via `window.CONFIG`
+- **Minimal permissions**: Only requests necessary scopes (repo, workflow)
 
-Future enhancements may include OAuth integration for seamless triggering.
+For security testing or custom deployments, you can override the OAuth configuration:
+```javascript
+window.CONFIG = {
+    GITHUB_CLIENT_ID: 'your-client-id',
+    GITHUB_REDIRECT_URI: window.location.origin,
+    GITHUB_SCOPE: 'repo,workflow',
+    TOKEN_STORAGE: 'session'  // or 'local'
+};
+```
 
 ## Local Development
 
@@ -41,7 +52,26 @@ open http://localhost:8000
 
 ## Architecture
 
-- Pure HTML/CSS/JavaScript (no build step)
-- SVG-based dynamic diagrams
-- Responsive design
-- GitHub Actions API integration (planned)
+- **Pure HTML/CSS/JavaScript** (no build step required)
+- **SVG-based dynamic diagrams** with error boundaries and fallback rendering
+- **Responsive design** for mobile and desktop
+- **GitHub Actions API integration** via OAuth authentication
+- **Configurable deployment** via `window.CONFIG` and `window.APP_CONFIG`
+- **Dark mode support** with theme-aware SVG colors
+
+### Recent Improvements
+
+**Security Enhancements** (2025-11-07):
+- OAuth tokens stored in sessionStorage instead of localStorage
+- Configurable OAuth settings for custom deployments
+- Minimal permission scopes
+
+**Reliability Improvements**:
+- Error boundaries for SVG rendering
+- Fallback diagram rendering on errors
+- Graceful degradation for missing elements
+
+**User Experience**:
+- Real-time architecture preview
+- Visual feedback for component dependencies
+- Responsive mobile layout
