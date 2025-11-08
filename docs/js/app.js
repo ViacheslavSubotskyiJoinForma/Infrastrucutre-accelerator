@@ -626,7 +626,7 @@ function updateDiagram() {
     // AWS Logo (smile only, no text)
     if (selectedProvider === 'aws') {
         const logoX = 28;
-        const logoY = headerY + 3; // Centered vertically
+        const logoY = headerY - 10; // Lifted up for better centering
         const scale = 0.11; // Smaller scale for smile-only logo
 
         // Create group for the logo
