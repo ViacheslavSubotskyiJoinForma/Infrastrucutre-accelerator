@@ -254,9 +254,9 @@ function setupEventListeners() {
         cb.addEventListener('change', handleComponentChange);
     });
 
-    // Environment checkboxes
+    // Environment checkboxes - use 'click' to prevent unchecking last checkbox
     document.querySelectorAll('.environments input[type="checkbox"]').forEach(cb => {
-        cb.addEventListener('change', handleEnvironmentChange);
+        cb.addEventListener('click', handleEnvironmentClick);
     });
 
     // Cloud provider radio buttons
@@ -354,31 +354,34 @@ function handleComponentChange(e) {
 }
 
 /**
- * Handle environment checkbox changes
- * - Adds/removes environments from selection
- * - Ensures at least one environment is always selected
+ * Handle environment checkbox clicks
+ * - Prevents unchecking the last selected environment
  * - Updates diagram and component list
  * - Shows/hides IP range inputs based on selected environments
- * @param {Event} e - Checkbox change event
+ * Uses 'click' event with preventDefault() to avoid race conditions with cost calculator
+ * @param {Event} e - Checkbox click event
  * @returns {void}
  */
-function handleEnvironmentChange(e) {
-    // Check actual DOM state after change event
+function handleEnvironmentClick(e) {
+    const checkbox = e.target;
     const allCheckboxes = document.querySelectorAll('.environments input[type="checkbox"]');
-    const checkedBoxes = Array.from(allCheckboxes).filter(cb => cb.checked);
+    const currentlyChecked = Array.from(allCheckboxes).filter(cb => cb.checked);
 
-    // If no checkboxes are checked, revert this change
-    if (checkedBoxes.length === 0) {
-        e.target.checked = true; // Force it back to checked
-        return; // Don't update state or UI
+    // If trying to uncheck the last checkbox, prevent it
+    // Note: In click event, e.target.checked still has the OLD value (before click)
+    if (checkbox.checked && currentlyChecked.length === 1 && currentlyChecked[0] === checkbox) {
+        e.preventDefault(); // Prevent the checkbox from being unchecked
+        return;
     }
 
-    // Update our state based on actual DOM state
-    selectedEnvironments = checkedBoxes.map(cb => cb.value);
-
-    // Update IP range visibility and diagram
-    updateIPRangeVisibility();
-    updateDiagram();
+    // Allow the click to proceed (checkbox will toggle naturally)
+    // Update state after DOM updates
+    setTimeout(() => {
+        const newChecked = Array.from(allCheckboxes).filter(cb => cb.checked);
+        selectedEnvironments = newChecked.map(cb => cb.value);
+        updateIPRangeVisibility();
+        updateDiagram();
+    }, 0);
 }
 
 /**

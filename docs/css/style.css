@@ -435,7 +435,7 @@ body.dark-mode input[value="github"] ~ .provider-card .provider-icon path {
 }
 
 .advanced-options.expanded {
-    max-height: 600px;
+    max-height: 1200px; /* Increased to accommodate all environments */
 }
 
 .advanced-content {
