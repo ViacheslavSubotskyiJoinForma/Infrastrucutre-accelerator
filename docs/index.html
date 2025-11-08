@@ -41,10 +41,14 @@
             <div class="config-panel">
                 <h2>Configure Your Infrastructure</h2>
 
-                <div class="form-group">
-                    <label for="projectName">Project Name</label>
+                <div class="form-group" id="projectNameGroup">
+                    <label for="projectName">
+                        Project Name
+                        <span class="tooltip-icon" data-tooltip="Must be lowercase, alphanumeric with hyphens. Max 63 characters. Examples: my-app, web-api-v2">ⓘ</span>
+                    </label>
                     <input type="text" id="projectName" placeholder="my-project">
                     <small>Used for naming resources across your infrastructure</small>
+                    <div class="validation-message" id="projectNameValidation"></div>
                 </div>
 
                 <div class="form-group">
@@ -167,6 +171,51 @@
                 </div>
 
                 <div class="form-group">
+                    <label>Component Dependencies</label>
+                    <div id="dependencyGraph" class="dependency-graph">
+                        <svg viewBox="0 0 400 200" xmlns="http://www.w3.org/2000/svg">
+                            <!-- VPC node -->
+                            <g id="node-vpc" class="graph-node active">
+                                <circle cx="100" cy="100" r="35" class="node-circle"/>
+                                <text x="100" y="105" class="node-text">VPC</text>
+                            </g>
+
+                            <!-- EKS-Auto node -->
+                            <g id="node-eks-auto" class="graph-node">
+                                <circle cx="300" cy="60" r="35" class="node-circle"/>
+                                <text x="300" y="65" class="node-text">EKS</text>
+                            </g>
+
+                            <!-- RDS node -->
+                            <g id="node-rds" class="graph-node disabled">
+                                <circle cx="300" cy="140" r="35" class="node-circle"/>
+                                <text x="300" y="145" class="node-text">RDS</text>
+                            </g>
+
+                            <!-- Dependencies (arrows) -->
+                            <defs>
+                                <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+                                    <polygon points="0 0, 10 3, 0 6" fill="currentColor"/>
+                                </marker>
+                            </defs>
+
+                            <!-- VPC -> EKS-Auto -->
+                            <line id="dep-vpc-eks-auto" x1="135" y1="85" x2="265" y2="70"
+                                  class="dependency-line" marker-end="url(#arrowhead)"/>
+
+                            <!-- VPC -> RDS -->
+                            <line id="dep-vpc-rds" x1="135" y1="115" x2="265" y2="135"
+                                  class="dependency-line disabled" marker-end="url(#arrowhead)"/>
+                        </svg>
+                        <div class="graph-legend">
+                            <span class="legend-item"><span class="legend-dot selected"></span> Selected</span>
+                            <span class="legend-item"><span class="legend-dot auto"></span> Auto-added</span>
+                            <span class="legend-item"><span class="legend-dot available"></span> Available</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
                     <label>Environments</label>
                     <div class="checkbox-group environments">
                         <label class="checkbox">
@@ -185,6 +234,39 @@
                 </div>
 
                 <div class="form-group">
+                    <label>Estimated Monthly Cost</label>
+                    <div id="costCalculator" class="cost-calculator">
+                        <div class="cost-summary">
+                            <div class="cost-total">
+                                <span class="cost-label">Total (all environments):</span>
+                                <span class="cost-value" id="totalCost">$0</span>
+                                <span class="cost-period">/month</span>
+                            </div>
+                        </div>
+
+                        <div class="cost-breakdown" id="costBreakdown">
+                            <div class="cost-section">
+                                <h4>By Component</h4>
+                                <div id="componentCosts" class="cost-items">
+                                    <!-- Populated by JavaScript -->
+                                </div>
+                            </div>
+
+                            <div class="cost-section">
+                                <h4>By Environment</h4>
+                                <div id="environmentCosts" class="cost-items">
+                                    <!-- Populated by JavaScript -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="cost-disclaimer">
+                            <small>💡 <strong>Estimate only.</strong> Actual costs may vary based on usage, data transfer, and region. Prices shown are for us-east-1.</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
                     <label for="region">AWS Region</label>
                     <select id="region">
                         <option value="us-east-1" selected>US East (N. Virginia)</option>
@@ -195,10 +277,14 @@
                     </select>
                 </div>
 
-                <div class="form-group">
-                    <label for="awsAccountId">AWS Account ID</label>
+                <div class="form-group" id="awsAccountIdGroup">
+                    <label for="awsAccountId">
+                        AWS Account ID
+                        <span class="tooltip-icon" data-tooltip="Exactly 12 digits. Find it in AWS Console → Account Settings. Example: 999888777666">ⓘ</span>
+                    </label>
                     <input type="text" id="awsAccountId" placeholder="123456789012">
                     <small>Your 12-digit AWS account number</small>
+                    <div class="validation-message" id="awsAccountIdValidation"></div>
                 </div>
 
                 <div class="form-group advanced-section">
@@ -274,6 +360,8 @@
     <script src="js/security.js?v=11"></script>
     <script src="js/auth.js?v=11"></script>
     <script src="js/workflow-monitor.js?v=11"></script>
+    <script src="js/dependency-graph.js?v=12"></script>
+    <script src="js/cost-calculator.js?v=12"></script>
     <script src="js/app.js?v=11"></script>
 </body>
 </html>

@@ -961,3 +961,406 @@ body.dark-mode .download-info {
 body.dark-mode .download-filename {
     color: #10b981;
 }
+
+/* ==========================================
+   Dependency Graph Styles
+   ========================================== */
+
+.dependency-graph {
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-top: 0.5rem;
+}
+
+.dependency-graph svg {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.graph-node {
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.graph-node .node-circle {
+    fill: var(--bg-tertiary);
+    stroke: var(--border-color);
+    stroke-width: 2;
+    transition: all 0.3s ease;
+}
+
+.graph-node .node-text {
+    fill: var(--text-color);
+    font-size: 14px;
+    font-weight: 600;
+    text-anchor: middle;
+    dominant-baseline: middle;
+    pointer-events: none;
+}
+
+/* Node states */
+.graph-node.active .node-circle {
+    fill: var(--primary-color);
+    stroke: var(--primary-color);
+}
+
+.graph-node.active .node-text {
+    fill: white;
+}
+
+.graph-node.auto-added .node-circle {
+    fill: var(--warning-color);
+    stroke: var(--warning-color);
+}
+
+.graph-node.auto-added .node-text {
+    fill: white;
+}
+
+.graph-node.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.graph-node:not(.disabled):not(.active):hover .node-circle {
+    stroke: var(--primary-color);
+    stroke-width: 3;
+}
+
+/* Dependency lines */
+.dependency-line {
+    stroke: var(--border-color);
+    stroke-width: 2;
+    fill: none;
+    transition: all 0.3s ease;
+}
+
+.dependency-line.active {
+    stroke: var(--primary-color);
+    stroke-width: 3;
+}
+
+.dependency-line.disabled {
+    opacity: 0.3;
+}
+
+.dependency-line marker polygon {
+    fill: var(--border-color);
+    transition: fill 0.3s ease;
+}
+
+.dependency-line.active marker polygon {
+    fill: var(--primary-color);
+}
+
+/* Graph legend */
+.graph-legend {
+    display: flex;
+    gap: 1.5rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+    flex-wrap: wrap;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.legend-dot.selected {
+    background: var(--primary-color);
+}
+
+.legend-dot.auto {
+    background: var(--warning-color);
+}
+
+.legend-dot.available {
+    background: var(--bg-tertiary);
+    border: 2px solid var(--border-color);
+}
+
+/* Dark mode adjustments */
+body.dark-mode .dependency-graph {
+    background: var(--bg-primary);
+}
+
+body.dark-mode .graph-node .node-circle {
+    fill: var(--bg-secondary);
+}
+
+/* ==========================================
+   Cost Calculator Styles
+   ========================================== */
+
+.cost-calculator {
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-top: 0.5rem;
+}
+
+.cost-summary {
+    margin-bottom: 1.5rem;
+}
+
+.cost-total {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding: 1rem;
+    background: linear-gradient(135deg, var(--primary-color) 0%, #2563eb 100%);
+    border-radius: 8px;
+    color: white;
+}
+
+.cost-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    opacity: 0.9;
+}
+
+.cost-value {
+    font-size: 2rem;
+    font-weight: 700;
+    flex: 1;
+}
+
+.cost-period {
+    font-size: 0.875rem;
+    opacity: 0.8;
+}
+
+.cost-breakdown {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.cost-section h4 {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.75rem;
+}
+
+.cost-items {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.cost-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    background: var(--bg-primary);
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.cost-item:hover {
+    background: var(--bg-tertiary);
+}
+
+.cost-item-name {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-color);
+}
+
+.cost-item-value {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.cost-disclaimer {
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+    color: var(--text-secondary);
+}
+
+.cost-disclaimer small {
+    display: block;
+    line-height: 1.5;
+}
+
+/* Dark mode adjustments */
+body.dark-mode .cost-calculator {
+    background: var(--bg-primary);
+}
+
+body.dark-mode .cost-item {
+    background: var(--bg-secondary);
+}
+
+body.dark-mode .cost-item:hover {
+    background: var(--bg-tertiary);
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+    .cost-breakdown {
+        grid-template-columns: 1fr;
+    }
+
+    .cost-value {
+        font-size: 1.5rem;
+    }
+}
+
+/* ==========================================
+   Tooltip Styles
+   ========================================== */
+
+.tooltip-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    margin-left: 0.25rem;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: help;
+    position: relative;
+    transition: color 0.2s ease;
+}
+
+.tooltip-icon:hover {
+    color: var(--primary-color);
+}
+
+.tooltip-icon::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(-8px);
+    background: var(--bg-primary);
+    color: var(--text-color);
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    font-size: 0.8125rem;
+    font-weight: 400;
+    line-height: 1.5;
+    white-space: normal;
+    width: max-content;
+    max-width: 280px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border: 1px solid var(--border-color);
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s ease;
+    pointer-events: none;
+    z-index: 1000;
+}
+
+.tooltip-icon::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    border: 6px solid transparent;
+    border-top-color: var(--bg-primary);
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s ease;
+    z-index: 1001;
+}
+
+.tooltip-icon:hover::after,
+.tooltip-icon:hover::before {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Dark mode */
+body.dark-mode .tooltip-icon::after {
+    background: var(--bg-secondary);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+body.dark-mode .tooltip-icon::before {
+    border-top-color: var(--bg-secondary);
+}
+
+/* Validation feedback */
+.form-group.error input,
+.form-group.error select {
+    border-color: var(--error-color);
+}
+
+.form-group.success input,
+.form-group.success select {
+    border-color: var(--success-color);
+}
+
+.validation-message {
+    display: none;
+    margin-top: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+}
+
+.validation-message.show {
+    display: block;
+}
+
+.validation-message.error {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--error-color);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.validation-message.success {
+    background: rgba(34, 197, 94, 0.1);
+    color: var(--success-color);
+    border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+body.dark-mode .validation-message.error {
+    background: rgba(239, 68, 68, 0.15);
+}
+
+body.dark-mode .validation-message.success {
+    background: rgba(34, 197, 94, 0.15);
+}
+
+/* Mobile adjustments */
+@media (max-width: 640px) {
+    .tooltip-icon::after {
+        left: auto;
+        right: 0;
+        transform: translateX(0) translateY(-8px);
+        max-width: 240px;
+    }
+
+    .tooltip-icon::before {
+        left: auto;
+        right: 8px;
+        transform: translateX(0) translateY(4px);
+    }
+}
