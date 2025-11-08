@@ -34,6 +34,12 @@ let selectedEnvironments = ['dev'];
 let selectedProvider = 'aws';
 
 /**
+ * Currently selected CI/CD provider
+ * @type {string}
+ */
+let selectedCIProvider = 'gitlab';
+
+/**
  * Default VPC CIDR ranges per environment
  * @type {Object<string, string>}
  */
@@ -231,6 +237,11 @@ function setupEventListeners() {
         radio.addEventListener('change', handleProviderChange);
     });
 
+    // CI provider radio buttons
+    document.querySelectorAll('input[name="ciProvider"]').forEach(radio => {
+        radio.addEventListener('change', handleCIProviderChange);
+    });
+
     // Advanced options toggle
     document.getElementById('toggleAdvanced').addEventListener('click', toggleAdvancedOptions);
 
@@ -353,6 +364,16 @@ function handleEnvironmentChange(e) {
 function handleProviderChange(e) {
     selectedProvider = e.target.value;
     updateDiagram();
+}
+
+/**
+ * Handle CI provider radio button changes
+ * @param {Event} e - Radio change event
+ * @returns {void}
+ */
+function handleCIProviderChange(e) {
+    selectedCIProvider = e.target.value;
+    // CI provider selection doesn't affect diagram, but we track it for workflow generation
 }
 
 /**
