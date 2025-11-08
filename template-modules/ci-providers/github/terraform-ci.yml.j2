@@ -7,16 +7,16 @@ on:
   pull_request:
     branches: [main, master]
     paths:
-{%- for component in components %}
+{% for component in components %}
       - 'infra/{{ component }}/**'
-{%- endfor %}
+{% endfor %}
       - 'infra/config/**'
   push:
     branches: [main, master]
     paths:
-{%- for component in components %}
+{% for component in components %}
       - 'infra/{{ component }}/**'
-{%- endfor %}
+{% endfor %}
       - 'infra/config/**'
   workflow_dispatch:
     inputs:
@@ -25,17 +25,17 @@ on:
         required: true
         type: choice
         options:
-{%- for env in environments %}
+{% for env in environments %}
           - {{ env }}
-{%- endfor %}
+{% endfor %}
       component:
         description: 'Component to deploy'
         required: true
         type: choice
         options:
-{%- for component in components %}
+{% for component in components %}
           - {{ component }}
-{%- endfor %}
+{% endfor %}
       action:
         description: 'Terraform action'
         required: true
@@ -63,7 +63,7 @@ env:
 
 
 jobs:
-{%- for component in components %}
+{% for component in components %}
   validate-{{ component }}:
     name: Validate {{ component }}
     runs-on: ubuntu-latest
@@ -90,7 +90,7 @@ jobs:
         working-directory: infra/{{ component }}
         run: terraform validate
 
-{%- for env in environments %}
+{% for env in environments %}
 
   plan-{{ component }}-{{ env }}:
     name: Plan {{ component }} ({{ env }})
@@ -140,18 +140,16 @@ jobs:
             const output = `### Terraform Plan: {{ component }} ({{ env }})
 
             #### Status: {% raw %}${{ steps.plan.outcome }}{% endraw %}
-
             <details>
             <summary>Show Plan</summary>
 
             \`\`\`terraform
-            {% raw %}${{ steps.plan.outputs.stdout }}{% endraw %}
-
+{% raw %}            ${{ steps.plan.outputs.stdout }}{% endraw %}
             \`\`\`
 
             </details>
 
-            *Pushed by: @{% raw %}${{ github.actor }}{% endraw %}, Action: \`{% raw %}${{ github.event_name }}{% endraw %}\`*`;
+            *Pushed by: @{% raw %}${{ github.actor }}{% endraw %}, Action: \`{% raw %}${{ github.event.name }}{% endraw %}\`*`;
 
             github.rest.issues.createComment({
               issue_number: context.issue.number,
@@ -172,16 +170,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: plan-{{ component }}-{{ env }}
     if: |
-      {% raw %}(github.event_name == 'push' && github.ref == 'refs/heads/main') ||{% endraw %}
-
-      {% raw %}(github.event_name == 'workflow_dispatch' &&{% endraw %}
-
-       {% raw %}github.event.inputs.component == '{% endraw %}{{ component }}{% raw %}' &&{% endraw %}
-
-       {% raw %}github.event.inputs.environment == '{% endraw %}{{ env }}{% raw %}' &&{% endraw %}
-
-       {% raw %}github.event.inputs.action == 'apply'){% endraw %}
-
+{% raw %}      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' &&
+       github.event.inputs.component == '{% endraw %}{{ component }}{% raw %}' &&
+       github.event.inputs.environment == '{% endraw %}{{ env }}{% raw %}' &&
+       github.event.inputs.action == 'apply'){% endraw %}
     environment: {{ env }}
 
     steps:
@@ -216,5 +209,5 @@ jobs:
       - name: Terraform Apply
         working-directory: infra/{{ component }}
         run: terraform apply -auto-approve tfplan-{{ env }}
-{%- endfor %}
-{%- endfor %}
+{% endfor %}
+{% endfor %}

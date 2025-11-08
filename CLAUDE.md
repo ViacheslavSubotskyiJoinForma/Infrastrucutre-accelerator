@@ -213,6 +213,7 @@ The web interface provides an interactive UI for configuring and triggering infr
 - `docs/js/app.js` - Application logic, validation, and UI interactions
 - `docs/js/security.js` - Security utilities, input validation, XSS protection
 - `docs/js/auth.js` - GitHub OAuth authentication
+- `docs/js/workflow-monitor.js` - Real-time workflow monitoring and artifact download
 - `docs/css/style.css` - Styling with dark mode support
 
 **Features**:
@@ -222,7 +223,20 @@ The web interface provides an interactive UI for configuring and triggering infr
 - Dark/light mode with system preference detection
 - Real-time architecture diagram preview
 - OAuth integration for GitHub Actions workflow triggers
+- **Real-time workflow monitoring** with progress tracking
+- **Automatic artifact download** when generation completes
+- **Job-level progress display** showing individual workflow steps
 - Security-focused design (XSS protection, input sanitization)
+
+**Workflow Monitoring** (New in v1.1):
+- Real-time status updates via GitHub API polling (every 5 seconds)
+- Animated progress bar with shimmer effect
+- Live job status tracking (queued ⏳, running ⚡, success ✅, failure ❌)
+- Automatic ZIP download when workflow completes successfully
+- Background monitoring (modal can be closed while workflow runs)
+- Elapsed time display
+- Fallback to manual download if auto-download fails
+- See `docs/WORKFLOW_MONITORING.md` for detailed documentation
 
 **Validation**:
 - Project names: lowercase alphanumeric with hyphens, DNS-compliant (max 63 chars)
@@ -249,15 +263,21 @@ The generator supports multiple CI/CD platforms:
   - Automatic dependency resolution
   - Artifact management for Terraform plans
 
-### GitHub Actions (Templates Ready)
+### GitHub Actions ✅ (Active)
 - **File**: `.github/workflows/terraform-ci.yml`
-- **Status**: Templates implemented, marked as "Coming Soon" in web UI
+- **Status**: Fully supported and enabled in web UI
+- **Documentation**: See `docs/GITHUB_ACTIONS_SETUP.md`
 - **Features**:
   - Pull request validation with plan comments
   - Environment-based deployments with approvals
   - Workflow dispatch for manual runs
-  - Matrix strategy for components and environments
-  - AWS credentials via secrets
+  - Per-component and per-environment jobs
+  - AWS credentials via secrets or OIDC
+  - Artifact management for Terraform plans
+- **Setup**:
+  - Configure secrets: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`
+  - Optional: GitHub Environments for approval workflows
+  - Recommended: AWS OIDC for enhanced security
 
 ### Azure DevOps Pipelines (Templates Ready)
 - **File**: `azure-pipelines.yml`
@@ -269,7 +289,7 @@ The generator supports multiple CI/CD platforms:
   - Artifact management for plans
   - AWS authentication via service connections
 
-**Usage**: Select CI provider in web UI or use `--ci-provider` flag with CLI. GitHub Actions and Azure DevOps are functional but grayed out in the web interface pending full validation.
+**Usage**: Select CI provider in web UI or use `--ci-provider` flag with CLI. GitLab and GitHub Actions are fully supported. Azure DevOps templates are ready but pending full validation.
 
 ---
 
