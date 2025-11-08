@@ -209,12 +209,49 @@ select:focus {
     border-color: var(--primary);
 }
 
+/* Validation states */
+input.error,
+select.error {
+    border-color: var(--danger);
+    background: rgba(239, 68, 68, 0.05);
+}
+
+input.error:focus,
+select.error:focus {
+    border-color: var(--danger);
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.error-message {
+    display: block;
+    margin-top: 0.5rem;
+    color: var(--danger);
+    font-size: 0.875rem;
+    font-weight: 500;
+    animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 small {
     display: block;
     margin-top: 0.25rem;
     color: var(--text-secondary);
     font-size: 0.875rem;
     transition: color 0.3s ease;
+}
+
+small.hide {
+    display: none;
 }
 
 .checkbox-group {

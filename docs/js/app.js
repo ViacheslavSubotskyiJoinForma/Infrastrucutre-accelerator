@@ -139,6 +139,19 @@ function setupEventListeners() {
     // Auth buttons
     document.getElementById('loginBtn').addEventListener('click', () => auth.login());
     document.getElementById('logoutBtn').addEventListener('click', () => auth.logout());
+
+    // Clear validation errors on input
+    document.getElementById('projectName').addEventListener('input', function() {
+        if (this.classList.contains('error')) {
+            clearError(this);
+        }
+    });
+
+    document.getElementById('awsAccountId').addEventListener('input', function() {
+        if (this.classList.contains('error')) {
+            clearError(this);
+        }
+    });
 }
 
 /**
@@ -364,6 +377,69 @@ function addText(svg, x, y, text, weight, anchor, fill = '#1f2937') {
 }
 
 /**
+ * Show validation error for an input field
+ * @param {HTMLElement} input - Input element to mark as invalid
+ * @param {string} message - Error message to display
+ * @returns {void}
+ */
+function showError(input, message) {
+    // Add error class to input
+    input.classList.add('error');
+
+    // Remove existing error message if any
+    const existingError = input.parentElement.querySelector('.error-message');
+    if (existingError) {
+        existingError.remove();
+    }
+
+    // Create and insert error message
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'error-message';
+    errorDiv.textContent = message;
+
+    // Insert after the input
+    input.parentNode.insertBefore(errorDiv, input.nextSibling);
+
+    // Hide the small helper text
+    const smallText = input.parentElement.querySelector('small:not(.error-message)');
+    if (smallText) {
+        smallText.classList.add('hide');
+    }
+
+    // Focus the input
+    input.focus();
+}
+
+/**
+ * Clear validation error for an input field
+ * @param {HTMLElement} input - Input element to clear error from
+ * @returns {void}
+ */
+function clearError(input) {
+    input.classList.remove('error');
+
+    const errorMessage = input.parentElement.querySelector('.error-message');
+    if (errorMessage) {
+        errorMessage.remove();
+    }
+
+    const smallText = input.parentElement.querySelector('small:not(.error-message)');
+    if (smallText) {
+        smallText.classList.remove('hide');
+    }
+}
+
+/**
+ * Clear all validation errors from the form
+ * @returns {void}
+ */
+function clearAllErrors() {
+    document.querySelectorAll('input.error, select.error').forEach(input => {
+        clearError(input);
+    });
+}
+
+/**
  * Handle infrastructure generation workflow trigger
  * Validates input, triggers GitHub Actions workflow if authenticated,
  * or shows manual instructions if not authenticated
@@ -372,27 +448,35 @@ function addText(svg, x, y, text, weight, anchor, fill = '#1f2937') {
  * @throws {Error} If workflow trigger fails (caught and displayed in modal)
  */
 async function handleGenerate() {
-    const projectName = Security.sanitizeInput(
-        document.getElementById('projectName').value.trim()
-    );
+    // Clear all previous errors
+    clearAllErrors();
+    const projectNameInput = document.getElementById('projectName');
+    const awsAccountIdInput = document.getElementById('awsAccountId');
+
+    const projectName = Security.sanitizeInput(projectNameInput.value.trim());
     const region = document.getElementById('region').value;
-    const awsAccountId = Security.sanitizeInput(
-        document.getElementById('awsAccountId').value.trim()
-    );
+    const awsAccountId = Security.sanitizeInput(awsAccountIdInput.value.trim());
 
     // Validation with security checks
+    let hasErrors = false;
+
     if (!projectName) {
-        alert('Please enter a project name');
-        return;
+        showError(projectNameInput, 'Please enter a project name');
+        hasErrors = true;
+    } else if (!Security.validateProjectName(projectName.toLowerCase())) {
+        showError(projectNameInput, 'Project name must be lowercase alphanumeric with hyphens, and DNS-compliant (max 63 chars)');
+        hasErrors = true;
     }
 
-    if (!Security.validateProjectName(projectName.toLowerCase())) {
-        alert('Project name must be lowercase alphanumeric with hyphens, and DNS-compliant (max 63 chars)');
-        return;
+    if (!awsAccountId) {
+        showError(awsAccountIdInput, 'Please enter your AWS Account ID');
+        hasErrors = true;
+    } else if (!Security.validateAwsAccountId(awsAccountId)) {
+        showError(awsAccountIdInput, 'AWS Account ID must be exactly 12 digits');
+        hasErrors = true;
     }
 
-    if (!Security.validateAwsAccountId(awsAccountId)) {
-        alert('Please enter a valid 12-digit AWS Account ID');
+    if (hasErrors) {
         return;
     }
 
