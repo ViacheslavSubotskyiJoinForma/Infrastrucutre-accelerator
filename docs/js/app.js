@@ -516,19 +516,28 @@ function updateDiagram() {
     const hasRDS = selectedComponents.includes('rds');
 
     // Calculate viewBox width: use consistent calculation for proper proportions
-    // For single environment, use larger base to ensure proper spacing
+    // For single environment, use container-based width for proper scaling
     // SVG will scale via width: 100% to fill container
     let viewBoxWidth;
     if (envCount === 1) {
-        // Larger viewBox for single environment to match visual proportions of other blocks
-        viewBoxWidth = 1000;
+        // Use container width for single environment to match other blocks
+        // This ensures the diagram fills the full width like other right panel elements
+        const containerWidth = container.clientWidth - 32; // Subtract padding (1rem * 2)
+        viewBoxWidth = Math.max(containerWidth, 600); // Minimum 600px for readability
     } else {
         // Multiple environments: calculate needed width for all environments
         viewBoxWidth = 260 * envCount + 120;
     }
 
+    // Calculate height with proper aspect ratio
     // Increase height if we have both EKS and RDS
-    const height = (hasEKS && hasRDS) ? 590 : (hasEKS || hasRDS) ? 490 : 390;
+    let height;
+    if (envCount === 1) {
+        // For single environment, use taller height to match multi-environment vertical size
+        height = (hasEKS && hasRDS) ? 650 : (hasEKS || hasRDS) ? 550 : 450;
+    } else {
+        height = (hasEKS && hasRDS) ? 590 : (hasEKS || hasRDS) ? 490 : 390;
+    }
 
     // Clear existing
     svg.innerHTML = '';
