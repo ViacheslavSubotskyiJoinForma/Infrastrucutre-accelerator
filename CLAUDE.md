@@ -194,13 +194,39 @@ When deploying generated infrastructure:
 - Test generated code with latest Terraform versions
 
 #### Web Interface
-- Interactive UI hosted on GitHub Pages
-- OAuth integration for workflow triggers (in development)
-- Dark mode support
-- Real-time architecture visualization
+
+**Location**: `docs/` (GitHub Pages)
+
+The web interface provides an interactive UI for configuring and triggering infrastructure generation:
+
+**Files**:
+- `docs/index.html` - Main UI page
+- `docs/js/app.js` - Application logic, validation, and UI interactions
+- `docs/js/security.js` - Security utilities, input validation, XSS protection
+- `docs/js/auth.js` - GitHub OAuth authentication
+- `docs/css/style.css` - Styling with dark mode support
+
+**Features**:
+- Interactive form with visual validation feedback
+- Custom input validation (no browser default prompts)
+- Dark/light mode with system preference detection
+- Real-time architecture diagram preview
+- OAuth integration for GitHub Actions workflow triggers
+- Security-focused design (XSS protection, input sanitization)
+
+**Validation**:
+- Project names: lowercase alphanumeric with hyphens, DNS-compliant (max 63 chars)
+- AWS Account IDs: exactly 12 digits (blocks test IDs like 123456789012)
+- Error highlighting with inline messages (no alert() popups)
+- Auto-clear errors on user input
+
+**Testing**:
+- HTML test suite: `tests/test_validation.html` (browser-based)
+- Node.js tests: `tests/validation.test.js` (automated, run with `node tests/validation.test.js`)
+- All validation logic tested independently
 
 ---
 
-**Last Updated**: 2025-11-07
+**Last Updated**: 2025-11-08
 **Repository Type**: Infrastructure Template Generator
 **Git History**: Clean (sanitized)
