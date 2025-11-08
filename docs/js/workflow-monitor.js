@@ -40,6 +40,7 @@ class WorkflowMonitor {
         this.pollInterval = null;
         this.currentRunId = null;
         this.startTime = null;
+        this.stepsProgress = 0; // Track progress based on workflow steps
     }
 
     /**
@@ -52,15 +53,13 @@ class WorkflowMonitor {
     async startMonitoring(runId) {
         this.currentRunId = runId;
         this.startTime = Date.now();
-
-        console.log('[WorkflowMonitor] Starting monitoring for run ID:', runId);
+        this.stepsProgress = 0;
 
         // Show progress modal
         this.showProgressModal();
 
         // Start polling with arrow function to preserve 'this' context
         this.pollInterval = setInterval(async () => {
-            console.log('[WorkflowMonitor] Polling status...');
             await this.checkStatus();
         }, 5000); // Poll every 5 seconds
 
@@ -85,8 +84,6 @@ class WorkflowMonitor {
      */
     async checkStatus() {
         try {
-            console.log('[WorkflowMonitor] Checking status for run:', this.currentRunId);
-
             const response = await fetch(
                 `https://api.github.com/repos/${this.repo}/actions/runs/${this.currentRunId}`,
                 {
@@ -98,23 +95,18 @@ class WorkflowMonitor {
             );
 
             if (!response.ok) {
-                const errorText = await response.text();
-                console.error('[WorkflowMonitor] API error:', response.status, errorText);
                 throw new Error(`Failed to fetch workflow status: ${response.status}`);
             }
 
             const run = await response.json();
-            console.log('[WorkflowMonitor] Current status:', run.status, 'Conclusion:', run.conclusion);
 
-            this.updateProgress(run);
-
-            // If completed, fetch jobs for detailed progress
+            // If completed, stop monitoring and handle completion
             if (run.status === WorkflowStatus.COMPLETED) {
-                console.log('[WorkflowMonitor] Workflow completed, stopping monitoring');
                 this.stopMonitoring();
+                this.updateProgress(run);
                 await this.handleCompletion(run);
             } else {
-                // Fetch jobs for progress details
+                // Fetch jobs for step-based progress calculation
                 await this.updateJobProgress(run);
             }
 
@@ -131,8 +123,6 @@ class WorkflowMonitor {
      */
     async updateJobProgress(run) {
         try {
-            console.log('[WorkflowMonitor] Fetching jobs for run:', this.currentRunId);
-
             const response = await fetch(
                 `https://api.github.com/repos/${this.repo}/actions/runs/${this.currentRunId}/jobs`,
                 {
@@ -145,14 +135,62 @@ class WorkflowMonitor {
 
             if (response.ok) {
                 const { jobs } = await response.json();
-                console.log('[WorkflowMonitor] Received', jobs.length, 'jobs');
+
+                // Calculate progress based on steps
+                this.stepsProgress = this.calculateStepsProgress(jobs);
+
+                // Display jobs in UI
                 this.displayJobProgress(jobs);
-            } else {
-                console.error('[WorkflowMonitor] Failed to fetch jobs:', response.status);
+
+                // Update progress bar with calculated percentage
+                this.updateProgress(run);
             }
         } catch (error) {
             console.error('[WorkflowMonitor] Job progress error:', error);
         }
+    }
+
+    /**
+     * Calculate progress percentage based on workflow steps
+     * @param {Array} jobs - Array of job objects with steps from GitHub API
+     * @returns {number} Progress percentage (0-100)
+     */
+    calculateStepsProgress(jobs) {
+        let totalSteps = 0;
+        let completedSteps = 0;
+        let inProgressSteps = 0;
+
+        jobs.forEach(job => {
+            if (job.steps && job.steps.length > 0) {
+                job.steps.forEach(step => {
+                    // Skip setup steps (like "Set up job", "Complete job")
+                    if (!step.name.startsWith('Set up') && !step.name.startsWith('Complete')) {
+                        totalSteps++;
+
+                        if (step.status === 'completed') {
+                            completedSteps++;
+                        } else if (step.status === 'in_progress') {
+                            inProgressSteps++;
+                        }
+                    }
+                });
+            }
+        });
+
+        if (totalSteps === 0) {
+            // No steps yet, use job status as fallback
+            const completedJobs = jobs.filter(j => j.status === 'completed').length;
+            const inProgressJobs = jobs.filter(j => j.status === 'in_progress').length;
+            const totalJobs = jobs.length || 1;
+
+            return Math.round(((completedJobs + inProgressJobs * 0.5) / totalJobs) * 90);
+        }
+
+        // Calculate: completed steps = 100%, in_progress = 50% contribution
+        const weightedCompleted = completedSteps + (inProgressSteps * 0.5);
+        const progress = (weightedCompleted / totalSteps) * 90; // Cap at 90% until workflow completes
+
+        return Math.round(Math.max(10, progress)); // Minimum 10% when started
     }
 
     /**
@@ -163,44 +201,72 @@ class WorkflowMonitor {
     displayJobProgress(jobs) {
         const jobList = document.getElementById('workflowJobs');
         if (!jobList) {
-            console.error('[WorkflowMonitor] workflowJobs element not found in displayJobProgress');
             return;
         }
 
-        console.log('[WorkflowMonitor] Displaying', jobs.length, 'jobs');
         jobList.innerHTML = '';
 
-        jobs.forEach((job, index) => {
-            console.log(`[WorkflowMonitor] Job ${index + 1}:`, job.name, 'Status:', job.status);
+        jobs.forEach(job => {
+            // Display each step instead of just the job
+            if (job.steps && job.steps.length > 0) {
+                job.steps.forEach(step => {
+                    // Skip setup/teardown steps
+                    if (step.name.startsWith('Set up') || step.name.startsWith('Complete')) {
+                        return;
+                    }
 
-            const jobItem = document.createElement('div');
-            jobItem.className = 'job-item';
+                    const jobItem = document.createElement('div');
+                    jobItem.className = 'job-item';
 
-            let statusIcon = '⏳';
-            let statusClass = 'pending';
+                    let statusIcon = '⏳';
+                    let statusClass = 'pending';
 
-            if (job.status === 'completed') {
-                if (job.conclusion === 'success') {
+                    if (step.status === 'completed') {
+                        if (step.conclusion === 'success') {
+                            statusIcon = '✅';
+                            statusClass = 'success';
+                        } else if (step.conclusion === 'failure') {
+                            statusIcon = '❌';
+                            statusClass = 'failure';
+                        } else {
+                            statusIcon = '⚠️';
+                            statusClass = 'warning';
+                        }
+                    } else if (step.status === 'in_progress') {
+                        statusIcon = '⚡';
+                        statusClass = 'in-progress';
+                    }
+
+                    jobItem.innerHTML = `
+                        <span class="job-status ${statusClass}">${statusIcon}</span>
+                        <span class="job-name">${Security.escapeHtml(step.name)}</span>
+                    `;
+
+                    jobList.appendChild(jobItem);
+                });
+            } else {
+                // Fallback: show job if no steps available yet
+                const jobItem = document.createElement('div');
+                jobItem.className = 'job-item';
+
+                let statusIcon = '⏳';
+                let statusClass = 'pending';
+
+                if (job.status === 'completed') {
                     statusIcon = '✅';
                     statusClass = 'success';
-                } else if (job.conclusion === 'failure') {
-                    statusIcon = '❌';
-                    statusClass = 'failure';
-                } else {
-                    statusIcon = '⚠️';
-                    statusClass = 'warning';
+                } else if (job.status === 'in_progress') {
+                    statusIcon = '⚡';
+                    statusClass = 'in-progress';
                 }
-            } else if (job.status === 'in_progress') {
-                statusIcon = '⚡';
-                statusClass = 'in-progress';
+
+                jobItem.innerHTML = `
+                    <span class="job-status ${statusClass}">${statusIcon}</span>
+                    <span class="job-name">${Security.escapeHtml(job.name)}</span>
+                `;
+
+                jobList.appendChild(jobItem);
             }
-
-            jobItem.innerHTML = `
-                <span class="job-status ${statusClass}">${statusIcon}</span>
-                <span class="job-name">${Security.escapeHtml(job.name)}</span>
-            `;
-
-            jobList.appendChild(jobItem);
         });
     }
 
@@ -210,8 +276,6 @@ class WorkflowMonitor {
      * @returns {void}
      */
     updateProgress(run) {
-        console.log('[WorkflowMonitor] updateProgress called with status:', run.status);
-
         const elapsed = Math.floor((Date.now() - this.startTime) / 1000);
         const minutes = Math.floor(elapsed / 60);
         const seconds = elapsed % 60;
@@ -223,14 +287,12 @@ class WorkflowMonitor {
         switch (run.status) {
             case WorkflowStatus.QUEUED:
                 message = `⏳ Queued (${timeStr})`;
-                progressPercent = 10;
-                console.log('[WorkflowMonitor] Status: QUEUED');
+                progressPercent = 5;
                 break;
             case WorkflowStatus.IN_PROGRESS:
                 message = `⚡ Generating infrastructure... (${timeStr})`;
-                // Estimate progress based on time (max 90% until complete)
-                progressPercent = Math.min(90, 20 + (elapsed / 10));
-                console.log('[WorkflowMonitor] Status: IN_PROGRESS, progress:', progressPercent);
+                // Use step-based progress (calculated from jobs/steps)
+                progressPercent = this.stepsProgress || 10;
                 break;
             case WorkflowStatus.COMPLETED:
                 progressPercent = 100;
@@ -241,13 +303,9 @@ class WorkflowMonitor {
                 } else {
                     message = `⚠️ Workflow ${run.conclusion} (${timeStr})`;
                 }
-                console.log('[WorkflowMonitor] Status: COMPLETED, conclusion:', run.conclusion);
                 break;
-            default:
-                console.warn('[WorkflowMonitor] Unknown status:', run.status);
         }
 
-        console.log('[WorkflowMonitor] Updating UI - Progress:', progressPercent, 'Message:', message);
         this.updateProgressBar(progressPercent);
         this.updateProgressMessage(message, run.status);
     }
@@ -261,17 +319,11 @@ class WorkflowMonitor {
         const progressBar = document.getElementById('progressBar');
         const progressPercent = document.getElementById('progressPercent');
 
-        console.log('[WorkflowMonitor] updateProgressBar called with:', percent, '%, elements found:', !!progressBar, !!progressPercent);
-
         if (progressBar) {
             progressBar.style.width = `${percent}%`;
-        } else {
-            console.error('[WorkflowMonitor] progressBar element not found!');
         }
         if (progressPercent) {
             progressPercent.textContent = `${Math.round(percent)}%`;
-        } else {
-            console.error('[WorkflowMonitor] progressPercent element not found!');
         }
     }
 
@@ -284,13 +336,9 @@ class WorkflowMonitor {
     updateProgressMessage(message, status) {
         const messageEl = document.getElementById('progressMessage');
 
-        console.log('[WorkflowMonitor] updateProgressMessage called:', message, 'status:', status, 'element found:', !!messageEl);
-
         if (messageEl) {
             messageEl.textContent = message;
             messageEl.className = `progress-message ${status}`;
-        } else {
-            console.error('[WorkflowMonitor] progressMessage element not found!');
         }
     }
 
@@ -402,27 +450,20 @@ class WorkflowMonitor {
      * @returns {void}
      */
     showProgressModal() {
-        console.log('[WorkflowMonitor] showProgressModal called');
-
         const modal = document.getElementById('progressModal');
         if (!modal) {
-            console.log('[WorkflowMonitor] Modal not found, creating new modal');
             this.createProgressModal();
         } else {
-            console.log('[WorkflowMonitor] Modal found, showing it');
             modal.classList.add('show');
         }
 
         // Reset progress
-        console.log('[WorkflowMonitor] Resetting progress to 0');
         this.updateProgressBar(0);
         this.updateProgressMessage('⏳ Starting workflow...', 'queued');
 
         const jobList = document.getElementById('workflowJobs');
         if (jobList) {
             jobList.innerHTML = '';
-        } else {
-            console.error('[WorkflowMonitor] workflowJobs element not found in showProgressModal');
         }
     }
 
@@ -431,8 +472,6 @@ class WorkflowMonitor {
      * @returns {void}
      */
     createProgressModal() {
-        console.log('[WorkflowMonitor] createProgressModal called, runId:', this.currentRunId);
-
         const modalHTML = `
             <div id="progressModal" class="modal show">
                 <div class="modal-content progress-modal">
@@ -448,7 +487,7 @@ class WorkflowMonitor {
                     <p id="progressMessage" class="progress-message">⏳ Starting workflow...</p>
 
                     <div class="jobs-container">
-                        <h4>Workflow Jobs:</h4>
+                        <h4>Workflow Steps:</h4>
                         <div id="workflowJobs" class="job-list"></div>
                     </div>
 
@@ -465,12 +504,6 @@ class WorkflowMonitor {
         `;
 
         document.body.insertAdjacentHTML('beforeend', modalHTML);
-        console.log('[WorkflowMonitor] Modal HTML inserted into DOM');
-
-        // Verify elements were created
-        const progressBar = document.getElementById('progressBar');
-        const progressMessage = document.getElementById('progressMessage');
-        console.log('[WorkflowMonitor] Verification - progressBar:', !!progressBar, 'progressMessage:', !!progressMessage);
     }
 
     /**
