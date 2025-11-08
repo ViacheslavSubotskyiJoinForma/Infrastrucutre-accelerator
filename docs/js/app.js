@@ -623,31 +623,27 @@ function updateDiagram() {
     // Provider header
     const headerY = 20;
 
-    // AWS Logo (smile and arrow)
+    // AWS Logo (cloud icon)
     if (selectedProvider === 'aws') {
-        const logoX = 35;
+        const logoX = 30;
         const logoY = headerY - 2;
-        const logoWidth = 28;
-        const logoHeight = 16;
+        const logoSize = 20;
 
-        // AWS smile (curved line from A to Z)
-        const smile = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        const smileStart = `M ${logoX},${logoY + logoHeight * 0.4}`;
-        const smileCurve = `Q ${logoX + logoWidth/2},${logoY + logoHeight * 0.95} ${logoX + logoWidth},${logoY + logoHeight * 0.4}`;
-        smile.setAttribute('d', `${smileStart} ${smileCurve}`);
-        smile.setAttribute('stroke', '#FF9900');
-        smile.setAttribute('stroke-width', '2.8');
-        smile.setAttribute('fill', 'none');
-        smile.setAttribute('stroke-linecap', 'round');
-        svg.appendChild(smile);
-
-        // Arrow tip (pointing right, at the end of smile)
-        const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-        const arrowTipX = logoX + logoWidth;
-        const arrowTipY = logoY + logoHeight * 0.4;
-        arrow.setAttribute('points', `${arrowTipX - 3},${arrowTipY - 3.5} ${arrowTipX + 3},${arrowTipY} ${arrowTipX - 3},${arrowTipY + 3.5}`);
-        arrow.setAttribute('fill', '#FF9900');
-        svg.appendChild(arrow);
+        // Cloud shape using path
+        const cloud = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        const cloudPath = `
+            M ${logoX + 10},${logoY + 14}
+            C ${logoX + 10},${logoY + 14} ${logoX + 6},${logoY + 14} ${logoX + 6},${logoY + 11}
+            C ${logoX + 6},${logoY + 8.5} ${logoX + 8},${logoY + 7} ${logoX + 10.5},${logoY + 7}
+            C ${logoX + 11},${logoY + 4.5} ${logoX + 13},${logoY + 3} ${logoX + 15.5},${logoY + 3}
+            C ${logoX + 18},${logoY + 3} ${logoX + 20},${logoY + 4.5} ${logoX + 20.5},${logoY + 7}
+            C ${logoX + 23},${logoY + 7} ${logoX + 25},${logoY + 8.5} ${logoX + 25},${logoY + 11}
+            C ${logoX + 25},${logoY + 14} ${logoX + 21},${logoY + 14} ${logoX + 21},${logoY + 14}
+            Z
+        `;
+        cloud.setAttribute('d', cloudPath);
+        cloud.setAttribute('fill', '#FF9900');
+        svg.appendChild(cloud);
     }
 
     // Title with provider
