@@ -367,6 +367,12 @@ small.hide {
     transition: opacity 0.3s ease;
 }
 
+.provider-icon.aws-logo {
+    width: 48px;
+    height: 28px;
+    object-fit: contain;
+}
+
 /* Fix GitHub icon visibility in dark mode */
 body.dark-mode input[value="github"] ~ .provider-card .provider-icon path {
     fill: #ffffff;
