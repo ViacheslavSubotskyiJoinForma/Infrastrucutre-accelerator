@@ -752,27 +752,31 @@ function addText(svg, x, y, text, weight, anchor, fill = '#1f2937') {
  * @returns {void}
  */
 function showError(input, message) {
-    // Add error class to input
-    input.classList.add('error');
-
-    // Remove existing error message if any
-    const existingError = input.parentElement.querySelector('.error-message');
-    if (existingError) {
-        existingError.remove();
+    // Add error class to form group
+    const formGroup = input.closest('.form-group');
+    if (formGroup) {
+        formGroup.classList.add('error');
+        formGroup.classList.remove('success');
     }
 
-    // Create and insert error message
-    const errorDiv = document.createElement('div');
-    errorDiv.className = 'error-message';
-    errorDiv.textContent = message;
+    // Find validation message container
+    const validationId = input.id + 'Validation';
+    const validationMsg = document.getElementById(validationId);
 
-    // Insert after the input
-    input.parentNode.insertBefore(errorDiv, input.nextSibling);
+    if (validationMsg) {
+        validationMsg.textContent = message;
+        validationMsg.className = 'validation-message error show';
+    } else {
+        // Fallback: use old method if validation container not found
+        const existingError = input.parentElement.querySelector('.error-message');
+        if (existingError) {
+            existingError.remove();
+        }
 
-    // Hide the small helper text
-    const smallText = input.parentElement.querySelector('small:not(.error-message)');
-    if (smallText) {
-        smallText.classList.add('hide');
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-message';
+        errorDiv.textContent = message;
+        input.parentNode.insertBefore(errorDiv, input.nextSibling);
     }
 
     // Focus the input

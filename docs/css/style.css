@@ -961,3 +961,269 @@ body.dark-mode .download-info {
 body.dark-mode .download-filename {
     color: #10b981;
 }
+
+/* ==========================================
+   Cost Calculator Styles
+   ========================================== */
+
+.cost-calculator {
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+.cost-calculator h3 {
+    font-size: 1.125rem;
+    margin-bottom: 1rem;
+    color: var(--text-color);
+}
+
+.cost-summary {
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+.cost-total {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 1.25rem;
+    background: var(--bg-tertiary);
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+}
+
+.cost-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--text-color);
+}
+
+.cost-period {
+    font-size: 1rem;
+    color: var(--text-secondary);
+}
+
+.cost-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.cost-section h4 {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.75rem;
+}
+
+.cost-items {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.cost-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    background: var(--bg-primary);
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.cost-item:hover {
+    background: var(--bg-tertiary);
+}
+
+.cost-item-name {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-color);
+}
+
+.cost-item-value {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.cost-disclaimer {
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+    color: var(--text-secondary);
+}
+
+.cost-disclaimer small {
+    display: block;
+    line-height: 1.5;
+}
+
+/* Dark mode adjustments */
+body.dark-mode .cost-calculator {
+    background: var(--bg-primary);
+}
+
+body.dark-mode .cost-item {
+    background: var(--bg-secondary);
+}
+
+body.dark-mode .cost-item:hover {
+    background: var(--bg-tertiary);
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+    .cost-breakdown {
+        grid-template-columns: 1fr;
+    }
+
+    .cost-value {
+        font-size: 1.5rem;
+    }
+}
+
+/* ==========================================
+   Tooltip Styles
+   ========================================== */
+
+.tooltip-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    margin-left: 0.25rem;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: help;
+    position: relative;
+    transition: color 0.2s ease;
+}
+
+.tooltip-icon:hover {
+    color: var(--primary-color);
+}
+
+.tooltip-icon::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(-8px);
+    background: var(--bg-primary);
+    color: var(--text-color);
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    font-size: 0.8125rem;
+    font-weight: 400;
+    line-height: 1.5;
+    white-space: normal;
+    width: max-content;
+    max-width: 280px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border: 1px solid var(--border-color);
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s ease;
+    pointer-events: none;
+    z-index: 1000;
+}
+
+.tooltip-icon::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    border: 6px solid transparent;
+    border-top-color: var(--bg-primary);
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s ease;
+    z-index: 1001;
+}
+
+.tooltip-icon:hover::after,
+.tooltip-icon:hover::before {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Dark mode */
+body.dark-mode .tooltip-icon::after {
+    background: var(--bg-secondary);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+body.dark-mode .tooltip-icon::before {
+    border-top-color: var(--bg-secondary);
+}
+
+/* Validation feedback */
+.form-group.error input,
+.form-group.error select {
+    border-color: var(--error-color);
+}
+
+.form-group.success input,
+.form-group.success select {
+    border-color: var(--success-color);
+}
+
+.validation-message {
+    display: none;
+    margin-top: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+}
+
+.validation-message.show {
+    display: block;
+}
+
+.validation-message.error {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--error-color);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.validation-message.success {
+    background: rgba(34, 197, 94, 0.1);
+    color: var(--success-color);
+    border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+body.dark-mode .validation-message.error {
+    background: rgba(239, 68, 68, 0.15);
+}
+
+body.dark-mode .validation-message.success {
+    background: rgba(34, 197, 94, 0.15);
+}
+
+/* Mobile adjustments */
+@media (max-width: 640px) {
+    .tooltip-icon::after {
+        left: auto;
+        right: 0;
+        transform: translateX(0) translateY(-8px);
+        max-width: 240px;
+    }
+
+    .tooltip-icon::before {
+        left: auto;
+        right: 8px;
+        transform: translateX(0) translateY(4px);
+    }
+}

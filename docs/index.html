@@ -41,10 +41,14 @@
             <div class="config-panel">
                 <h2>Configure Your Infrastructure</h2>
 
-                <div class="form-group">
-                    <label for="projectName">Project Name</label>
+                <div class="form-group" id="projectNameGroup">
+                    <label for="projectName">
+                        Project Name
+                        <span class="tooltip-icon" data-tooltip="Must be lowercase, alphanumeric with hyphens. Max 63 characters. Examples: my-app, web-api-v2">ⓘ</span>
+                    </label>
                     <input type="text" id="projectName" placeholder="my-project">
                     <small>Used for naming resources across your infrastructure</small>
+                    <div class="validation-message" id="projectNameValidation"></div>
                 </div>
 
                 <div class="form-group">
@@ -195,10 +199,14 @@
                     </select>
                 </div>
 
-                <div class="form-group">
-                    <label for="awsAccountId">AWS Account ID</label>
+                <div class="form-group" id="awsAccountIdGroup">
+                    <label for="awsAccountId">
+                        AWS Account ID
+                        <span class="tooltip-icon" data-tooltip="Exactly 12 digits. Find it in AWS Console → Account Settings. Example: 999888777666">ⓘ</span>
+                    </label>
                     <input type="text" id="awsAccountId" placeholder="123456789012">
                     <small>Your 12-digit AWS account number</small>
+                    <div class="validation-message" id="awsAccountIdValidation"></div>
                 </div>
 
                 <div class="form-group advanced-section">
@@ -253,6 +261,37 @@
                         <li>✅ Security Groups and Network ACLs</li>
                     </ul>
                 </div>
+
+                <div class="cost-calculator">
+                    <h3>💰 Estimated Monthly Cost</h3>
+                    <div class="cost-summary">
+                        <div class="cost-total">
+                            <span class="cost-value" id="totalCost">$0</span>
+                            <span class="cost-period">/month</span>
+                        </div>
+                        <small id="regionIndicator" style="color: var(--text-secondary); font-size: 0.8125rem;">Region: US East (N. Virginia)</small>
+                    </div>
+
+                    <div class="cost-breakdown" id="costBreakdown">
+                        <div class="cost-section">
+                            <h4>By Component</h4>
+                            <div id="componentCosts" class="cost-items">
+                                <!-- Populated by JavaScript -->
+                            </div>
+                        </div>
+
+                        <div class="cost-section">
+                            <h4>By Environment</h4>
+                            <div id="environmentCosts" class="cost-items">
+                                <!-- Populated by JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="cost-disclaimer">
+                        <small>💡 <strong>Estimate only.</strong> Actual costs may vary based on usage and data transfer.</small>
+                    </div>
+                </div>
             </div>
         </main>
 
@@ -274,6 +313,7 @@
     <script src="js/security.js?v=11"></script>
     <script src="js/auth.js?v=11"></script>
     <script src="js/workflow-monitor.js?v=11"></script>
+    <script src="js/cost-calculator.js?v=13"></script>
     <script src="js/app.js?v=11"></script>
 </body>
 </html>
