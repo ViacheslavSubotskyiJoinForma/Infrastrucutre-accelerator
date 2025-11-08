@@ -479,6 +479,15 @@ function updateComponentList() {
         items.push('✅ AWS Secrets Manager integration');
     }
 
+    // CI/CD configuration
+    const ciProviderNames = {
+        'gitlab': 'GitLab CI/CD pipeline (.gitlab-ci.yml)',
+        'github': 'GitHub Actions workflow',
+        'azuredevops': 'Azure DevOps pipeline'
+    };
+    const ciConfigName = ciProviderNames[selectedCIProvider] || 'CI/CD configuration';
+    items.push(`✅ ${ciConfigName}`);
+
     list.innerHTML = items.map(item => `<li>${item}</li>`).join('');
 }
 
@@ -509,7 +518,7 @@ function updateDiagram() {
         width = 220 * envCount + 120;
     }
     // Increase height if we have both EKS and RDS
-    const height = (hasEKS && hasRDS) ? 620 : (hasEKS || hasRDS) ? 520 : 420;
+    const height = (hasEKS && hasRDS) ? 590 : (hasEKS || hasRDS) ? 490 : 390;
 
     // Clear existing
     svg.innerHTML = '';
@@ -581,7 +590,7 @@ function updateDiagram() {
     const outerX = outerPadding;
     const outerY = 60;
     const outerWidth = width - outerPadding * 2;
-    const outerHeight = (hasEKS && hasRDS) ? 530 : (hasEKS || hasRDS) ? 430 : 330;
+    const outerHeight = (hasEKS && hasRDS) ? 500 : (hasEKS || hasRDS) ? 400 : 300;
 
     // Draw outer container with provider branding
     addRect(svg, outerX, outerY, outerWidth, outerHeight, 'transparent', colors.border.env, 3);
@@ -654,7 +663,7 @@ function updateDiagram() {
 
     selectedEnvironments.forEach((env, i) => {
         const x = outerX + innerPadding + i * (envWidth + envGap);
-        const y = outerY + 50;
+        const y = outerY + innerPadding; // Same padding as sides
 
         // Get VPC CIDR for this environment
         const vpcCidr = getVPCCIDR(env);
