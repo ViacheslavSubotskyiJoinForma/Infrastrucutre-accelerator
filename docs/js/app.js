@@ -407,7 +407,6 @@ function updateDiagram() {
     svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
 
     // Enable horizontal scroll if needed
-    const container = svg.parentElement;
     if (width > containerWidth) {
         container.style.overflowX = 'auto';
         svg.style.minWidth = `${width}px`;
