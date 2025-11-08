@@ -117,6 +117,68 @@ jobs:
             });
         continue-on-error: true
 
+  frontend-tests:
+    name: Frontend Tests & Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Check JavaScript syntax
+        run: |
+          echo "🔍 Checking JavaScript syntax..."
+          # Check all JavaScript files for syntax errors
+          for file in docs/js/*.js; do
+            echo "Checking $file..."
+            node -c "$file" || {
+              echo "❌ Syntax error in $file"
+              exit 1
+            }
+          done
+          echo "✅ All JavaScript files have valid syntax"
+
+      - name: Run npm tests
+        run: |
+          npm test
+
+      - name: Lint JavaScript with ESLint (optional)
+        run: |
+          # Install ESLint
+          npm install --no-save eslint
+
+          # Create basic ESLint config
+          cat > .eslintrc.json << 'EOF'
+          {
+            "env": {
+              "browser": true,
+              "es2021": true,
+              "node": true
+            },
+            "extends": "eslint:recommended",
+            "parserOptions": {
+              "ecmaVersion": 2021,
+              "sourceType": "module"
+            },
+            "rules": {
+              "no-unused-vars": ["warn"],
+              "no-undef": ["error"],
+              "no-redeclare": ["error"],
+              "no-const-assign": ["error"]
+            }
+          }
+          EOF
+
+          # Run ESLint on all JS files
+          npx eslint docs/js/*.js || true
+        continue-on-error: true
+
   web-security-tests:
     name: Web Security Tests
     runs-on: ubuntu-latest
@@ -257,7 +319,7 @@ jobs:
     name: Test Summary
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [security-tests, web-security-tests, security-scan, code-quality]
+    needs: [security-tests, frontend-tests, web-security-tests, security-scan, code-quality]
     if: always()
 
     steps:
@@ -268,6 +330,7 @@ jobs:
           echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| Security Tests | ${{ needs.security-tests.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend Tests & Lint | ${{ needs.frontend-tests.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Web Security Tests | ${{ needs.web-security-tests.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Security Scan | ${{ needs.security-scan.result == 'success' && '✅ Passed' || '⚠️ Review Required' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Code Quality | ${{ needs.code-quality.result == 'success' && '✅ Passed' || '⚠️ Review Required' }} |" >> $GITHUB_STEP_SUMMARY
