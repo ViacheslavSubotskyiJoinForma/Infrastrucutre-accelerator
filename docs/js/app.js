@@ -1002,31 +1002,6 @@ function showModalSafe(title, message, buttons = []) {
 }
 
 /**
- * Display a modal with unsanitized HTML content (legacy function)
- * WARNING: Does not sanitize content - use showModalSafe for user input
- * Optionally shows close button with auto-enable after 2 seconds
- * @param {string} message - HTML content to display (not escaped)
- * @param {boolean} [allowClose=false] - Whether to allow closing the modal
- * @returns {void}
- * @deprecated Use showModalSafe instead for security
- */
-function showModal(message, allowClose = false) {
-    const modal = document.getElementById('modal');
-    const modalMessage = document.getElementById('modalMessage');
-    const closeBtn = document.getElementById('closeModal');
-
-    modalMessage.innerHTML = message;
-    closeBtn.style.display = allowClose ? 'inline-block' : 'none';
-    modal.classList.add('show');
-
-    if (!allowClose) {
-        setTimeout(() => {
-            closeBtn.style.display = 'inline-block';
-        }, 2000);
-    }
-}
-
-/**
  * Close the modal dialog
  * Removes the 'show' class to hide the modal
  * @returns {void}

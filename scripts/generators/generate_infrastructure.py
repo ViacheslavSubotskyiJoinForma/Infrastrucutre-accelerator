@@ -276,6 +276,10 @@ class InfrastructureGenerator:
             'region': self.config.get('region', 'us-east-1'),
             'aws_account_id': self.config.get('aws_account_id', ''),
             'aws_profile': self.config.get('aws_profile', 'default'),
+            # Backend configuration (MVP uses local, S3 backend support planned)
+            'backend_type': self.config.get('backend_type', 'local'),
+            'state_bucket': self.config.get('state_bucket', ''),
+            'dynamodb_table': self.config.get('dynamodb_table', ''),
             **self.config
         }
 

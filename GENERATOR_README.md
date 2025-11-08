@@ -143,7 +143,7 @@ generated-infra/
 ### 1. Extract the Archive
 
 ```bash
-tar -xzf infrastructure-my-project-YYYYMMDD-HHMMSS.tar.gz
+unzip infrastructure-my-project-YYYYMMDD-HHMMSS.zip
 cd generated-infra/
 ```
 
