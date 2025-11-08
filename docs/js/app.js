@@ -364,6 +364,13 @@ function handleComponentChange(e) {
  */
 function handleEnvironmentChange(e) {
     const value = e.target.value;
+
+    // If trying to uncheck and it's the only one selected, prevent it
+    if (!e.target.checked && selectedEnvironments.length === 1 && selectedEnvironments.includes(value)) {
+        e.target.checked = true; // Keep it checked
+        return; // Don't process the change
+    }
+
     if (e.target.checked) {
         if (!selectedEnvironments.includes(value)) {
             selectedEnvironments.push(value);
@@ -372,7 +379,7 @@ function handleEnvironmentChange(e) {
         selectedEnvironments = selectedEnvironments.filter(env => env !== value);
     }
 
-    // At least one environment
+    // At least one environment (fallback safety check)
     if (selectedEnvironments.length === 0) {
         selectedEnvironments = ['dev'];
         document.querySelector('.environments input[value="dev"]').checked = true;
@@ -675,9 +682,13 @@ function updateDiagram() {
 
         // Get VPC CIDR for this environment
         const vpcCidr = getVPCCIDR(env);
-        const publicCidr = calculateSubnetCIDR(vpcCidr, 0);
-        const privateCidr = calculateSubnetCIDR(vpcCidr, 1);
-        const databaseCidr = calculateSubnetCIDR(vpcCidr, 2);
+        const [baseIp] = vpcCidr.split('/');
+        const [oct1, oct2] = baseIp.split('.');
+
+        // Show compact range for 3 AZs (instead of just first subnet)
+        const publicCidr = `${oct1}.${oct2}.0-32/20`;
+        const privateCidr = `${oct1}.${oct2}.48-80/20`;
+        const databaseCidr = `${oct1}.${oct2}.96-128/20`;
 
         // Environment box
         const boxHeight = (hasEKS && hasRDS) ? 440 : (hasEKS || hasRDS) ? 340 : 240;
