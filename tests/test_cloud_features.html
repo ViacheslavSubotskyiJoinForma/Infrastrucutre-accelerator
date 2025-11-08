@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloud Features Tests - Infrastructure Accelerator</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background: #f9fafb;
+        }
+        h1 {
+            color: #1f2937;
+            margin-bottom: 2rem;
+        }
+        .test-suite {
+            background: white;
+            border-radius: 8px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-case {
+            padding: 1rem;
+            margin: 1rem 0;
+            border-left: 4px solid #e5e7eb;
+            background: #f9fafb;
+        }
+        .test-case.pass {
+            border-left-color: #10b981;
+            background: #ecfdf5;
+        }
+        .test-case.fail {
+            border-left-color: #ef4444;
+            background: #fef2f2;
+        }
+        .test-case h3 {
+            margin: 0 0 0.5rem 0;
+            color: #374151;
+        }
+        .test-result {
+            font-weight: 600;
+            margin-top: 0.5rem;
+        }
+        .test-result.pass { color: #10b981; }
+        .test-result.fail { color: #ef4444; }
+        button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 1rem 0;
+        }
+        button:hover {
+            background: #1d4ed8;
+        }
+        .summary {
+            font-size: 1.25rem;
+            padding: 1rem;
+            background: #f3f4f6;
+            border-radius: 8px;
+            margin-top: 2rem;
+        }
+        .summary.pass { background: #ecfdf5; color: #10b981; }
+        .summary.fail { background: #fef2f2; color: #ef4444; }
+        pre {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 1rem;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 0.875rem;
+        }
+        .diagram-preview {
+            background: #f3f4f6;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Cloud Features Tests</h1>
+
+    <div class="test-suite">
+        <h2>Cloud Provider & IP Range Features Test Suite</h2>
+        <button onclick="runTests()">Run All Tests</button>
+        <div id="testResults"></div>
+    </div>
+
+    <!-- Load app module -->
+    <script src="../docs/js/security.js"></script>
+    <script src="../docs/js/app.js"></script>
+
+    <script>
+        // Wait for app to initialize
+        window.addEventListener('DOMContentLoaded', () => {
+            // Give app time to initialize
+            setTimeout(() => {
+                runTests();
+            }, 500);
+        });
+
+        const tests = [
+            // CIDR Calculation Tests
+            {
+                name: 'calculateSubnetCIDR: Public subnet from 10.0.0.0/16',
+                test: () => calculateSubnetCIDR('10.0.0.0/16', 0),
+                expected: '10.0.0.0/20'
+            },
+            {
+                name: 'calculateSubnetCIDR: Private subnet from 10.0.0.0/16',
+                test: () => calculateSubnetCIDR('10.0.0.0/16', 1),
+                expected: '10.0.16.0/20'
+            },
+            {
+                name: 'calculateSubnetCIDR: Public subnet from 10.1.0.0/16',
+                test: () => calculateSubnetCIDR('10.1.0.0/16', 0),
+                expected: '10.1.0.0/20'
+            },
+            {
+                name: 'calculateSubnetCIDR: Private subnet from 10.1.0.0/16',
+                test: () => calculateSubnetCIDR('10.1.0.0/16', 1),
+                expected: '10.1.16.0/20'
+            },
+            {
+                name: 'calculateSubnetCIDR: Public subnet from 10.2.0.0/16',
+                test: () => calculateSubnetCIDR('10.2.0.0/16', 0),
+                expected: '10.2.0.0/20'
+            },
+            {
+                name: 'calculateSubnetCIDR: Private subnet from 10.2.0.0/16',
+                test: () => calculateSubnetCIDR('10.2.0.0/16', 1),
+                expected: '10.2.16.0/20'
+            },
+            {
+                name: 'calculateSubnetCIDR: Invalid CIDR (empty)',
+                test: () => calculateSubnetCIDR('', 0),
+                expected: ''
+            },
+            {
+                name: 'calculateSubnetCIDR: Invalid CIDR (no slash)',
+                test: () => calculateSubnetCIDR('10.0.0.0', 0),
+                expected: ''
+            },
+
+            // Default CIDR Tests
+            {
+                name: 'defaultCIDRs: Dev environment',
+                test: () => defaultCIDRs['dev'],
+                expected: '10.0.0.0/16'
+            },
+            {
+                name: 'defaultCIDRs: Staging environment',
+                test: () => defaultCIDRs['staging'],
+                expected: '10.1.0.0/16'
+            },
+            {
+                name: 'defaultCIDRs: Prod environment',
+                test: () => defaultCIDRs['prod'],
+                expected: '10.2.0.0/16'
+            },
+
+            // Debounce Tests
+            {
+                name: 'debounce: Function exists',
+                test: () => typeof debounce === 'function',
+                expected: true
+            },
+            {
+                name: 'debounce: Returns a function',
+                test: () => typeof debounce(() => {}, 300) === 'function',
+                expected: true
+            },
+
+            // Global State Tests
+            {
+                name: 'selectedProvider: Default is AWS',
+                test: () => selectedProvider,
+                expected: 'aws'
+            },
+            {
+                name: 'selectedEnvironments: Default includes dev',
+                test: () => selectedEnvironments.includes('dev'),
+                expected: true
+            },
+            {
+                name: 'selectedComponents: Default includes vpc',
+                test: () => selectedComponents.includes('vpc'),
+                expected: true
+            },
+
+            // DOM Element Tests
+            {
+                name: 'DOM: Cloud provider radio buttons exist',
+                test: () => document.querySelectorAll('input[name="cloudProvider"]').length > 0,
+                expected: true
+            },
+            {
+                name: 'DOM: AWS provider is checked by default',
+                test: () => document.querySelector('input[name="cloudProvider"][value="aws"]')?.checked,
+                expected: true
+            },
+            {
+                name: 'DOM: Advanced options toggle exists',
+                test: () => document.getElementById('toggleAdvanced') !== null,
+                expected: true
+            },
+            {
+                name: 'DOM: Advanced options collapsed by default',
+                test: () => document.getElementById('advancedOptions')?.classList.contains('collapsed'),
+                expected: true
+            },
+            {
+                name: 'DOM: IP range inputs exist',
+                test: () => {
+                    return document.getElementById('ipRangeDev') !== null &&
+                           document.getElementById('ipRangeStaging') !== null &&
+                           document.getElementById('ipRangeProd') !== null;
+                },
+                expected: true
+            },
+            {
+                name: 'DOM: Dev IP range visible by default',
+                test: () => !document.querySelector('[data-env="dev"]')?.classList.contains('hidden'),
+                expected: true
+            },
+            {
+                name: 'DOM: Staging IP range hidden by default',
+                test: () => document.querySelector('[data-env="staging"]')?.classList.contains('hidden'),
+                expected: true
+            },
+            {
+                name: 'DOM: Prod IP range hidden by default',
+                test: () => document.querySelector('[data-env="prod"]')?.classList.contains('hidden'),
+                expected: true
+            },
+
+            // ARIA Attributes Tests
+            {
+                name: 'ARIA: Advanced toggle has aria-expanded',
+                test: () => document.getElementById('toggleAdvanced')?.hasAttribute('aria-expanded'),
+                expected: true
+            },
+            {
+                name: 'ARIA: Advanced toggle aria-expanded is false by default',
+                test: () => document.getElementById('toggleAdvanced')?.getAttribute('aria-expanded') === 'false',
+                expected: true
+            },
+            {
+                name: 'ARIA: Advanced options has role region',
+                test: () => document.getElementById('advancedOptions')?.getAttribute('role') === 'region',
+                expected: true
+            },
+            {
+                name: 'ARIA: GCP provider has aria-label',
+                test: () => document.querySelector('[aria-label*="Google Cloud Platform"]') !== null,
+                expected: true
+            },
+            {
+                name: 'ARIA: Azure provider has aria-label',
+                test: () => document.querySelector('[aria-label*="Azure"]') !== null,
+                expected: true
+            },
+
+            // Diagram Tests
+            {
+                name: 'Diagram: SVG element exists',
+                test: () => document.getElementById('diagram') !== null,
+                expected: true
+            },
+            {
+                name: 'Diagram: Container has proper height',
+                test: () => {
+                    const svg = document.getElementById('diagram');
+                    return svg?.getAttribute('height') === '450';
+                },
+                expected: true
+            },
+            {
+                name: 'Diagram: Container supports scrolling',
+                test: () => {
+                    const container = document.querySelector('.diagram-container');
+                    const computedStyle = window.getComputedStyle(container);
+                    return computedStyle.overflowX === 'auto';
+                },
+                expected: true
+            }
+        ];
+
+        function runTests() {
+            const resultsDiv = document.getElementById('testResults');
+            resultsDiv.innerHTML = '';
+
+            let passed = 0;
+            let failed = 0;
+
+            tests.forEach((test, index) => {
+                const testDiv = document.createElement('div');
+                testDiv.className = 'test-case';
+
+                let result;
+                let error = null;
+                try {
+                    result = test.test();
+                } catch (e) {
+                    result = false;
+                    error = e;
+                }
+
+                const success = result === test.expected;
+                if (success) {
+                    passed++;
+                    testDiv.classList.add('pass');
+                } else {
+                    failed++;
+                    testDiv.classList.add('fail');
+                }
+
+                testDiv.innerHTML = `
+                    <h3>Test ${index + 1}: ${test.name}</h3>
+                    <p><strong>Expected:</strong> ${JSON.stringify(test.expected)}</p>
+                    <p><strong>Got:</strong> ${JSON.stringify(result)}</p>
+                    ${error ? `<p><strong>Error:</strong> ${error.message}</p>` : ''}
+                    <div class="test-result ${success ? 'pass' : 'fail'}">
+                        ${success ? '✅ PASS' : '❌ FAIL'}
+                    </div>
+                `;
+
+                resultsDiv.appendChild(testDiv);
+            });
+
+            // Add summary
+            const summary = document.createElement('div');
+            summary.className = 'summary ' + (failed === 0 ? 'pass' : 'fail');
+            summary.innerHTML = `
+                <strong>Test Summary:</strong><br>
+                Total: ${tests.length} | Passed: ${passed} | Failed: ${failed}<br>
+                ${failed === 0 ? '✅ All tests passed!' : '❌ Some tests failed'}
+            `;
+            resultsDiv.appendChild(summary);
+
+            // Show current diagram state
+            const diagramInfo = document.createElement('div');
+            diagramInfo.className = 'diagram-preview';
+            diagramInfo.innerHTML = `
+                <h3>Current State</h3>
+                <p><strong>Provider:</strong> ${selectedProvider}</p>
+                <p><strong>Environments:</strong> ${selectedEnvironments.join(', ')}</p>
+                <p><strong>Components:</strong> ${selectedComponents.join(', ')}</p>
+                <p><strong>Default CIDRs:</strong> ${JSON.stringify(defaultCIDRs, null, 2)}</p>
+            `;
+            resultsDiv.appendChild(diagramInfo);
+        }
+    </script>
+</body>
+</html>

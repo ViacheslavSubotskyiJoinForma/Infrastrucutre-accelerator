@@ -34,16 +34,22 @@ const Security = {
 
     /**
      * Validate project name (alphanumeric with hyphens, DNS-compliant)
+     * Matches backend validation in scripts/security/validator.py
      * @param {string} name - Project name
      * @returns {boolean} True if valid
      */
     validateProjectName(name) {
         const pattern = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
-        return pattern.test(name) && name.length <= 63;
+        const reservedNames = ['tmp', 'temp', 'admin', 'root', 'default'];
+
+        return pattern.test(name) &&
+               name.length <= 63 &&
+               !reservedNames.includes(name.toLowerCase());
     },
 
     /**
      * Validate AWS Account ID (12 digits)
+     * Matches backend validation in scripts/security/validator.py
      * @param {string} accountId - AWS Account ID
      * @returns {boolean} True if valid
      */
@@ -52,6 +58,64 @@ const Security = {
         return pattern.test(accountId) &&
                accountId !== '000000000000' &&
                accountId !== '123456789012';
+    },
+
+    /**
+     * Validate AWS Region
+     * Matches backend validation in scripts/security/validator.py
+     * @param {string} region - AWS Region
+     * @returns {boolean} True if valid
+     */
+    validateAwsRegion(region) {
+        const allowedRegions = [
+            'us-east-1', 'us-east-2', 'us-west-1', 'us-west-2',
+            'eu-west-1', 'eu-west-2', 'eu-west-3', 'eu-central-1',
+            'ap-southeast-1', 'ap-southeast-2', 'ap-northeast-1',
+            'ca-central-1', 'sa-east-1'
+        ];
+        return allowedRegions.includes(region);
+    },
+
+    /**
+     * Validate CIDR notation (e.g., "10.0.0.0/16")
+     * @param {string} cidr - CIDR block to validate
+     * @returns {boolean} True if valid CIDR notation
+     */
+    validateCIDR(cidr) {
+        if (!cidr || typeof cidr !== 'string') {
+            return false;
+        }
+
+        // CIDR pattern: IP address + /prefix
+        const cidrPattern = /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/;
+        if (!cidrPattern.test(cidr)) {
+            return false;
+        }
+
+        const [ip, prefix] = cidr.split('/');
+        const prefixNum = parseInt(prefix, 10);
+
+        // Validate prefix length (0-32 for IPv4)
+        if (prefixNum < 0 || prefixNum > 32) {
+            return false;
+        }
+
+        // Validate each octet in IP address
+        const octets = ip.split('.');
+        for (const octet of octets) {
+            const num = parseInt(octet, 10);
+            if (num < 0 || num > 255) {
+                return false;
+            }
+        }
+
+        // Common VPC CIDR ranges: /16, /20, /24
+        // Allow /8 to /28 for flexibility
+        if (prefixNum < 8 || prefixNum > 28) {
+            return false;
+        }
+
+        return true;
     },
 
     /**

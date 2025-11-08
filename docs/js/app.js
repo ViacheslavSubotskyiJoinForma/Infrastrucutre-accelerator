@@ -28,6 +28,62 @@ let selectedComponents = ['vpc'];
 let selectedEnvironments = ['dev'];
 
 /**
+ * Currently selected cloud provider
+ * @type {string}
+ */
+let selectedProvider = 'aws';
+
+/**
+ * Default VPC CIDR ranges per environment
+ * @type {Object<string, string>}
+ */
+const defaultCIDRs = {
+    'dev': '10.0.0.0/16',
+    'staging': '10.1.0.0/16',
+    'prod': '10.2.0.0/16'
+};
+
+/**
+ * Calculate subnet CIDR from VPC CIDR
+ * @param {string} vpcCidr - VPC CIDR block (e.g., "10.0.0.0/16")
+ * @param {number} subnetIndex - Subnet index (0 for public, 1 for private)
+ * @returns {string} Subnet CIDR block
+ */
+function calculateSubnetCIDR(vpcCidr, subnetIndex) {
+    if (!vpcCidr || !vpcCidr.includes('/')) return '';
+
+    const [baseIp, prefix] = vpcCidr.split('/');
+    const octets = baseIp.split('.').map(Number);
+
+    // For /16 VPC, create /20 subnets
+    // Public: .0.0/20, Private: .16.0/20
+    if (prefix === '16') {
+        octets[2] = subnetIndex * 16;
+        return `${octets.join('.')}/20`;
+    }
+
+    return `${baseIp}/20`;
+}
+
+/**
+ * Debounce function to limit execution rate
+ * @param {Function} func - Function to debounce
+ * @param {number} wait - Milliseconds to wait
+ * @returns {Function} Debounced function
+ */
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+/**
  * Theme management module
  * Handles dark mode toggle with localStorage persistence
  * @namespace theme
@@ -108,7 +164,47 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupEventListeners();
     updateDiagram();
     updateComponentList();
+
+    // Initialize auto-split text for all environments
+    ['dev', 'staging', 'prod'].forEach(env => updateAutoSplitText(env));
 });
+
+/**
+ * Update auto-split subnet text based on VPC CIDR input
+ * Calculates and displays public/private subnet CIDRs dynamically
+ * @param {string} env - Environment name (dev, staging, prod)
+ * @returns {void}
+ */
+function updateAutoSplitText(env) {
+    const inputId = `ipRange${env.charAt(0).toUpperCase() + env.slice(1)}`;
+    const autoSplitId = `autoSplit${env.charAt(0).toUpperCase() + env.slice(1)}`;
+
+    const input = document.getElementById(inputId);
+    const autoSplitElement = document.getElementById(autoSplitId);
+
+    if (!input || !autoSplitElement) return;
+
+    const vpcCidr = input.value.trim() || getVPCCIDR(env);
+
+    // Validate CIDR
+    if (vpcCidr && !Security.validateCIDR(vpcCidr)) {
+        autoSplitElement.textContent = 'Invalid CIDR format. Use format: 10.0.0.0/16';
+        autoSplitElement.style.color = '#ef4444'; // Red color for error
+        return;
+    }
+
+    // Calculate subnets
+    const publicCidr = calculateSubnetCIDR(vpcCidr, 0);
+    const privateCidr = calculateSubnetCIDR(vpcCidr, 1);
+
+    if (publicCidr && privateCidr) {
+        autoSplitElement.textContent = `Auto-split: Public (${publicCidr}), Private (${privateCidr})`;
+        autoSplitElement.style.color = ''; // Reset to default color
+    } else {
+        autoSplitElement.textContent = 'Auto-split: Enter valid VPC CIDR';
+        autoSplitElement.style.color = '#9ca3af'; // Gray color
+    }
+}
 
 /**
  * Setup all event listeners for the UI
@@ -130,6 +226,39 @@ function setupEventListeners() {
         cb.addEventListener('change', handleEnvironmentChange);
     });
 
+    // Cloud provider radio buttons
+    document.querySelectorAll('input[name="cloudProvider"]').forEach(radio => {
+        radio.addEventListener('change', handleProviderChange);
+    });
+
+    // Advanced options toggle
+    document.getElementById('toggleAdvanced').addEventListener('click', toggleAdvancedOptions);
+
+    // IP range inputs - update diagram and auto-split text on change
+    const debouncedUpdateDiagram = debounce(() => updateDiagram(), 300);
+    const envMapping = {
+        'ipRangeDev': 'dev',
+        'ipRangeStaging': 'staging',
+        'ipRangeProd': 'prod'
+    };
+
+    ['ipRangeDev', 'ipRangeStaging', 'ipRangeProd'].forEach(id => {
+        const input = document.getElementById(id);
+        if (input) {
+            input.addEventListener('input', () => {
+                const env = envMapping[id];
+                updateAutoSplitText(env); // Update text immediately
+                debouncedUpdateDiagram(); // Update diagram with debounce
+            });
+        }
+    });
+
+    // Region select - update diagram on change
+    const regionSelect = document.getElementById('region');
+    if (regionSelect) {
+        regionSelect.addEventListener('change', () => updateDiagram());
+    }
+
     // Generate button
     document.getElementById('generateBtn').addEventListener('click', handleGenerate);
 
@@ -140,17 +269,21 @@ function setupEventListeners() {
     document.getElementById('loginBtn').addEventListener('click', () => auth.login());
     document.getElementById('logoutBtn').addEventListener('click', () => auth.logout());
 
-    // Clear validation errors on input
+    // Project Name - clear errors and update diagram in real-time
     document.getElementById('projectName').addEventListener('input', function() {
         if (this.classList.contains('error')) {
             clearError(this);
         }
+        debouncedUpdateDiagram();
     });
 
-    document.getElementById('awsAccountId').addEventListener('input', function() {
+    // AWS Account ID - clear errors and update diagram in real-time
+    const awsAccountIdInput = document.getElementById('awsAccountId');
+    awsAccountIdInput.addEventListener('input', function() {
         if (this.classList.contains('error')) {
             clearError(this);
         }
+        debouncedUpdateDiagram();
     });
 }
 
@@ -187,6 +320,7 @@ function handleComponentChange(e) {
  * - Adds/removes environments from selection
  * - Ensures at least one environment is always selected (defaults to dev)
  * - Updates diagram and component list
+ * - Shows/hides IP range inputs based on selected environments
  * @param {Event} e - Checkbox change event
  * @returns {void}
  */
@@ -206,7 +340,72 @@ function handleEnvironmentChange(e) {
         document.querySelector('.environments input[value="dev"]').checked = true;
     }
 
+    // Update IP range visibility
+    updateIPRangeVisibility();
     updateDiagram();
+}
+
+/**
+ * Handle cloud provider radio button changes
+ * @param {Event} e - Radio change event
+ * @returns {void}
+ */
+function handleProviderChange(e) {
+    selectedProvider = e.target.value;
+    updateDiagram();
+}
+
+/**
+ * Toggle advanced options visibility
+ * Updates aria-expanded attribute for accessibility
+ * @returns {void}
+ */
+function toggleAdvancedOptions() {
+    const toggle = document.getElementById('toggleAdvanced');
+    const options = document.getElementById('advancedOptions');
+
+    if (options.classList.contains('collapsed')) {
+        options.classList.remove('collapsed');
+        options.classList.add('expanded');
+        toggle.classList.add('expanded');
+        toggle.setAttribute('aria-expanded', 'true');
+    } else {
+        options.classList.add('collapsed');
+        options.classList.remove('expanded');
+        toggle.classList.remove('expanded');
+        toggle.setAttribute('aria-expanded', 'false');
+    }
+}
+
+/**
+ * Update visibility of IP range inputs based on selected environments
+ * @returns {void}
+ */
+function updateIPRangeVisibility() {
+    const ipRangeGroups = document.querySelectorAll('.ip-range-group');
+
+    ipRangeGroups.forEach(group => {
+        const env = group.getAttribute('data-env');
+        if (selectedEnvironments.includes(env)) {
+            group.classList.remove('hidden');
+        } else {
+            group.classList.add('hidden');
+        }
+    });
+}
+
+/**
+ * Get VPC CIDR for an environment (custom or default)
+ * @param {string} env - Environment name
+ * @returns {string} VPC CIDR block
+ */
+function getVPCCIDR(env) {
+    const inputId = `ipRange${env.charAt(0).toUpperCase() + env.slice(1)}`;
+    const input = document.getElementById(inputId);
+    const customValue = input ? input.value.trim() : '';
+
+    // Return custom value if provided, otherwise default
+    return customValue || defaultCIDRs[env] || '10.0.0.0/16';
 }
 
 /**
@@ -236,20 +435,40 @@ function updateComponentList() {
  * Update the architecture diagram SVG based on selected components and environments
  * Renders a visual representation of the infrastructure with theme-aware colors
  * Displays environments, VPCs, subnets, and EKS clusters if selected
+ * Shows cloud provider, IP ranges, and subnet auto-split details
  * Side effect: Updates the diagram SVG element with new content
  * @returns {void}
  */
 function updateDiagram() {
     const svg = document.getElementById('diagram');
-    const width = svg.clientWidth || 600;
-    const height = 400;
+    const container = svg.parentElement;
+
+    // Adaptive width: full container for 1 env, scales down for multiple
+    const envCount = selectedEnvironments.length;
+    const hasEKS = selectedComponents.includes('eks-auto');
+
+    // Calculate width: 1 env = wider, 2+ envs = scale down
+    let width;
+    if (envCount === 1) {
+        // Single environment gets full width (fixed to prevent jumping)
+        width = 684; // Wide single environment (10% smaller)
+    } else {
+        // Multiple environments use compact calculation
+        width = 220 * envCount + 120;
+    }
+    const height = 520;
 
     // Clear existing
     svg.innerHTML = '';
     svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
 
-    const envCount = selectedEnvironments.length;
-    const hasEKS = selectedComponents.includes('eks-auto');
+    // Always set fixed width and enable scroll (prevents jumping)
+    svg.style.width = `${width}px`;
+    svg.style.minWidth = `${width}px`;
+    svg.style.maxWidth = `${width}px`;
+    container.style.overflowX = 'auto';
+    container.setAttribute('data-scrollable', 'true');
+
     const isDark = theme.isDark();
 
     // Theme-aware colors
@@ -261,6 +480,7 @@ function updateDiagram() {
         private: '#78350f',
         eks: '#4c1d95',
         text: '#f9fafb',
+        textSecondary: '#9ca3af',
         border: {
             env: '#3b82f6',
             vpc: '#10b981',
@@ -276,6 +496,7 @@ function updateDiagram() {
         private: '#fef3c7',
         eks: '#ddd6fe',
         text: '#1f2937',
+        textSecondary: '#6b7280',
         border: {
             env: '#3b82f6',
             vpc: '#10b981',
@@ -285,46 +506,159 @@ function updateDiagram() {
         }
     };
 
-    // Title
-    addText(svg, width / 2, 30, `Architecture: ${selectedEnvironments.join(', ').toUpperCase()}`, 'bold', 'middle', colors.text);
+    // Provider badge
+    const providerNames = {
+        'aws': 'AWS',
+        'gcp': 'GCP',
+        'azure': 'Azure'
+    };
 
-    // Draw environments
-    const envWidth = (width - 80) / envCount;
+    // Get AWS Account ID and Region from inputs
+    const awsAccountIdInput = document.getElementById('awsAccountId');
+    const awsAccountId = awsAccountIdInput ? awsAccountIdInput.value.trim() : '';
+    const regionSelect = document.getElementById('region');
+    const region = regionSelect ? regionSelect.value : '';
+
+    // Outer provider container
+    const outerPadding = 20;
+    const outerX = outerPadding;
+    const outerY = 60;
+    const outerWidth = width - outerPadding * 2;
+    const outerHeight = hasEKS ? 430 : 330;
+
+    // Draw outer container with provider branding
+    addRect(svg, outerX, outerY, outerWidth, outerHeight, 'transparent', colors.border.env, 3);
+
+    // Provider header
+    const headerY = 20;
+
+    // AWS Logo (smile and arrow)
+    if (selectedProvider === 'aws') {
+        const logoX = 35;
+        const logoY = headerY - 2;
+        const logoWidth = 28;
+        const logoHeight = 16;
+
+        // AWS smile (curved line from A to Z)
+        const smile = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        const smileStart = `M ${logoX},${logoY + logoHeight * 0.4}`;
+        const smileCurve = `Q ${logoX + logoWidth/2},${logoY + logoHeight * 0.95} ${logoX + logoWidth},${logoY + logoHeight * 0.4}`;
+        smile.setAttribute('d', `${smileStart} ${smileCurve}`);
+        smile.setAttribute('stroke', '#FF9900');
+        smile.setAttribute('stroke-width', '2.8');
+        smile.setAttribute('fill', 'none');
+        smile.setAttribute('stroke-linecap', 'round');
+        svg.appendChild(smile);
+
+        // Arrow tip (pointing right, at the end of smile)
+        const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        const arrowTipX = logoX + logoWidth;
+        const arrowTipY = logoY + logoHeight * 0.4;
+        arrow.setAttribute('points', `${arrowTipX - 3},${arrowTipY - 3.5} ${arrowTipX + 3},${arrowTipY} ${arrowTipX - 3},${arrowTipY + 3.5}`);
+        arrow.setAttribute('fill', '#FF9900');
+        svg.appendChild(arrow);
+    }
+
+    // Title with provider
+    addText(svg, 70, headerY + 5, `${providerNames[selectedProvider]} Cloud Architecture`, 'bold', 'start', colors.text);
+
+    // Get Project Name from input
+    const projectNameInput = document.getElementById('projectName');
+    const projectName = projectNameInput ? projectNameInput.value.trim() : '';
+
+    // Build metadata line: Project | Account | Region
+    if (selectedProvider === 'aws') {
+        let detailsText = '';
+        const parts = [];
+
+        if (projectName) {
+            parts.push(`Project: ${projectName}`);
+        }
+        if (awsAccountId) {
+            parts.push(`Account: ${awsAccountId}`);
+        }
+        if (region) {
+            parts.push(`Region: ${region}`);
+        }
+
+        detailsText = parts.join(' | ');
+
+        if (detailsText) {
+            addText(svg, 70, headerY + 22, detailsText, 'tiny', 'start', colors.textSecondary);
+        }
+    }
+
+    // Draw environments with equal spacing
+    const innerPadding = 20; // Equal padding from outer container to environments
+    const envGap = 10; // Gap between environments
+    const availableWidth = outerWidth - innerPadding * 2;
+    const totalGaps = Math.max(0, (envCount - 1) * envGap);
+    const envWidth = (availableWidth - totalGaps) / envCount;
+
     selectedEnvironments.forEach((env, i) => {
-        const x = 40 + i * envWidth;
-        const y = 60;
+        const x = outerX + innerPadding + i * (envWidth + envGap);
+        const y = outerY + 50;
+
+        // Get VPC CIDR for this environment
+        const vpcCidr = getVPCCIDR(env);
+        const publicCidr = calculateSubnetCIDR(vpcCidr, 0);
+        const privateCidr = calculateSubnetCIDR(vpcCidr, 1);
 
         // Environment box
-        addRect(svg, x, y, envWidth - 20, height - 100, env === 'prod' ? colors.envProd : colors.envLight, colors.border.env);
-        addText(svg, x + (envWidth - 20) / 2, y + 30, env.toUpperCase(), 'bold', 'middle', colors.text);
+        const boxHeight = hasEKS ? 340 : 240;
+        const envBoxWidth = envWidth; // Use full envWidth without subtraction
+        addRect(svg, x, y, envBoxWidth, boxHeight, env === 'prod' ? colors.envProd : colors.envLight, colors.border.env);
+        addText(svg, x + envBoxWidth / 2, y + 20, env.toUpperCase(), 'bold', 'middle', colors.text);
 
-        // VPC
-        addRect(svg, x + 20, y + 60, envWidth - 60, hasEKS ? 220 : 120, colors.vpc, colors.border.vpc);
-        addText(svg, x + envWidth / 2, y + 90, 'VPC', 'normal', 'middle', colors.text);
+        // VPC with CIDR
+        const vpcY = y + 40;
+        const vpcHeight = hasEKS ? 260 : 160;
+        const vpcPadding = 15;
+        const vpcWidth = envBoxWidth - vpcPadding * 2;
+        addRect(svg, x + vpcPadding, vpcY, vpcWidth, vpcHeight, colors.vpc, colors.border.vpc);
+        addText(svg, x + envBoxWidth / 2, vpcY + 18, 'VPC', 'normal', 'middle', colors.text);
+        addText(svg, x + envBoxWidth / 2, vpcY + 35, vpcCidr, 'tiny', 'middle', colors.textSecondary);
 
-        // Subnets
-        const subnetY = y + 110;
-        addRect(svg, x + 30, subnetY, (envWidth - 80) / 2 - 5, 50, colors.public, colors.border.public);
-        addText(svg, x + 30 + (envWidth - 80) / 4, subnetY + 25, 'Public', 'small', 'middle', colors.text);
+        // Subnets with CIDR details
+        const subnetY = vpcY + 50;
+        const subnetHeight = 70;
+        const subnetGap = 10;
+        const subnetPadding = 18;
+        const totalSubnetWidth = vpcWidth - subnetPadding * 2;
+        const subnetWidth = (totalSubnetWidth - subnetGap) / 2;
 
-        addRect(svg, x + envWidth / 2 + 5, subnetY, (envWidth - 80) / 2 - 5, 50, colors.private, colors.border.private);
-        addText(svg, x + envWidth / 2 + 5 + (envWidth - 80) / 4, subnetY + 25, 'Private', 'small', 'middle', colors.text);
+        // Public subnet
+        addRect(svg, x + vpcPadding + subnetPadding, subnetY, subnetWidth, subnetHeight, colors.public, colors.border.public);
+        addText(svg, x + vpcPadding + subnetPadding + subnetWidth / 2, subnetY + 18, 'Public', 'small', 'middle', colors.text);
+        addText(svg, x + vpcPadding + subnetPadding + subnetWidth / 2, subnetY + 36, publicCidr, 'tiny', 'middle', colors.textSecondary);
+        addText(svg, x + vpcPadding + subnetPadding + subnetWidth / 2, subnetY + 53, 'Multi-AZ', 'tiny', 'middle', colors.textSecondary);
+
+        // Private subnet
+        addRect(svg, x + vpcPadding + subnetPadding + subnetWidth + subnetGap, subnetY, subnetWidth, subnetHeight, colors.private, colors.border.private);
+        addText(svg, x + vpcPadding + subnetPadding + subnetWidth + subnetGap + subnetWidth / 2, subnetY + 18, 'Private', 'small', 'middle', colors.text);
+        addText(svg, x + vpcPadding + subnetPadding + subnetWidth + subnetGap + subnetWidth / 2, subnetY + 36, privateCidr, 'tiny', 'middle', colors.textSecondary);
+        addText(svg, x + vpcPadding + subnetPadding + subnetWidth + subnetGap + subnetWidth / 2, subnetY + 53, 'Multi-AZ', 'tiny', 'middle', colors.textSecondary);
 
         // EKS if selected
         if (hasEKS) {
-            const eksY = subnetY + 70;
-            addRect(svg, x + 30, eksY, envWidth - 60, 80, colors.eks, colors.border.eks);
-            addText(svg, x + envWidth / 2, eksY + 25, 'EKS Cluster', 'normal', 'middle', colors.text);
-            addText(svg, x + envWidth / 2, eksY + 50, 'Auto Mode', 'small', 'middle', colors.text);
+            const eksY = subnetY + 90;
+            const eksWidth = vpcWidth - subnetPadding * 2;
+            addRect(svg, x + vpcPadding + subnetPadding, eksY, eksWidth, 90, colors.eks, colors.border.eks);
+            addText(svg, x + envBoxWidth / 2, eksY + 25, 'EKS Cluster', 'normal', 'middle', colors.text);
+            addText(svg, x + envBoxWidth / 2, eksY + 45, 'Auto Mode', 'small', 'middle', colors.textSecondary);
+            addText(svg, x + envBoxWidth / 2, eksY + 63, 'Automatic Node', 'tiny', 'middle', colors.textSecondary);
+            addText(svg, x + envBoxWidth / 2, eksY + 76, 'Provisioning', 'tiny', 'middle', colors.textSecondary);
         }
     });
 
-    // Legend
-    const legendY = height - 30;
-    addText(svg, 40, legendY, '● VPC', 'small', 'start', colors.border.vpc);
+    // Legend - positioned inside the outer container
+    const legendY = outerY + outerHeight - 15;
+    const legendX = outerX + 20; // Start from inside the container
+    addText(svg, legendX, legendY, `● ${providerNames[selectedProvider]} VPC`, 'small', 'start', colors.border.vpc);
     if (hasEKS) {
-        addText(svg, 120, legendY, '● EKS', 'small', 'start', colors.border.eks);
+        addText(svg, legendX + 120, legendY, '● EKS Auto Mode', 'small', 'start', colors.border.eks);
     }
+    addText(svg, outerX + outerWidth - 20, legendY, '● Multi-AZ', 'tiny', 'end', colors.textSecondary);
 }
 
 /**
@@ -359,7 +693,7 @@ function addRect(svg, x, y, width, height, fill, stroke) {
  * @param {number} x - X coordinate of text position
  * @param {number} y - Y coordinate of text position
  * @param {string} text - Text content to display
- * @param {string} weight - Font weight: 'bold', 'normal', or 'small' (for sizing)
+ * @param {string} weight - Font weight: 'bold', 'normal', 'small', or 'tiny' (for sizing)
  * @param {string} anchor - Text anchor alignment: 'start', 'middle', or 'end'
  * @param {string} [fill='#1f2937'] - Text color (hex or CSS color)
  * @returns {void}
@@ -370,8 +704,22 @@ function addText(svg, x, y, text, weight, anchor, fill = '#1f2937') {
     textEl.setAttribute('y', y);
     textEl.setAttribute('fill', fill);
     textEl.setAttribute('text-anchor', anchor);
-    textEl.setAttribute('font-size', weight === 'bold' ? '16' : weight === 'small' ? '12' : '14');
+
+    // Font size mapping
+    const fontSizes = {
+        'bold': '16',
+        'normal': '14',
+        'small': '12',
+        'tiny': '10'
+    };
+    textEl.setAttribute('font-size', fontSizes[weight] || '14');
     textEl.setAttribute('font-weight', weight === 'bold' ? 'bold' : 'normal');
+
+    // Use monospace for CIDR blocks
+    if (text.includes('/') && text.match(/\d+\.\d+\.\d+\.\d+/)) {
+        textEl.setAttribute('font-family', 'Monaco, Courier New, monospace');
+    }
+
     textEl.textContent = text;
     svg.appendChild(textEl);
 }
@@ -557,9 +905,6 @@ async function handleGenerate() {
 
     const title = Security.createSafeElement('h3', '🚀 Ready to Generate!');
     modal.appendChild(title);
-
-    const p1 = Security.createSafeElement('p', "You'll be redirected to GitHub Actions.");
-    modal.appendChild(p1);
 
     const p2 = Security.createSafeElement('strong', 'Your configuration:');
     modal.appendChild(p2);

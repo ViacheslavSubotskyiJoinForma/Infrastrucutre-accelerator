@@ -43,6 +43,11 @@ const tests = [
     { name: 'Invalid: starts with -', fn: () => Security.validateProjectName('-test'), expected: false },
     { name: 'Invalid: ends with -', fn: () => Security.validateProjectName('test-'), expected: false },
     { name: 'Invalid: 64 chars', fn: () => Security.validateProjectName('a'.repeat(64)), expected: false },
+    { name: 'Invalid: reserved "tmp"', fn: () => Security.validateProjectName('tmp'), expected: false },
+    { name: 'Invalid: reserved "admin"', fn: () => Security.validateProjectName('admin'), expected: false },
+    { name: 'Invalid: reserved "root"', fn: () => Security.validateProjectName('root'), expected: false },
+    { name: 'Invalid: reserved "default"', fn: () => Security.validateProjectName('default'), expected: false },
+    { name: 'Invalid: reserved "temp"', fn: () => Security.validateProjectName('temp'), expected: false },
 
     // AWS Account ID Validation
     { name: 'Valid: 987654321098', fn: () => Security.validateAwsAccountId('987654321098'), expected: true },
@@ -54,6 +59,13 @@ const tests = [
     { name: 'Invalid: 13 digits', fn: () => Security.validateAwsAccountId('1234567890123'), expected: false },
     { name: 'Invalid: letters', fn: () => Security.validateAwsAccountId('12345678901a'), expected: false },
     { name: 'Invalid: spaces', fn: () => Security.validateAwsAccountId('123 456 78901'), expected: false },
+
+    // AWS Region Validation
+    { name: 'Valid region: us-east-1', fn: () => Security.validateAwsRegion('us-east-1'), expected: true },
+    { name: 'Valid region: eu-west-1', fn: () => Security.validateAwsRegion('eu-west-1'), expected: true },
+    { name: 'Valid region: ap-southeast-1', fn: () => Security.validateAwsRegion('ap-southeast-1'), expected: true },
+    { name: 'Invalid region: invalid-region', fn: () => Security.validateAwsRegion('invalid-region'), expected: false },
+    { name: 'Invalid region: empty', fn: () => Security.validateAwsRegion(''), expected: false },
 
     // Sanitization
     { name: 'Sanitize: alphanumeric', fn: () => Security.sanitizeInput('test123') === 'test123', expected: true },
