@@ -397,7 +397,7 @@ function handleProviderChange(e) {
  */
 function handleCIProviderChange(e) {
     selectedCIProvider = e.target.value;
-    // CI provider selection doesn't affect diagram, but we track it for workflow generation
+    updateComponentList(); // Update component list to show correct CI/CD config
 }
 
 /**
