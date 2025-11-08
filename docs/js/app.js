@@ -203,6 +203,12 @@ function setupEventListeners() {
         }
     });
 
+    // Region select - update diagram on change
+    const regionSelect = document.getElementById('region');
+    if (regionSelect) {
+        regionSelect.addEventListener('change', () => updateDiagram());
+    }
+
     // Generate button
     document.getElementById('generateBtn').addEventListener('click', handleGenerate);
 
@@ -388,9 +394,9 @@ function updateDiagram() {
     // Calculate required width based on environment count
     // Minimum 220px per environment to avoid text overlap
     const minEnvWidth = 220;
-    const calculatedWidth = Math.max(containerWidth, minEnvWidth * envCount + 80);
+    const calculatedWidth = Math.max(containerWidth, minEnvWidth * envCount + 120);
     const width = calculatedWidth;
-    const height = 450;
+    const height = 520;
 
     // Clear existing
     svg.innerHTML = '';
@@ -452,15 +458,74 @@ function updateDiagram() {
         'azure': 'Azure'
     };
 
+    // Get AWS Account ID and Region from inputs
+    const awsAccountIdInput = document.getElementById('awsAccountId');
+    const awsAccountId = awsAccountIdInput ? awsAccountIdInput.value.trim() : '';
+    const regionSelect = document.getElementById('region');
+    const region = regionSelect ? regionSelect.value : '';
+
+    // Outer provider container
+    const outerPadding = 20;
+    const outerX = outerPadding;
+    const outerY = 60;
+    const outerWidth = width - outerPadding * 2;
+    const outerHeight = hasEKS ? 430 : 330;
+
+    // Draw outer container with provider branding
+    addRect(svg, outerX, outerY, outerWidth, outerHeight, 'transparent', colors.border.env, 3);
+
+    // Provider header
+    const headerY = 18;
+
+    // AWS Logo (simplified)
+    if (selectedProvider === 'aws') {
+        const logoX = 30;
+        const logoY = headerY;
+        const logoSize = 24;
+
+        // AWS smile logo (simplified arc)
+        const smile = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        smile.setAttribute('d', `M ${logoX},${logoY + 8} Q ${logoX + logoSize/2},${logoY + 16} ${logoX + logoSize},${logoY + 8}`);
+        smile.setAttribute('stroke', '#FF9900');
+        smile.setAttribute('stroke-width', '2.5');
+        smile.setAttribute('fill', 'none');
+        smile.setAttribute('stroke-linecap', 'round');
+        svg.appendChild(smile);
+
+        // Arrow tip
+        const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        arrow.setAttribute('points', `${logoX + logoSize - 2},${logoY + 6} ${logoX + logoSize + 4},${logoY + 8} ${logoX + logoSize - 2},${logoY + 10}`);
+        arrow.setAttribute('fill', '#FF9900');
+        svg.appendChild(arrow);
+    }
+
     // Title with provider
-    addText(svg, width / 2, 25, `${providerNames[selectedProvider]} Architecture`, 'bold', 'middle', colors.text);
-    addText(svg, width / 2, 45, selectedEnvironments.join(', ').toUpperCase(), 'normal', 'middle', colors.textSecondary);
+    addText(svg, 70, headerY + 5, `${providerNames[selectedProvider]} Cloud Architecture`, 'bold', 'start', colors.text);
+
+    // AWS Account ID and Region
+    if (selectedProvider === 'aws') {
+        let detailsText = '';
+        if (awsAccountId && region) {
+            detailsText = `Account: ${awsAccountId} | Region: ${region}`;
+        } else if (awsAccountId) {
+            detailsText = `Account: ${awsAccountId}`;
+        } else if (region) {
+            detailsText = `Region: ${region}`;
+        }
+
+        if (detailsText) {
+            addText(svg, 70, headerY + 22, detailsText, 'tiny', 'start', colors.textSecondary);
+        }
+    }
+
+    // Environments subtitle
+    addText(svg, width - outerPadding - 10, headerY + 12, selectedEnvironments.join(', ').toUpperCase(), 'small', 'end', colors.textSecondary);
 
     // Draw environments
-    const envWidth = (width - 80) / envCount;
+    const envWidth = (outerWidth - 40) / envCount;
     selectedEnvironments.forEach((env, i) => {
-        const x = 40 + i * envWidth;
-        const y = 70;
+        const x = outerX + 20 + i * envWidth;
+        const y = outerY + 50;
 
         // Get VPC CIDR for this environment
         const vpcCidr = getVPCCIDR(env);
@@ -469,23 +534,25 @@ function updateDiagram() {
 
         // Environment box
         const boxHeight = hasEKS ? 340 : 240;
-        addRect(svg, x, y, envWidth - 20, boxHeight, env === 'prod' ? colors.envProd : colors.envLight, colors.border.env);
-        addText(svg, x + (envWidth - 20) / 2, y + 20, env.toUpperCase(), 'bold', 'middle', colors.text);
+        const envBoxWidth = envWidth - 25;
+        addRect(svg, x, y, envBoxWidth, boxHeight, env === 'prod' ? colors.envProd : colors.envLight, colors.border.env);
+        addText(svg, x + envBoxWidth / 2, y + 20, env.toUpperCase(), 'bold', 'middle', colors.text);
 
         // VPC with CIDR
         const vpcY = y + 40;
         const vpcHeight = hasEKS ? 260 : 160;
-        const vpcPadding = 12;
-        addRect(svg, x + vpcPadding, vpcY, envWidth - vpcPadding * 2 - 8, vpcHeight, colors.vpc, colors.border.vpc);
-        addText(svg, x + envWidth / 2, vpcY + 18, 'VPC', 'normal', 'middle', colors.text);
-        addText(svg, x + envWidth / 2, vpcY + 35, vpcCidr, 'tiny', 'middle', colors.textSecondary);
+        const vpcPadding = 15;
+        const vpcWidth = envBoxWidth - vpcPadding * 2;
+        addRect(svg, x + vpcPadding, vpcY, vpcWidth, vpcHeight, colors.vpc, colors.border.vpc);
+        addText(svg, x + envBoxWidth / 2, vpcY + 18, 'VPC', 'normal', 'middle', colors.text);
+        addText(svg, x + envBoxWidth / 2, vpcY + 35, vpcCidr, 'tiny', 'middle', colors.textSecondary);
 
         // Subnets with CIDR details
         const subnetY = vpcY + 50;
         const subnetHeight = 70;
-        const subnetGap = 8;
-        const subnetPadding = 20;
-        const totalSubnetWidth = envWidth - vpcPadding * 2 - subnetPadding * 2;
+        const subnetGap = 10;
+        const subnetPadding = 18;
+        const totalSubnetWidth = vpcWidth - subnetPadding * 2;
         const subnetWidth = (totalSubnetWidth - subnetGap) / 2;
 
         // Public subnet
@@ -503,17 +570,17 @@ function updateDiagram() {
         // EKS if selected
         if (hasEKS) {
             const eksY = subnetY + 90;
-            const eksPadding = 20;
-            addRect(svg, x + vpcPadding + eksPadding, eksY, envWidth - vpcPadding * 2 - eksPadding * 2, 90, colors.eks, colors.border.eks);
-            addText(svg, x + envWidth / 2, eksY + 25, 'EKS Cluster', 'normal', 'middle', colors.text);
-            addText(svg, x + envWidth / 2, eksY + 45, 'Auto Mode', 'small', 'middle', colors.textSecondary);
-            addText(svg, x + envWidth / 2, eksY + 63, 'Automatic Node', 'tiny', 'middle', colors.textSecondary);
-            addText(svg, x + envWidth / 2, eksY + 76, 'Provisioning', 'tiny', 'middle', colors.textSecondary);
+            const eksWidth = vpcWidth - subnetPadding * 2;
+            addRect(svg, x + vpcPadding + subnetPadding, eksY, eksWidth, 90, colors.eks, colors.border.eks);
+            addText(svg, x + envBoxWidth / 2, eksY + 25, 'EKS Cluster', 'normal', 'middle', colors.text);
+            addText(svg, x + envBoxWidth / 2, eksY + 45, 'Auto Mode', 'small', 'middle', colors.textSecondary);
+            addText(svg, x + envBoxWidth / 2, eksY + 63, 'Automatic Node', 'tiny', 'middle', colors.textSecondary);
+            addText(svg, x + envBoxWidth / 2, eksY + 76, 'Provisioning', 'tiny', 'middle', colors.textSecondary);
         }
     });
 
     // Legend
-    const legendY = height - 20;
+    const legendY = height - 25;
     addText(svg, 40, legendY, `● ${providerNames[selectedProvider]} VPC`, 'small', 'start', colors.border.vpc);
     if (hasEKS) {
         addText(svg, 160, legendY, '● EKS Auto Mode', 'small', 'start', colors.border.eks);
