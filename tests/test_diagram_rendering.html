@@ -122,19 +122,14 @@
             // Calculate viewBox width (matching app.js logic)
             let viewBoxWidth;
             if (envCount === 1) {
-                const containerWidth = 800 - 48; // Simulated container width minus padding (1.5rem * 2)
+                const containerWidth = 800; // Simulated container width (no padding)
                 viewBoxWidth = Math.max(containerWidth, 600);
             } else {
                 viewBoxWidth = 260 * envCount + 120;
             }
 
-            // Calculate height with proper aspect ratio (matching app.js logic)
-            let height;
-            if (envCount === 1) {
-                height = (hasEKS && hasRDS) ? 650 : (hasEKS || hasRDS) ? 550 : 450;
-            } else {
-                height = (hasEKS && hasRDS) ? 590 : (hasEKS || hasRDS) ? 490 : 390;
-            }
+            // Calculate height based on components (matching app.js logic)
+            const height = (hasEKS && hasRDS) ? 590 : (hasEKS || hasRDS) ? 490 : 390;
 
             svg.innerHTML = '';
             svg.setAttribute('viewBox', `0 0 ${viewBoxWidth} ${height}`);
@@ -417,7 +412,7 @@
                 }
             },
             {
-                name: 'Single environment: Taller diagram than multi-environment',
+                name: 'Single environment: Same height as multi-environment',
                 run: () => {
                     // Test single environment height
                     selectedEnvironments = ['dev'];
@@ -435,12 +430,12 @@
                     const viewBox2 = svg.getAttribute('viewBox').split(' ').map(Number);
                     const multiEnvHeight = viewBox2[3];
 
-                    // Single env should be taller (450 vs 390 for base VPC)
-                    return singleEnvHeight > multiEnvHeight;
+                    // Heights should be the same (390 for base VPC)
+                    return singleEnvHeight === multiEnvHeight && singleEnvHeight === 390;
                 }
             },
             {
-                name: 'Single environment with EKS: Proper height adjustment',
+                name: 'Diagram with EKS: Proper height adjustment',
                 run: () => {
                     selectedEnvironments = ['dev'];
                     selectedComponents = ['vpc', 'eks-auto'];
@@ -450,8 +445,8 @@
                     const viewBox = svg.getAttribute('viewBox').split(' ').map(Number);
                     const height = viewBox[3];
 
-                    // Single env with EKS should have height of 550
-                    return height === 550;
+                    // With EKS should have height of 490
+                    return height === 490;
                 }
             }
         ];

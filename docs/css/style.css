@@ -545,7 +545,7 @@ body.dark-mode input[value="github"] ~ .provider-card .provider-icon path {
     position: relative;
     background: var(--diagram-bg);
     border-radius: 8px;
-    padding: 1.5rem;
+    padding: 0;
     margin-bottom: 1.5rem;
     display: flex;
     align-items: flex-start;

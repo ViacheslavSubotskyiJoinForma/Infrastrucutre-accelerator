@@ -522,22 +522,15 @@ function updateDiagram() {
     if (envCount === 1) {
         // Use container width for single environment to match other blocks
         // This ensures the diagram fills the full width like other right panel elements
-        const containerWidth = container.clientWidth - 48; // Subtract padding (1.5rem * 2)
+        const containerWidth = container.clientWidth; // No padding to subtract
         viewBoxWidth = Math.max(containerWidth, 600); // Minimum 600px for readability
     } else {
         // Multiple environments: calculate needed width for all environments
         viewBoxWidth = 260 * envCount + 120;
     }
 
-    // Calculate height with proper aspect ratio
-    // Increase height if we have both EKS and RDS
-    let height;
-    if (envCount === 1) {
-        // For single environment, use taller height to match multi-environment vertical size
-        height = (hasEKS && hasRDS) ? 650 : (hasEKS || hasRDS) ? 550 : 450;
-    } else {
-        height = (hasEKS && hasRDS) ? 590 : (hasEKS || hasRDS) ? 490 : 390;
-    }
+    // Calculate height based on components - made more compact
+    const height = (hasEKS && hasRDS) ? 530 : (hasEKS || hasRDS) ? 450 : 370;
 
     // Clear existing
     svg.innerHTML = '';
@@ -618,9 +611,9 @@ function updateDiagram() {
     const region = regionSelect ? regionSelect.value : '';
 
     // Outer provider container
-    const outerPadding = 20;
+    const outerPadding = 10;
     const outerX = outerPadding;
-    const outerY = 60;
+    const outerY = 40;
     const outerWidth = viewBoxWidth - outerPadding * 2;
     const outerHeight = (hasEKS && hasRDS) ? 500 : (hasEKS || hasRDS) ? 400 : 300;
 
@@ -688,7 +681,7 @@ function updateDiagram() {
     }
 
     // Draw environments with equal spacing
-    const innerPadding = 20; // Equal padding from outer container to environments
+    const innerPadding = 15; // Equal padding from outer container to environments
     const envGap = 10; // Gap between environments
     const availableWidth = outerWidth - innerPadding * 2;
     const totalGaps = Math.max(0, (envCount - 1) * envGap);
