@@ -199,8 +199,8 @@ function updateAutoSplitText(env) {
         return;
     }
 
-    // Calculate subnets based on availability zones
-    const azCount = parseInt(document.getElementById('availabilityZones')?.value || '3');
+    // Calculate subnets based on availability zones (fixed to 3)
+    const azCount = 3;
     if (vpcCidr) {
         const [baseIp, prefix] = vpcCidr.split('/');
         const octets = baseIp.split('.').map(Number);
@@ -282,16 +282,6 @@ function setupEventListeners() {
     const regionSelect = document.getElementById('region');
     if (regionSelect) {
         regionSelect.addEventListener('change', () => updateDiagram());
-    }
-
-    // Availability zones select - update auto-split text and diagram
-    const azSelect = document.getElementById('availabilityZones');
-    if (azSelect) {
-        azSelect.addEventListener('change', () => {
-            // Update auto-split text for all visible environments
-            selectedEnvironments.forEach(env => updateAutoSplitText(env));
-            updateDiagram();
-        });
     }
 
     // Generate button
@@ -632,7 +622,7 @@ function updateDiagram() {
     const projectNameInput = document.getElementById('projectName');
     const projectName = projectNameInput ? projectNameInput.value.trim() : '';
 
-    // Build metadata line: Project | Account | Region
+    // Build metadata line: Project | Account | Region | AZs
     if (selectedProvider === 'aws') {
         let detailsText = '';
         const parts = [];
@@ -646,6 +636,7 @@ function updateDiagram() {
         if (region) {
             parts.push(`Region: ${region}`);
         }
+        parts.push('3 AZs'); // Always 3 Availability Zones
 
         detailsText = parts.join(' | ');
 
@@ -923,7 +914,7 @@ async function handleGenerate() {
 
     const components = selectedComponents.join(',');
     const environments = selectedEnvironments.join(',');
-    const availabilityZones = document.getElementById('availabilityZones').value;
+    const availabilityZones = '3'; // Fixed to 3 AZs for high availability
 
     // Collect VPC CIDRs for selected environments
     const vpcCidrs = {};
