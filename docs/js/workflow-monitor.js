@@ -53,12 +53,15 @@ class WorkflowMonitor {
         this.currentRunId = runId;
         this.startTime = Date.now();
 
+        console.log('[WorkflowMonitor] Starting monitoring for run ID:', runId);
+
         // Show progress modal
         this.showProgressModal();
 
-        // Start polling
-        this.pollInterval = setInterval(() => {
-            this.checkStatus();
+        // Start polling with arrow function to preserve 'this' context
+        this.pollInterval = setInterval(async () => {
+            console.log('[WorkflowMonitor] Polling status...');
+            await this.checkStatus();
         }, 5000); // Poll every 5 seconds
 
         // Check immediately
@@ -82,6 +85,8 @@ class WorkflowMonitor {
      */
     async checkStatus() {
         try {
+            console.log('[WorkflowMonitor] Checking status for run:', this.currentRunId);
+
             const response = await fetch(
                 `https://api.github.com/repos/${this.repo}/actions/runs/${this.currentRunId}`,
                 {
@@ -93,14 +98,19 @@ class WorkflowMonitor {
             );
 
             if (!response.ok) {
-                throw new Error('Failed to fetch workflow status');
+                const errorText = await response.text();
+                console.error('[WorkflowMonitor] API error:', response.status, errorText);
+                throw new Error(`Failed to fetch workflow status: ${response.status}`);
             }
 
             const run = await response.json();
+            console.log('[WorkflowMonitor] Current status:', run.status, 'Conclusion:', run.conclusion);
+
             this.updateProgress(run);
 
             // If completed, fetch jobs for detailed progress
             if (run.status === WorkflowStatus.COMPLETED) {
+                console.log('[WorkflowMonitor] Workflow completed, stopping monitoring');
                 this.stopMonitoring();
                 await this.handleCompletion(run);
             } else {
@@ -109,7 +119,7 @@ class WorkflowMonitor {
             }
 
         } catch (error) {
-            console.error('Status check error:', error);
+            console.error('[WorkflowMonitor] Status check error:', error);
             this.updateProgressMessage('⚠️ Error checking status. Retrying...', 'warning');
         }
     }
@@ -121,6 +131,8 @@ class WorkflowMonitor {
      */
     async updateJobProgress(run) {
         try {
+            console.log('[WorkflowMonitor] Fetching jobs for run:', this.currentRunId);
+
             const response = await fetch(
                 `https://api.github.com/repos/${this.repo}/actions/runs/${this.currentRunId}/jobs`,
                 {
@@ -133,10 +145,13 @@ class WorkflowMonitor {
 
             if (response.ok) {
                 const { jobs } = await response.json();
+                console.log('[WorkflowMonitor] Received', jobs.length, 'jobs');
                 this.displayJobProgress(jobs);
+            } else {
+                console.error('[WorkflowMonitor] Failed to fetch jobs:', response.status);
             }
         } catch (error) {
-            console.error('Job progress error:', error);
+            console.error('[WorkflowMonitor] Job progress error:', error);
         }
     }
 
@@ -147,11 +162,17 @@ class WorkflowMonitor {
      */
     displayJobProgress(jobs) {
         const jobList = document.getElementById('workflowJobs');
-        if (!jobList) return;
+        if (!jobList) {
+            console.error('[WorkflowMonitor] workflowJobs element not found in displayJobProgress');
+            return;
+        }
 
+        console.log('[WorkflowMonitor] Displaying', jobs.length, 'jobs');
         jobList.innerHTML = '';
 
-        jobs.forEach(job => {
+        jobs.forEach((job, index) => {
+            console.log(`[WorkflowMonitor] Job ${index + 1}:`, job.name, 'Status:', job.status);
+
             const jobItem = document.createElement('div');
             jobItem.className = 'job-item';
 
@@ -189,6 +210,8 @@ class WorkflowMonitor {
      * @returns {void}
      */
     updateProgress(run) {
+        console.log('[WorkflowMonitor] updateProgress called with status:', run.status);
+
         const elapsed = Math.floor((Date.now() - this.startTime) / 1000);
         const minutes = Math.floor(elapsed / 60);
         const seconds = elapsed % 60;
@@ -201,11 +224,13 @@ class WorkflowMonitor {
             case WorkflowStatus.QUEUED:
                 message = `⏳ Queued (${timeStr})`;
                 progressPercent = 10;
+                console.log('[WorkflowMonitor] Status: QUEUED');
                 break;
             case WorkflowStatus.IN_PROGRESS:
                 message = `⚡ Generating infrastructure... (${timeStr})`;
                 // Estimate progress based on time (max 90% until complete)
                 progressPercent = Math.min(90, 20 + (elapsed / 10));
+                console.log('[WorkflowMonitor] Status: IN_PROGRESS, progress:', progressPercent);
                 break;
             case WorkflowStatus.COMPLETED:
                 progressPercent = 100;
@@ -216,9 +241,13 @@ class WorkflowMonitor {
                 } else {
                     message = `⚠️ Workflow ${run.conclusion} (${timeStr})`;
                 }
+                console.log('[WorkflowMonitor] Status: COMPLETED, conclusion:', run.conclusion);
                 break;
+            default:
+                console.warn('[WorkflowMonitor] Unknown status:', run.status);
         }
 
+        console.log('[WorkflowMonitor] Updating UI - Progress:', progressPercent, 'Message:', message);
         this.updateProgressBar(progressPercent);
         this.updateProgressMessage(message, run.status);
     }
@@ -232,11 +261,17 @@ class WorkflowMonitor {
         const progressBar = document.getElementById('progressBar');
         const progressPercent = document.getElementById('progressPercent');
 
+        console.log('[WorkflowMonitor] updateProgressBar called with:', percent, '%, elements found:', !!progressBar, !!progressPercent);
+
         if (progressBar) {
             progressBar.style.width = `${percent}%`;
+        } else {
+            console.error('[WorkflowMonitor] progressBar element not found!');
         }
         if (progressPercent) {
             progressPercent.textContent = `${Math.round(percent)}%`;
+        } else {
+            console.error('[WorkflowMonitor] progressPercent element not found!');
         }
     }
 
@@ -248,9 +283,14 @@ class WorkflowMonitor {
      */
     updateProgressMessage(message, status) {
         const messageEl = document.getElementById('progressMessage');
+
+        console.log('[WorkflowMonitor] updateProgressMessage called:', message, 'status:', status, 'element found:', !!messageEl);
+
         if (messageEl) {
             messageEl.textContent = message;
             messageEl.className = `progress-message ${status}`;
+        } else {
+            console.error('[WorkflowMonitor] progressMessage element not found!');
         }
     }
 
@@ -362,20 +402,27 @@ class WorkflowMonitor {
      * @returns {void}
      */
     showProgressModal() {
+        console.log('[WorkflowMonitor] showProgressModal called');
+
         const modal = document.getElementById('progressModal');
         if (!modal) {
+            console.log('[WorkflowMonitor] Modal not found, creating new modal');
             this.createProgressModal();
         } else {
+            console.log('[WorkflowMonitor] Modal found, showing it');
             modal.classList.add('show');
         }
 
         // Reset progress
+        console.log('[WorkflowMonitor] Resetting progress to 0');
         this.updateProgressBar(0);
         this.updateProgressMessage('⏳ Starting workflow...', 'queued');
 
         const jobList = document.getElementById('workflowJobs');
         if (jobList) {
             jobList.innerHTML = '';
+        } else {
+            console.error('[WorkflowMonitor] workflowJobs element not found in showProgressModal');
         }
     }
 
@@ -384,6 +431,8 @@ class WorkflowMonitor {
      * @returns {void}
      */
     createProgressModal() {
+        console.log('[WorkflowMonitor] createProgressModal called, runId:', this.currentRunId);
+
         const modalHTML = `
             <div id="progressModal" class="modal show">
                 <div class="modal-content progress-modal">
@@ -416,6 +465,12 @@ class WorkflowMonitor {
         `;
 
         document.body.insertAdjacentHTML('beforeend', modalHTML);
+        console.log('[WorkflowMonitor] Modal HTML inserted into DOM');
+
+        // Verify elements were created
+        const progressBar = document.getElementById('progressBar');
+        const progressMessage = document.getElementById('progressMessage');
+        console.log('[WorkflowMonitor] Verification - progressBar:', !!progressBar, 'progressMessage:', !!progressMessage);
     }
 
     /**
@@ -505,10 +560,10 @@ class WorkflowMonitor {
             modal.appendChild(p1);
 
             const downloadInfo = Security.createSafeElement('div', '', {
-                style: 'background: var(--success-bg, #d1fae5); border: 1px solid var(--success-border, #10b981); border-radius: 8px; padding: 1rem; margin: 1rem 0;'
+                class: 'download-info'
             });
             const downloadText = Security.createSafeElement('p', `📦 File: ${Security.escapeHtml(artifactName)}.zip`, {
-                style: 'margin: 0; font-family: monospace;'
+                class: 'download-filename'
             });
             downloadInfo.appendChild(downloadText);
             modal.appendChild(downloadInfo);

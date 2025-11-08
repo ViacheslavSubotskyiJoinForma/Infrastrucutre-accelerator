@@ -919,3 +919,29 @@ body.dark-mode .job-item {
 body.dark-mode .job-item:hover {
     background: rgba(255, 255, 255, 0.05);
 }
+
+/* Download info styles */
+.download-info {
+    background: var(--success-bg, #d1fae5);
+    border: 1px solid var(--success-border, #10b981);
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 1rem 0;
+}
+
+.download-filename {
+    margin: 0;
+    font-family: Monaco, 'Courier New', monospace;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+body.dark-mode .download-info {
+    background: rgba(16, 185, 129, 0.15);
+    border-color: rgba(16, 185, 129, 0.4);
+}
+
+body.dark-mode .download-filename {
+    color: #10b981;
+}
