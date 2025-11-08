@@ -403,34 +403,25 @@ function updateDiagram() {
     const svg = document.getElementById('diagram');
     const container = svg.parentElement;
 
-    // Fixed width calculation to prevent jumping on theme switch
-    // Use a stable base width instead of container.clientWidth which can change
+    // Fixed width calculation based ONLY on environment count (prevents jumping)
     const envCount = selectedEnvironments.length;
     const hasEKS = selectedComponents.includes('eks-auto');
 
-    // Calculate required width based on environment count
-    // Minimum 220px per environment to avoid text overlap
+    // Calculate width based purely on environment count (stable, never changes for same envCount)
     const minEnvWidth = 220;
-    const baseWidth = 800; // Fixed base width
-    const calculatedWidth = Math.max(baseWidth, minEnvWidth * envCount + 120);
-    const width = calculatedWidth;
+    const width = minEnvWidth * envCount + 120;
     const height = 520;
 
     // Clear existing
     svg.innerHTML = '';
     svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
 
-    // Enable horizontal scroll if needed
-    const containerWidth = container.clientWidth || 600;
-    if (width > containerWidth) {
-        container.style.overflowX = 'auto';
-        svg.style.minWidth = `${width}px`;
-        container.setAttribute('data-scrollable', 'true');
-    } else {
-        container.style.overflowX = 'visible';
-        svg.style.minWidth = '100%';
-        container.setAttribute('data-scrollable', 'false');
-    }
+    // Always set fixed width and enable scroll (prevents any size jumping)
+    svg.style.width = `${width}px`;
+    svg.style.minWidth = `${width}px`;
+    svg.style.maxWidth = `${width}px`;
+    container.style.overflowX = 'auto';
+    container.setAttribute('data-scrollable', 'true');
 
     const isDark = theme.isDark();
 
