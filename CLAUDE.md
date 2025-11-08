@@ -263,15 +263,21 @@ The generator supports multiple CI/CD platforms:
   - Automatic dependency resolution
   - Artifact management for Terraform plans
 
-### GitHub Actions (Templates Ready)
+### GitHub Actions ✅ (Active)
 - **File**: `.github/workflows/terraform-ci.yml`
-- **Status**: Templates implemented, marked as "Coming Soon" in web UI
+- **Status**: Fully supported and enabled in web UI
+- **Documentation**: See `docs/GITHUB_ACTIONS_SETUP.md`
 - **Features**:
   - Pull request validation with plan comments
   - Environment-based deployments with approvals
   - Workflow dispatch for manual runs
-  - Matrix strategy for components and environments
-  - AWS credentials via secrets
+  - Per-component and per-environment jobs
+  - AWS credentials via secrets or OIDC
+  - Artifact management for Terraform plans
+- **Setup**:
+  - Configure secrets: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`
+  - Optional: GitHub Environments for approval workflows
+  - Recommended: AWS OIDC for enhanced security
 
 ### Azure DevOps Pipelines (Templates Ready)
 - **File**: `azure-pipelines.yml`
@@ -283,7 +289,7 @@ The generator supports multiple CI/CD platforms:
   - Artifact management for plans
   - AWS authentication via service connections
 
-**Usage**: Select CI provider in web UI or use `--ci-provider` flag with CLI. GitHub Actions and Azure DevOps are functional but grayed out in the web interface pending full validation.
+**Usage**: Select CI provider in web UI or use `--ci-provider` flag with CLI. GitLab and GitHub Actions are fully supported. Azure DevOps templates are ready but pending full validation.
 
 ---
 
