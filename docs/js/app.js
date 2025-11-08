@@ -481,7 +481,7 @@ function updateComponentList() {
 
     // CI/CD configuration
     const ciProviderNames = {
-        'gitlab': 'GitLab CI/CD pipeline (.gitlab-ci.yml)',
+        'gitlab': 'GitLab CI/CD pipeline',
         'github': 'GitHub Actions workflow',
         'azuredevops': 'Azure DevOps pipeline'
     };
