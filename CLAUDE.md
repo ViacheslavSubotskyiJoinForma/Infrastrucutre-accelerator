@@ -28,7 +28,7 @@ This is an **Infrastructure Template Generator** that creates production-ready T
 
 #### Via Command Line
 
-**Prerequisites**: Python 3.11+ with virtual environment
+**Prerequisites**: Python 3.12 with virtual environment
 
 ```bash
 # First time setup: Create and activate virtual environment

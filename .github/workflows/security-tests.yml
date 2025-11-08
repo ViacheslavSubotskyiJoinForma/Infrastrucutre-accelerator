@@ -18,24 +18,23 @@ permissions:
   pull-requests: write  # Required for PR comments
   actions: write        # Required for uploading artifacts
 
+env:
+  PYTHON_VERSION: '3.12'  # Single Python version for all jobs
+
 jobs:
   security-tests:
     name: Security & Unit Tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
-    strategy:
-      matrix:
-        python-version: ['3.10', '3.11', '3.12']  # Removed 3.9 (EOL Oct 2025), added 3.12
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
 
       - name: Install dependencies
@@ -61,14 +60,13 @@ jobs:
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
-        if: matrix.python-version == '3.11'
         with:
           name: coverage-report
           path: htmlcov/
           retention-days: 30
 
       - name: Generate coverage badge
-        if: matrix.python-version == '3.11' && github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main'
         run: |
           COVERAGE=$(coverage report | grep TOTAL | awk '{print $4}' | sed 's/%//')
           echo "COVERAGE=$COVERAGE" >> $GITHUB_ENV
@@ -87,7 +85,7 @@ jobs:
         continue-on-error: true
 
       - name: Comment coverage on PR
-        if: github.event_name == 'pull_request' && matrix.python-version == '3.11'
+        if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
@@ -235,7 +233,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install linting tools
         run: |
