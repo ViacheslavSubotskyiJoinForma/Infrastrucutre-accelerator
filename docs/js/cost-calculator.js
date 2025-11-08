@@ -27,9 +27,9 @@ class CostCalculator {
                 prod: 220     // EKS cluster + production nodes
             },
             'rds': {
-                dev: 35,      // db.t3.micro
-                staging: 65,  // db.t3.small
-                prod: 145     // db.t3.medium Multi-AZ
+                dev: 10,      // Aurora Serverless v2 (min_capacity=0, sleep mode)
+                staging: 45,  // Aurora Serverless v2 (min_capacity=0.5)
+                prod: 350     // Aurora Serverless v2 Multi-AZ (min_capacity=2, 2 instances)
             },
             'services': {
                 dev: 25,      // API Gateway, Lambda, S3 (minimal usage)

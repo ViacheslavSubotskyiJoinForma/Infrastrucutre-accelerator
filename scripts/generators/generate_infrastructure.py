@@ -27,16 +27,17 @@ class InfrastructureGenerator:
     AVAILABLE_COMPONENTS = [
         'vpc',      # VPC networking (ready)
         'eks-auto', # EKS Auto Mode cluster (ready)
+        'rds',      # Aurora PostgreSQL Serverless v2 (ready)
         # Future components (templates to be created):
-        # 'rds', 'secrets', 'eks', 'services', 'opensearch', 'monitoring', 'common'
+        # 'secrets', 'eks', 'services', 'opensearch', 'monitoring', 'common'
     ]
 
     # Component dependencies (only for available components)
     DEPENDENCIES = {
         'vpc': [],           # No dependencies (foundational)
         'eks-auto': ['vpc'], # EKS Auto Mode - requires VPC only
+        'rds': ['vpc'],      # Aurora PostgreSQL Serverless v2 - requires VPC
         # Future dependencies (when components are added):
-        # 'rds': ['vpc'],
         # 'secrets': ['eks', 'services'],
         # 'eks': ['vpc'],
         # 'services': ['vpc', 'eks'],
