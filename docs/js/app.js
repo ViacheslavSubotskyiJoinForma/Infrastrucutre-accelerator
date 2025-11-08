@@ -226,10 +226,12 @@ function setupEventListeners() {
         }
     });
 
+    // AWS Account ID - clear errors and update diagram in real-time
     document.getElementById('awsAccountId').addEventListener('input', function() {
         if (this.classList.contains('error')) {
             clearError(this);
         }
+        debouncedUpdateDiagram();
     });
 }
 
@@ -387,7 +389,9 @@ function updateComponentList() {
  */
 function updateDiagram() {
     const svg = document.getElementById('diagram');
-    const containerWidth = svg.clientWidth || 600;
+    const container = svg.parentElement;
+    // Use container's clientWidth to avoid size changes when theme switches
+    const containerWidth = container.clientWidth || 600;
     const envCount = selectedEnvironments.length;
     const hasEKS = selectedComponents.includes('eks-auto');
 
@@ -475,26 +479,31 @@ function updateDiagram() {
     addRect(svg, outerX, outerY, outerWidth, outerHeight, 'transparent', colors.border.env, 3);
 
     // Provider header
-    const headerY = 18;
+    const headerY = 20;
 
-    // AWS Logo (simplified)
+    // AWS Logo (smile and arrow)
     if (selectedProvider === 'aws') {
-        const logoX = 30;
-        const logoY = headerY;
-        const logoSize = 24;
+        const logoX = 35;
+        const logoY = headerY - 2;
+        const logoWidth = 28;
+        const logoHeight = 16;
 
-        // AWS smile logo (simplified arc)
+        // AWS smile (curved line from A to Z)
         const smile = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        smile.setAttribute('d', `M ${logoX},${logoY + 8} Q ${logoX + logoSize/2},${logoY + 16} ${logoX + logoSize},${logoY + 8}`);
+        const smileStart = `M ${logoX},${logoY + logoHeight * 0.4}`;
+        const smileCurve = `Q ${logoX + logoWidth/2},${logoY + logoHeight * 0.95} ${logoX + logoWidth},${logoY + logoHeight * 0.4}`;
+        smile.setAttribute('d', `${smileStart} ${smileCurve}`);
         smile.setAttribute('stroke', '#FF9900');
-        smile.setAttribute('stroke-width', '2.5');
+        smile.setAttribute('stroke-width', '2.8');
         smile.setAttribute('fill', 'none');
         smile.setAttribute('stroke-linecap', 'round');
         svg.appendChild(smile);
 
-        // Arrow tip
+        // Arrow tip (pointing right, at the end of smile)
         const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-        arrow.setAttribute('points', `${logoX + logoSize - 2},${logoY + 6} ${logoX + logoSize + 4},${logoY + 8} ${logoX + logoSize - 2},${logoY + 10}`);
+        const arrowTipX = logoX + logoWidth;
+        const arrowTipY = logoY + logoHeight * 0.4;
+        arrow.setAttribute('points', `${arrowTipX - 3},${arrowTipY - 3.5} ${arrowTipX + 3},${arrowTipY} ${arrowTipX - 3},${arrowTipY + 3.5}`);
         arrow.setAttribute('fill', '#FF9900');
         svg.appendChild(arrow);
     }
@@ -521,10 +530,15 @@ function updateDiagram() {
     // Environments subtitle
     addText(svg, width - outerPadding - 10, headerY + 12, selectedEnvironments.join(', ').toUpperCase(), 'small', 'end', colors.textSecondary);
 
-    // Draw environments
-    const envWidth = (outerWidth - 40) / envCount;
+    // Draw environments with equal spacing
+    const innerPadding = 20; // Equal padding from outer container to environments
+    const envGap = 10; // Gap between environments
+    const availableWidth = outerWidth - innerPadding * 2;
+    const totalGaps = Math.max(0, (envCount - 1) * envGap);
+    const envWidth = (availableWidth - totalGaps) / envCount;
+
     selectedEnvironments.forEach((env, i) => {
-        const x = outerX + 20 + i * envWidth;
+        const x = outerX + innerPadding + i * (envWidth + envGap);
         const y = outerY + 50;
 
         // Get VPC CIDR for this environment
@@ -534,7 +548,7 @@ function updateDiagram() {
 
         // Environment box
         const boxHeight = hasEKS ? 340 : 240;
-        const envBoxWidth = envWidth - 25;
+        const envBoxWidth = envWidth; // Use full envWidth without subtraction
         addRect(svg, x, y, envBoxWidth, boxHeight, env === 'prod' ? colors.envProd : colors.envLight, colors.border.env);
         addText(svg, x + envBoxWidth / 2, y + 20, env.toUpperCase(), 'bold', 'middle', colors.text);
 

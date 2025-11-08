@@ -34,16 +34,22 @@ const Security = {
 
     /**
      * Validate project name (alphanumeric with hyphens, DNS-compliant)
+     * Matches backend validation in scripts/security/validator.py
      * @param {string} name - Project name
      * @returns {boolean} True if valid
      */
     validateProjectName(name) {
         const pattern = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
-        return pattern.test(name) && name.length <= 63;
+        const reservedNames = ['tmp', 'temp', 'admin', 'root', 'default'];
+
+        return pattern.test(name) &&
+               name.length <= 63 &&
+               !reservedNames.includes(name.toLowerCase());
     },
 
     /**
      * Validate AWS Account ID (12 digits)
+     * Matches backend validation in scripts/security/validator.py
      * @param {string} accountId - AWS Account ID
      * @returns {boolean} True if valid
      */
@@ -52,6 +58,22 @@ const Security = {
         return pattern.test(accountId) &&
                accountId !== '000000000000' &&
                accountId !== '123456789012';
+    },
+
+    /**
+     * Validate AWS Region
+     * Matches backend validation in scripts/security/validator.py
+     * @param {string} region - AWS Region
+     * @returns {boolean} True if valid
+     */
+    validateAwsRegion(region) {
+        const allowedRegions = [
+            'us-east-1', 'us-east-2', 'us-west-1', 'us-west-2',
+            'eu-west-1', 'eu-west-2', 'eu-west-3', 'eu-central-1',
+            'ap-southeast-1', 'ap-southeast-2', 'ap-northeast-1',
+            'ca-central-1', 'sa-east-1'
+        ];
+        return allowedRegions.includes(region);
     },
 
     /**
