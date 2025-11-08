@@ -2,15 +2,13 @@
 data "terraform_remote_state" "vpc" {
   backend = "{% if backend_type == 's3' %}s3{% else %}local{% endif %}"
 
-  {% if backend_type == 's3' -%}
-  config = {
+{% if backend_type == 's3' %}  config = {
     bucket = var.state_bucket
     key    = "${var.env}/vpc/terraform.tfstate"
     region = var.region
   }
-  {% else -%}
-  config = {
+{% else %}  config = {
     path = "../vpc/terraform.tfstate"
   }
-{% endif -%}
-}
+{% endif %}}
+

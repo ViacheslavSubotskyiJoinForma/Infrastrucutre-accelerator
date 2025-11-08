@@ -1,16 +1,13 @@
 terraform {
   backend "{% if backend_type == 's3' %}s3{% else %}local{% endif %}" {
-{% if backend_type == 's3' -%}
-    # S3 backend configuration
+{% if backend_type == 's3' %}    # S3 backend configuration
     # Initialize with: terraform init -backend-config="key=${ENV}/eks-auto/terraform.tfstate"
     bucket         = "{{ state_bucket }}"
     key            = "ENVIRONMENT_PLACEHOLDER/eks-auto/terraform.tfstate"
     region         = "{{ region }}"
     dynamodb_table = "{{ dynamodb_table }}"
     encrypt        = true
-{% else -%}
-    # Local backend configuration for MVP
+{% else %}    # Local backend configuration for MVP
     path = "terraform.tfstate"
-{% endif -%}
-  }
+{% endif %}  }
 }
