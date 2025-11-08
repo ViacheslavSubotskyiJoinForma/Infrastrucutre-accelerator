@@ -164,7 +164,47 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupEventListeners();
     updateDiagram();
     updateComponentList();
+
+    // Initialize auto-split text for all environments
+    ['dev', 'staging', 'prod'].forEach(env => updateAutoSplitText(env));
 });
+
+/**
+ * Update auto-split subnet text based on VPC CIDR input
+ * Calculates and displays public/private subnet CIDRs dynamically
+ * @param {string} env - Environment name (dev, staging, prod)
+ * @returns {void}
+ */
+function updateAutoSplitText(env) {
+    const inputId = `ipRange${env.charAt(0).toUpperCase() + env.slice(1)}`;
+    const autoSplitId = `autoSplit${env.charAt(0).toUpperCase() + env.slice(1)}`;
+
+    const input = document.getElementById(inputId);
+    const autoSplitElement = document.getElementById(autoSplitId);
+
+    if (!input || !autoSplitElement) return;
+
+    const vpcCidr = input.value.trim() || getVPCCIDR(env);
+
+    // Validate CIDR
+    if (vpcCidr && !Security.validateCIDR(vpcCidr)) {
+        autoSplitElement.textContent = 'Invalid CIDR format. Use format: 10.0.0.0/16';
+        autoSplitElement.style.color = '#ef4444'; // Red color for error
+        return;
+    }
+
+    // Calculate subnets
+    const publicCidr = calculateSubnetCIDR(vpcCidr, 0);
+    const privateCidr = calculateSubnetCIDR(vpcCidr, 1);
+
+    if (publicCidr && privateCidr) {
+        autoSplitElement.textContent = `Auto-split: Public (${publicCidr}), Private (${privateCidr})`;
+        autoSplitElement.style.color = ''; // Reset to default color
+    } else {
+        autoSplitElement.textContent = 'Auto-split: Enter valid VPC CIDR';
+        autoSplitElement.style.color = '#9ca3af'; // Gray color
+    }
+}
 
 /**
  * Setup all event listeners for the UI
@@ -194,12 +234,22 @@ function setupEventListeners() {
     // Advanced options toggle
     document.getElementById('toggleAdvanced').addEventListener('click', toggleAdvancedOptions);
 
-    // IP range inputs - update diagram on change (debounced for performance)
+    // IP range inputs - update diagram and auto-split text on change
     const debouncedUpdateDiagram = debounce(() => updateDiagram(), 300);
+    const envMapping = {
+        'ipRangeDev': 'dev',
+        'ipRangeStaging': 'staging',
+        'ipRangeProd': 'prod'
+    };
+
     ['ipRangeDev', 'ipRangeStaging', 'ipRangeProd'].forEach(id => {
         const input = document.getElementById(id);
         if (input) {
-            input.addEventListener('input', debouncedUpdateDiagram);
+            input.addEventListener('input', () => {
+                const env = envMapping[id];
+                updateAutoSplitText(env); // Update text immediately
+                debouncedUpdateDiagram(); // Update diagram with debounce
+            });
         }
     });
 
@@ -401,7 +451,7 @@ function updateDiagram() {
     let width;
     if (envCount === 1) {
         // Single environment gets full width (fixed to prevent jumping)
-        width = 760; // Wide single environment
+        width = 684; // Wide single environment (10% smaller)
     } else {
         // Multiple environments use compact calculation
         width = 220 * envCount + 120;
@@ -855,9 +905,6 @@ async function handleGenerate() {
 
     const title = Security.createSafeElement('h3', '🚀 Ready to Generate!');
     modal.appendChild(title);
-
-    const p1 = Security.createSafeElement('p', "You'll be redirected to GitHub Actions.");
-    modal.appendChild(p1);
 
     const p2 = Security.createSafeElement('strong', 'Your configuration:');
     modal.appendChild(p2);

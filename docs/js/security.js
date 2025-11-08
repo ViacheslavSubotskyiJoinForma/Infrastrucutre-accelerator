@@ -77,6 +77,48 @@ const Security = {
     },
 
     /**
+     * Validate CIDR notation (e.g., "10.0.0.0/16")
+     * @param {string} cidr - CIDR block to validate
+     * @returns {boolean} True if valid CIDR notation
+     */
+    validateCIDR(cidr) {
+        if (!cidr || typeof cidr !== 'string') {
+            return false;
+        }
+
+        // CIDR pattern: IP address + /prefix
+        const cidrPattern = /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/;
+        if (!cidrPattern.test(cidr)) {
+            return false;
+        }
+
+        const [ip, prefix] = cidr.split('/');
+        const prefixNum = parseInt(prefix, 10);
+
+        // Validate prefix length (0-32 for IPv4)
+        if (prefixNum < 0 || prefixNum > 32) {
+            return false;
+        }
+
+        // Validate each octet in IP address
+        const octets = ip.split('.');
+        for (const octet of octets) {
+            const num = parseInt(octet, 10);
+            if (num < 0 || num > 255) {
+                return false;
+            }
+        }
+
+        // Common VPC CIDR ranges: /16, /20, /24
+        // Allow /8 to /28 for flexibility
+        if (prefixNum < 8 || prefixNum > 28) {
+            return false;
+        }
+
+        return true;
+    },
+
+    /**
      * Create safe HTML element with text content
      * @param {string} tagName - HTML tag name
      * @param {string} textContent - Text content (will be escaped)

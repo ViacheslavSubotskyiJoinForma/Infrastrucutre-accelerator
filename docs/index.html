@@ -168,17 +168,17 @@
                                 <div class="ip-range-group" data-env="dev">
                                     <label for="ipRangeDev">Development VPC CIDR</label>
                                     <input type="text" id="ipRangeDev" placeholder="10.0.0.0/16 (default)">
-                                    <small>Auto-split: Public (10.0.0.0/20), Private (10.0.16.0/20)</small>
+                                    <small id="autoSplitDev">Auto-split: Public (10.0.0.0/20), Private (10.0.16.0/20)</small>
                                 </div>
                                 <div class="ip-range-group hidden" data-env="staging">
                                     <label for="ipRangeStaging">Staging VPC CIDR</label>
                                     <input type="text" id="ipRangeStaging" placeholder="10.1.0.0/16 (default)">
-                                    <small>Auto-split: Public (10.1.0.0/20), Private (10.1.16.0/20)</small>
+                                    <small id="autoSplitStaging">Auto-split: Public (10.1.0.0/20), Private (10.1.16.0/20)</small>
                                 </div>
                                 <div class="ip-range-group hidden" data-env="prod">
                                     <label for="ipRangeProd">Production VPC CIDR</label>
                                     <input type="text" id="ipRangeProd" placeholder="10.2.0.0/16 (default)">
-                                    <small>Auto-split: Public (10.2.0.0/20), Private (10.2.16.0/20)</small>
+                                    <small id="autoSplitProd">Auto-split: Public (10.2.0.0/20), Private (10.2.16.0/20)</small>
                                 </div>
                             </div>
                         </div>
@@ -188,10 +188,6 @@
                 <button id="generateBtn" class="btn-primary">
                     🚀 Open GitHub Actions
                 </button>
-
-                <div class="helper-text">
-                    <small>💡 You'll be redirected to GitHub Actions to trigger the workflow with your configuration</small>
-                </div>
             </div>
 
             <div class="preview-panel">
