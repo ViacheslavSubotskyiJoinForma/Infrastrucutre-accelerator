@@ -254,9 +254,9 @@ function setupEventListeners() {
         cb.addEventListener('change', handleComponentChange);
     });
 
-    // Environment checkboxes
+    // Environment checkboxes - use 'click' to prevent state change before it happens
     document.querySelectorAll('.environments input[type="checkbox"]').forEach(cb => {
-        cb.addEventListener('change', handleEnvironmentChange);
+        cb.addEventListener('click', handleEnvironmentChange);
     });
 
     // Cloud provider radio buttons
@@ -354,25 +354,26 @@ function handleComponentChange(e) {
 }
 
 /**
- * Handle environment checkbox changes
+ * Handle environment checkbox clicks
  * - Adds/removes environments from selection
  * - Ensures at least one environment is always selected (defaults to dev)
  * - Updates diagram and component list
  * - Shows/hides IP range inputs based on selected environments
- * @param {Event} e - Checkbox change event
+ * @param {Event} e - Checkbox click event
  * @returns {void}
  */
 function handleEnvironmentChange(e) {
     const value = e.target.value;
+    const willBeChecked = !e.target.checked; // After click, state will flip
 
     // If trying to uncheck and it's the only one selected, prevent it
-    if (!e.target.checked && selectedEnvironments.length === 1 && selectedEnvironments.includes(value)) {
-        e.preventDefault(); // Prevent checkbox state change
-        e.target.checked = true; // Keep it checked
+    if (e.target.checked && selectedEnvironments.length === 1 && selectedEnvironments.includes(value)) {
+        e.preventDefault(); // Stop the click from unchecking
         return; // Don't process the change
     }
 
-    if (e.target.checked) {
+    // Let the click proceed, then update our state
+    if (willBeChecked) {
         if (!selectedEnvironments.includes(value)) {
             selectedEnvironments.push(value);
         }
@@ -522,11 +523,11 @@ function updateDiagram() {
     // Calculate width: 1 env = wider, 2+ envs = scale down
     let width;
     if (envCount === 1) {
-        // Single environment gets full width (fixed to prevent jumping)
-        width = 684; // Wide single environment (10% smaller)
+        // Single environment gets full width to match preview panel
+        width = 800; // Full width of preview panel
     } else {
         // Multiple environments use compact calculation
-        width = 220 * envCount + 120;
+        width = 260 * envCount + 120;
     }
     // Increase height if we have both EKS and RDS
     const height = (hasEKS && hasRDS) ? 590 : (hasEKS || hasRDS) ? 490 : 390;

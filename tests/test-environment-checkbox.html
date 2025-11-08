@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Environment Checkbox Tests</title>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+        .test-case {
+            margin: 20px 0;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+        }
+        .test-case.pass {
+            border-color: #4caf50;
+            background: #f1f8e9;
+        }
+        .test-case.fail {
+            border-color: #f44336;
+            background: #ffebee;
+        }
+        .test-header {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .test-controls {
+            margin: 10px 0;
+        }
+        .test-result {
+            margin-top: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 4px;
+        }
+        button {
+            padding: 8px 16px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            background: #2196f3;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #1976d2;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .status.pass {
+            background: #4caf50;
+            color: white;
+        }
+        .status.fail {
+            background: #f44336;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>Environment Checkbox Test Suite</h1>
+    <p>Testing the "at least one environment must be selected" requirement</p>
+
+    <div id="test-container"></div>
+
+    <script>
+        // Simulate the application state and logic
+        let selectedEnvironments = ['dev'];
+
+        function handleEnvironmentChange(e) {
+            const value = e.target.value;
+            const willBeChecked = !e.target.checked;
+
+            // If trying to uncheck and it's the only one selected, prevent it
+            if (e.target.checked && selectedEnvironments.length === 1 && selectedEnvironments.includes(value)) {
+                e.preventDefault();
+                return;
+            }
+
+            if (willBeChecked) {
+                if (!selectedEnvironments.includes(value)) {
+                    selectedEnvironments.push(value);
+                }
+            } else {
+                selectedEnvironments = selectedEnvironments.filter(env => env !== value);
+            }
+
+            if (selectedEnvironments.length === 0) {
+                selectedEnvironments = ['dev'];
+                document.querySelector('.test-environments input[value="dev"]').checked = true;
+            }
+        }
+
+        // Test cases
+        const tests = [
+            {
+                name: "Test 1: Click last selected environment (should stay checked)",
+                setup: () => {
+                    selectedEnvironments = ['dev'];
+                },
+                run: (container) => {
+                    const devCheckbox = container.querySelector('input[value="dev"]');
+                    devCheckbox.click();
+                    
+                    return {
+                        pass: devCheckbox.checked && selectedEnvironments.includes('dev'),
+                        message: devCheckbox.checked 
+                            ? '✓ Checkbox remained checked' 
+                            : '✗ Checkbox was unchecked (BUG!)'
+                    };
+                }
+            },
+            {
+                name: "Test 2: Click last environment multiple times",
+                setup: () => {
+                    selectedEnvironments = ['dev'];
+                },
+                run: (container) => {
+                    const devCheckbox = container.querySelector('input[value="dev"]');
+                    devCheckbox.click();
+                    devCheckbox.click();
+                    devCheckbox.click();
+                    
+                    return {
+                        pass: devCheckbox.checked && selectedEnvironments.length === 1,
+                        message: `Checkbox: ${devCheckbox.checked}, Count: ${selectedEnvironments.length}`
+                    };
+                }
+            },
+            {
+                name: "Test 3: Select second env, then unselect first",
+                setup: () => {
+                    selectedEnvironments = ['dev'];
+                },
+                run: (container) => {
+                    const devCheckbox = container.querySelector('input[value="dev"]');
+                    const stagingCheckbox = container.querySelector('input[value="staging"]');
+                    
+                    stagingCheckbox.click();
+                    devCheckbox.click();
+                    
+                    return {
+                        pass: !devCheckbox.checked && stagingCheckbox.checked && selectedEnvironments.length === 1,
+                        message: `Staging selected: ${stagingCheckbox.checked}, Count: ${selectedEnvironments.length}`
+                    };
+                }
+            },
+            {
+                name: "Test 4: Try to uncheck all (fallback should activate)",
+                setup: () => {
+                    selectedEnvironments = ['dev', 'staging'];
+                },
+                run: (container) => {
+                    const devCheckbox = container.querySelector('input[value="dev"]');
+                    const stagingCheckbox = container.querySelector('input[value="staging"]');
+                    
+                    devCheckbox.click();
+                    stagingCheckbox.click();
+                    
+                    return {
+                        pass: selectedEnvironments.length >= 1,
+                        message: `Remaining envs: ${selectedEnvironments.length} (${selectedEnvironments})`
+                    };
+                }
+            }
+        ];
+
+        // Run tests
+        const container = document.getElementById('test-container');
+        
+        tests.forEach((test, index) => {
+            const testDiv = document.createElement('div');
+            testDiv.className = 'test-case';
+            
+            const header = document.createElement('div');
+            header.className = 'test-header';
+            header.textContent = test.name;
+            testDiv.appendChild(header);
+            
+            const controls = document.createElement('div');
+            controls.className = 'test-controls test-environments';
+            controls.innerHTML = `
+                <label><input type="checkbox" value="dev" checked> Development</label>
+                <label><input type="checkbox" value="staging"> Staging</label>
+            `;
+            
+            controls.querySelectorAll('input').forEach(cb => {
+                cb.addEventListener('click', handleEnvironmentChange);
+            });
+            
+            testDiv.appendChild(controls);
+            
+            const runButton = document.createElement('button');
+            runButton.textContent = 'Run Test';
+            runButton.onclick = () => {
+                test.setup();
+                controls.querySelectorAll('input[value="dev"]')[0].checked = selectedEnvironments.includes('dev');
+                controls.querySelectorAll('input[value="staging"]')[0].checked = selectedEnvironments.includes('staging');
+                
+                const result = test.run(controls);
+                
+                testDiv.className = 'test-case ' + (result.pass ? 'pass' : 'fail');
+                
+                const resultDiv = testDiv.querySelector('.test-result') || document.createElement('div');
+                resultDiv.className = 'test-result';
+                resultDiv.innerHTML = `
+                    <span class="status ${result.pass ? 'pass' : 'fail'}">${result.pass ? 'PASS' : 'FAIL'}</span>
+                    <div>${result.message}</div>
+                `;
+                
+                if (!testDiv.querySelector('.test-result')) {
+                    testDiv.appendChild(resultDiv);
+                }
+            };
+            testDiv.appendChild(runButton);
+            
+            container.appendChild(testDiv);
+        });
+
+        // Auto-run first test
+        setTimeout(() => {
+            document.querySelector('button').click();
+        }, 100);
+    </script>
+</body>
+</html>
