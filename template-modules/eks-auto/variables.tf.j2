@@ -21,6 +21,12 @@ variable "region" {
   default     = "{{ region }}"
 }
 
+variable "aws_profile" {
+  description = "AWS CLI profile name"
+  type        = string
+  default     = "{{ aws_profile }}"
+}
+
 {% if backend_type == 's3' %}
 variable "state_bucket" {
   description = "S3 bucket for Terraform state"

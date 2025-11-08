@@ -32,7 +32,7 @@ on:
         description: 'AWS Account ID'
         required: true
         type: string
-        default: '123456789012'
+        default: ''
 
       repository:
         description: 'Repository name for resource tagging (e.g., infrastructure-accelerator)'
