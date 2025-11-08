@@ -213,6 +213,7 @@ The web interface provides an interactive UI for configuring and triggering infr
 - `docs/js/app.js` - Application logic, validation, and UI interactions
 - `docs/js/security.js` - Security utilities, input validation, XSS protection
 - `docs/js/auth.js` - GitHub OAuth authentication
+- `docs/js/workflow-monitor.js` - Real-time workflow monitoring and artifact download
 - `docs/css/style.css` - Styling with dark mode support
 
 **Features**:
@@ -222,7 +223,20 @@ The web interface provides an interactive UI for configuring and triggering infr
 - Dark/light mode with system preference detection
 - Real-time architecture diagram preview
 - OAuth integration for GitHub Actions workflow triggers
+- **Real-time workflow monitoring** with progress tracking
+- **Automatic artifact download** when generation completes
+- **Job-level progress display** showing individual workflow steps
 - Security-focused design (XSS protection, input sanitization)
+
+**Workflow Monitoring** (New in v1.1):
+- Real-time status updates via GitHub API polling (every 5 seconds)
+- Animated progress bar with shimmer effect
+- Live job status tracking (queued ⏳, running ⚡, success ✅, failure ❌)
+- Automatic ZIP download when workflow completes successfully
+- Background monitoring (modal can be closed while workflow runs)
+- Elapsed time display
+- Fallback to manual download if auto-download fails
+- See `docs/WORKFLOW_MONITORING.md` for detailed documentation
 
 **Validation**:
 - Project names: lowercase alphanumeric with hyphens, DNS-compliant (max 63 chars)

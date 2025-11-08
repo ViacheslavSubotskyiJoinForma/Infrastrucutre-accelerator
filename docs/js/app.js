@@ -862,46 +862,31 @@ async function handleGenerate() {
                 components: components,
                 environments: environments,
                 region: region,
-                aws_account_id: awsAccountId
+                aws_account_id: awsAccountId,
+                ci_provider: selectedCIProvider
             });
 
-            // Build workflow URL - specific run if we got the ID, otherwise general actions page
-            const workflowUrl = runId
-                ? `https://github.com/${GITHUB_REPO}/actions/runs/${runId}`
-                : `https://github.com/${GITHUB_REPO}/actions`;
+            // Close initial modal
+            closeModal();
 
-            // Create safe modal content
-            const modal = document.getElementById('modalMessage');
-            modal.innerHTML = '';
-
-            const title = Security.createSafeElement('h3', '✅ Workflow Triggered!');
-            modal.appendChild(title);
-
-            const p1 = Security.createSafeElement('p', 'Your infrastructure generation has been started.');
-            modal.appendChild(p1);
-
-            const p2 = Security.createSafeElement('strong', 'Configuration:');
-            modal.appendChild(p2);
-
-            const config = Security.createSafeConfigDisplay({
-                'Project': projectName,
-                'Components': components,
-                'Environments': environments,
-                'Region': region,
-                'Account': awsAccountId
-            });
-            modal.appendChild(config);
-
-            const link = Security.createSafeElement('a', 'View Workflow Run →', {
-                href: workflowUrl,
-                target: '_blank',
-                class: 'btn-primary',
-                style: 'display: inline-block; margin-top: 1rem; text-decoration: none;'
-            });
-            modal.appendChild(link);
-
-            document.getElementById('closeModal').style.display = 'inline-block';
-            document.getElementById('modal').classList.add('show');
+            // Start real-time monitoring if we got a run ID
+            if (runId) {
+                // Initialize workflow monitor
+                workflowMonitor = new WorkflowMonitor(auth.token, GITHUB_REPO);
+                await workflowMonitor.startMonitoring(runId);
+            } else {
+                // Fallback if run ID not available
+                const workflowUrl = `https://github.com/${GITHUB_REPO}/actions`;
+                showModalSafe(
+                    '✅ Workflow Triggered!',
+                    'Your infrastructure generation has been started.\n\nWe couldn\'t retrieve the run ID for real-time monitoring, but the workflow is running.',
+                    [{
+                        text: 'View Workflow →',
+                        href: workflowUrl,
+                        className: 'btn-primary'
+                    }]
+                );
+            }
 
         } catch (error) {
             showModalSafe(
