@@ -515,12 +515,13 @@ function updateDiagram() {
     const hasEKS = selectedComponents.includes('eks-auto');
     const hasRDS = selectedComponents.includes('rds');
 
-    // Calculate viewBox width: fixed for 1 env (for proper scaling), dynamic for multiple
-    // SVG will scale to fill container, but viewBox determines coordinate system
+    // Calculate viewBox width: use consistent calculation for proper proportions
+    // For single environment, use larger base to ensure proper spacing
+    // SVG will scale via width: 100% to fill container
     let viewBoxWidth;
     if (envCount === 1) {
-        // Use fixed viewBox width for consistent rendering, SVG will scale via width: 100%
-        viewBoxWidth = 900;
+        // Larger viewBox for single environment to match visual proportions of other blocks
+        viewBoxWidth = 1000;
     } else {
         // Multiple environments: calculate needed width for all environments
         viewBoxWidth = 260 * envCount + 120;
