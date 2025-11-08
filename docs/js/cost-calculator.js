@@ -1,16 +1,25 @@
 /**
  * Cost Calculator
- * Estimates AWS infrastructure costs based on selected components and environments
+ * Estimates AWS infrastructure costs based on selected components, environments, and region
  */
 
 class CostCalculator {
     constructor() {
-        // Monthly costs in USD (us-east-1 region)
+        // Regional pricing multipliers (relative to us-east-1)
+        this.regionMultipliers = {
+            'us-east-1': 1.0,      // N. Virginia (baseline)
+            'us-west-2': 1.0,      // Oregon (same as us-east-1)
+            'eu-west-1': 1.05,     // Ireland (5% more)
+            'eu-central-1': 1.07,  // Frankfurt (7% more)
+            'ap-southeast-1': 1.12 // Singapore (12% more)
+        };
+
+        // Base monthly costs in USD (us-east-1 region)
         this.baseCosts = {
             'vpc': {
                 dev: 35,      // NAT Gateway (single AZ)
                 staging: 35,  // NAT Gateway (single AZ)
-                prod: 105     // NAT Gateway (3 AZs)
+                prod: 105     // NAT Gateway (3 AZs: 3 × $35)
             },
             'eks-auto': {
                 dev: 85,      // EKS cluster ($73) + minimal nodes ($12+)
@@ -20,10 +29,10 @@ class CostCalculator {
             'rds': {
                 dev: 35,      // db.t3.micro
                 staging: 65,  // db.t3.small
-                prod: 145     // db.t3.medium + Multi-AZ
+                prod: 145     // db.t3.medium Multi-AZ
             },
             'services': {
-                dev: 25,      // API Gateway, Lambda, S3
+                dev: 25,      // API Gateway, Lambda, S3 (minimal usage)
                 staging: 45,
                 prod: 85
             }
@@ -42,11 +51,20 @@ class CostCalculator {
             'prod': 'Production'
         };
 
+        this.regionNames = {
+            'us-east-1': 'US East (N. Virginia)',
+            'us-west-2': 'US West (Oregon)',
+            'eu-west-1': 'EU (Ireland)',
+            'eu-central-1': 'EU (Frankfurt)',
+            'ap-southeast-1': 'Asia Pacific (Singapore)'
+        };
+
+        this.currentRegion = 'us-east-1';
         this.init();
     }
 
     init() {
-        // Listen to component and environment checkbox changes
+        // Listen to component, environment, and region changes
         const checkboxes = document.querySelectorAll(
             'input[type="checkbox"][value="vpc"], ' +
             'input[type="checkbox"][value="eks-auto"], ' +
@@ -60,6 +78,16 @@ class CostCalculator {
         checkboxes.forEach(checkbox => {
             checkbox.addEventListener('change', () => this.calculate());
         });
+
+        // Listen to region changes
+        const regionSelect = document.getElementById('region');
+        if (regionSelect) {
+            regionSelect.addEventListener('change', (e) => {
+                this.currentRegion = e.target.value;
+                this.updateRegionIndicator();
+                this.calculate();
+            });
+        }
 
         // Initial calculation
         this.calculate();
@@ -100,6 +128,11 @@ class CostCalculator {
         return selected;
     }
 
+    getRegionalCost(baseCost) {
+        const multiplier = this.regionMultipliers[this.currentRegion] || 1.0;
+        return Math.round(baseCost * multiplier);
+    }
+
     calculate() {
         const components = this.getSelectedComponents();
         const environments = this.getSelectedEnvironments();
@@ -107,7 +140,7 @@ class CostCalculator {
         // Add VPC automatically if other components selected
         const componentsWithDeps = [...new Set([...components, ...components.flatMap(c => this.getDependencies(c))])];
 
-        // Calculate costs
+        // Calculate costs with regional pricing
         const costByComponent = {};
         const costByEnvironment = {};
         let totalCost = 0;
@@ -116,13 +149,14 @@ class CostCalculator {
             let componentTotal = 0;
 
             environments.forEach(env => {
-                const cost = this.baseCosts[component]?.[env] || 0;
-                componentTotal += cost;
+                const baseCost = this.baseCosts[component]?.[env] || 0;
+                const regionalCost = this.getRegionalCost(baseCost);
+                componentTotal += regionalCost;
 
                 if (!costByEnvironment[env]) {
                     costByEnvironment[env] = 0;
                 }
-                costByEnvironment[env] += cost;
+                costByEnvironment[env] += regionalCost;
             });
 
             costByComponent[component] = componentTotal;
@@ -143,12 +177,31 @@ class CostCalculator {
         return deps[component] || [];
     }
 
+    updateRegionIndicator() {
+        const regionIndicator = document.getElementById('regionIndicator');
+        if (regionIndicator) {
+            const regionName = this.regionNames[this.currentRegion] || this.currentRegion;
+            const multiplier = this.regionMultipliers[this.currentRegion] || 1.0;
+            const diff = ((multiplier - 1) * 100).toFixed(0);
+
+            let text = `Region: ${regionName}`;
+            if (diff > 0) {
+                text += ` (+${diff}%)`;
+            }
+
+            regionIndicator.textContent = text;
+        }
+    }
+
     updateUI(total, byComponent, byEnvironment, selectedComponents, selectedEnvironments) {
         // Update total
         const totalElement = document.getElementById('totalCost');
         if (totalElement) {
             totalElement.textContent = `$${total.toLocaleString()}`;
         }
+
+        // Update region indicator
+        this.updateRegionIndicator();
 
         // Update component breakdown
         const componentCostsElement = document.getElementById('componentCosts');

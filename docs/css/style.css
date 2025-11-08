@@ -1110,43 +1110,45 @@ body.dark-mode .graph-node .node-circle {
     background: var(--bg-secondary);
     border-radius: 12px;
     padding: 1.5rem;
-    margin-top: 0.5rem;
+    margin-top: 1.5rem;
+}
+
+.cost-calculator h3 {
+    font-size: 1.125rem;
+    margin-bottom: 1rem;
+    color: var(--text-color);
 }
 
 .cost-summary {
     margin-bottom: 1.5rem;
+    text-align: center;
 }
 
 .cost-total {
     display: flex;
     align-items: baseline;
+    justify-content: center;
     gap: 0.5rem;
-    padding: 1rem;
+    padding: 1.25rem;
     background: linear-gradient(135deg, var(--primary-color) 0%, #2563eb 100%);
     border-radius: 8px;
     color: white;
-}
-
-.cost-label {
-    font-size: 0.875rem;
-    font-weight: 500;
-    opacity: 0.9;
+    margin-bottom: 0.5rem;
 }
 
 .cost-value {
-    font-size: 2rem;
+    font-size: 2.5rem;
     font-weight: 700;
-    flex: 1;
 }
 
 .cost-period {
-    font-size: 0.875rem;
-    opacity: 0.8;
+    font-size: 1rem;
+    opacity: 0.9;
 }
 
 .cost-breakdown {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    display: flex;
+    flex-direction: column;
     gap: 1.5rem;
     margin-bottom: 1rem;
 }
