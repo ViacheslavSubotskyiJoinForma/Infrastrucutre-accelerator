@@ -512,14 +512,17 @@ function updateDiagram() {
     const hasEKS = selectedComponents.includes('eks-auto');
     const hasRDS = selectedComponents.includes('rds');
 
-    // Calculate width: 1 env = wider, 2+ envs = scale down
+    // Get container width (accounting for padding)
+    const containerWidth = container.clientWidth - 32; // Subtract padding (1rem * 2 = 32px)
+
+    // Calculate width: 1 env = full container, 2+ envs = allow scroll
     let width;
     if (envCount === 1) {
-        // Single environment gets full width to match preview panel
-        width = 800; // Full width of preview panel
+        // Single environment gets full container width
+        width = containerWidth;
     } else {
-        // Multiple environments use compact calculation
-        width = 260 * envCount + 120;
+        // Multiple environments: calculate needed width and allow scroll if needed
+        width = Math.max(260 * envCount + 120, containerWidth);
     }
     // Increase height if we have both EKS and RDS
     const height = (hasEKS && hasRDS) ? 590 : (hasEKS || hasRDS) ? 490 : 390;
@@ -528,12 +531,20 @@ function updateDiagram() {
     svg.innerHTML = '';
     svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
 
-    // Always set fixed width and enable scroll (prevents jumping)
-    svg.style.width = `${width}px`;
-    svg.style.minWidth = `${width}px`;
-    svg.style.maxWidth = `${width}px`;
-    container.style.overflowX = 'auto';
-    container.setAttribute('data-scrollable', 'true');
+    // Set width: full for 1 env, fixed with scroll for multiple
+    if (envCount === 1) {
+        svg.style.width = '100%';
+        svg.style.minWidth = '';
+        svg.style.maxWidth = '';
+        container.style.overflowX = 'hidden';
+        container.setAttribute('data-scrollable', 'false');
+    } else {
+        svg.style.width = `${width}px`;
+        svg.style.minWidth = `${width}px`;
+        svg.style.maxWidth = `${width}px`;
+        container.style.overflowX = 'auto';
+        container.setAttribute('data-scrollable', 'true');
+    }
 
     const isDark = theme.isDark();
 
