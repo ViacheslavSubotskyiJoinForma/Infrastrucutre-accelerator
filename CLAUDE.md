@@ -44,8 +44,14 @@ python3 scripts/generators/generate_infrastructure.py \
   --environments dev,uat,prod \
   --region us-east-1 \
   --aws-account-id YOUR_ACCOUNT_ID \
-  --aws-profile YOUR_PROFILE
+  --aws-profile YOUR_PROFILE \
+  --ci-provider gitlab
 ```
+
+**CI/CD Provider Options**:
+- `gitlab` - GitLab CI/CD (default)
+- `github` - GitHub Actions
+- `azuredevops` - Azure DevOps Pipelines
 
 **Important**: Always use `.venv/bin/activate` before running the generator locally.
 
@@ -53,7 +59,10 @@ python3 scripts/generators/generate_infrastructure.py \
 
 Creates a complete infrastructure project:
 - Terraform code for selected components
-- GitLab CI/CD pipeline configuration (`.gitlab-ci.yml`)
+- CI/CD pipeline configuration (based on selected provider):
+  - **GitLab**: `.gitlab-ci.yml`
+  - **GitHub Actions**: `.github/workflows/terraform-ci.yml`
+  - **Azure DevOps**: `azure-pipelines.yml`
 - README with deployment instructions
 - Configuration templates
 - Validation report
@@ -209,6 +218,7 @@ The web interface provides an interactive UI for configuring and triggering infr
 **Features**:
 - Interactive form with visual validation feedback
 - Custom input validation (no browser default prompts)
+- **CI/CD provider selection** (GitLab CI, GitHub Actions, Azure DevOps)
 - Dark/light mode with system preference detection
 - Real-time architecture diagram preview
 - OAuth integration for GitHub Actions workflow triggers
@@ -224,6 +234,42 @@ The web interface provides an interactive UI for configuring and triggering infr
 - HTML test suite: `tests/test_validation.html` (browser-based)
 - Node.js tests: `tests/validation.test.js` (automated, run with `node tests/validation.test.js`)
 - All validation logic tested independently
+
+## CI/CD Provider Support
+
+The generator supports multiple CI/CD platforms:
+
+### GitLab CI ✅ (Active)
+- **File**: `.gitlab-ci.yml`
+- **Status**: Fully supported and tested
+- **Features**:
+  - Multi-stage pipeline (Validate, Plan, Apply)
+  - Per-component and per-environment jobs
+  - Manual approval for apply stages
+  - Automatic dependency resolution
+  - Artifact management for Terraform plans
+
+### GitHub Actions (Templates Ready)
+- **File**: `.github/workflows/terraform-ci.yml`
+- **Status**: Templates implemented, marked as "Coming Soon" in web UI
+- **Features**:
+  - Pull request validation with plan comments
+  - Environment-based deployments with approvals
+  - Workflow dispatch for manual runs
+  - Matrix strategy for components and environments
+  - AWS credentials via secrets
+
+### Azure DevOps Pipelines (Templates Ready)
+- **File**: `azure-pipelines.yml`
+- **Status**: Templates implemented, marked as "Coming Soon" in web UI
+- **Features**:
+  - Multi-stage pipeline with environment approvals
+  - Parameter-based deployment control
+  - Deployment jobs with environment protection
+  - Artifact management for plans
+  - AWS authentication via service connections
+
+**Usage**: Select CI provider in web UI or use `--ci-provider` flag with CLI. GitHub Actions and Azure DevOps are functional but grayed out in the web interface pending full validation.
 
 ---
 

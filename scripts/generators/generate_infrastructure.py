@@ -56,6 +56,9 @@ class InfrastructureGenerator:
         # Add more as needed
     }
 
+    # Available CI providers
+    AVAILABLE_CI_PROVIDERS = ['gitlab', 'github', 'azuredevops']
+
     def __init__(self, project_name: str, components: List[str],
                  environments: List[str], config: Dict[str, Any]) -> None:
         # Validate all inputs first
@@ -71,6 +74,7 @@ class InfrastructureGenerator:
         self.components = validated['components']
         self.environments = validated['environments']
         self.config = config
+        self.ci_provider = config.get('ci_provider', 'gitlab')
         self.output_dir = Path(config.get('output_dir', 'generated-infra'))
         self.template_dir = Path(config.get('template_dir', 'template-modules'))
         self.needs_modules = False
@@ -208,8 +212,8 @@ class InfrastructureGenerator:
         for component in self.components:
             self._generate_component(component, infra_dir)
 
-        # Generate GitLab CI/CD config
-        self._generate_gitlab_ci(infra_dir.parent)
+        # Generate CI/CD config based on provider
+        self._generate_ci_config(infra_dir.parent)
 
         # Generate config directory structure
         self._generate_config_structure(infra_dir.parent)
@@ -297,17 +301,32 @@ class InfrastructureGenerator:
             output_file.write_text(rendered_content, encoding='utf-8')
             print(f"  Generated: {output_file.name}")
 
+    def _generate_ci_config(self, output_dir: Path) -> None:
+        """Generate CI/CD configuration based on selected provider"""
+        if self.ci_provider == 'gitlab':
+            self._generate_gitlab_ci(output_dir)
+        elif self.ci_provider == 'github':
+            self._generate_github_actions(output_dir)
+        elif self.ci_provider == 'azuredevops':
+            self._generate_azure_devops(output_dir)
+        else:
+            print(f"⚠️  Warning: Unknown CI provider '{self.ci_provider}', skipping CI config generation")
+
     def _generate_gitlab_ci(self, output_dir: Path) -> None:
         """Generate GitLab CI/CD configuration from template"""
         print("🔧 Generating GitLab CI/CD config...")
 
         # Load template from file instead of hardcoded string
-        gitlab_template_dir = self.template_dir / 'gitlab-ci'
+        gitlab_template_dir = self.template_dir / 'ci-providers' / 'gitlab'
+
+        if not gitlab_template_dir.exists():
+            # Fallback to old location for backward compatibility
+            gitlab_template_dir = self.template_dir / 'gitlab-ci'
 
         if not gitlab_template_dir.exists():
             raise FileNotFoundError(
                 f"❌ GitLab CI template directory not found: {gitlab_template_dir}\n"
-                f"   Expected location: template-modules/gitlab-ci/\n"
+                f"   Expected location: template-modules/ci-providers/gitlab/\n"
                 f"   Please ensure the template directory exists."
             )
 
@@ -327,6 +346,71 @@ class InfrastructureGenerator:
         gitlab_ci_file = output_dir / '.gitlab-ci.yml'
         gitlab_ci_file.write_text(rendered)
         print(f"✓ Generated: {gitlab_ci_file}")
+
+    def _generate_github_actions(self, output_dir: Path) -> None:
+        """Generate GitHub Actions workflow configuration from template"""
+        print("🔧 Generating GitHub Actions workflow...")
+
+        github_template_dir = self.template_dir / 'ci-providers' / 'github'
+
+        if not github_template_dir.exists():
+            raise FileNotFoundError(
+                f"❌ GitHub Actions template directory not found: {github_template_dir}\n"
+                f"   Expected location: template-modules/ci-providers/github/\n"
+                f"   Please ensure the template directory exists."
+            )
+
+        env = Environment(
+            loader=FileSystemLoader(str(github_template_dir)),
+            autoescape=False,
+            trim_blocks=True,
+            lstrip_blocks=True
+        )
+
+        template = env.get_template('terraform-ci.yml.j2')
+        rendered = template.render(
+            components=self.components,
+            environments=self.environments,
+            project_name=self.project_name
+        )
+
+        # Create .github/workflows directory
+        workflows_dir = output_dir / '.github' / 'workflows'
+        workflows_dir.mkdir(parents=True, exist_ok=True)
+
+        workflow_file = workflows_dir / 'terraform-ci.yml'
+        workflow_file.write_text(rendered)
+        print(f"✓ Generated: {workflow_file}")
+
+    def _generate_azure_devops(self, output_dir: Path) -> None:
+        """Generate Azure DevOps pipeline configuration from template"""
+        print("🔧 Generating Azure DevOps pipeline...")
+
+        azure_template_dir = self.template_dir / 'ci-providers' / 'azuredevops'
+
+        if not azure_template_dir.exists():
+            raise FileNotFoundError(
+                f"❌ Azure DevOps template directory not found: {azure_template_dir}\n"
+                f"   Expected location: template-modules/ci-providers/azuredevops/\n"
+                f"   Please ensure the template directory exists."
+            )
+
+        env = Environment(
+            loader=FileSystemLoader(str(azure_template_dir)),
+            autoescape=False,
+            trim_blocks=True,
+            lstrip_blocks=True
+        )
+
+        template = env.get_template('azure-pipelines.yml.j2')
+        rendered = template.render(
+            components=self.components,
+            environments=self.environments
+        )
+
+        azure_pipeline_file = output_dir / 'azure-pipelines.yml'
+        azure_pipeline_file.write_text(rendered)
+        print(f"✓ Generated: {azure_pipeline_file}")
 
     def _generate_config_structure(self, output_dir: Path) -> None:
         """Generate config directory structure with sample tfvars"""
@@ -513,6 +597,12 @@ def main() -> None:
         default='infrastructure-accelerator',
         help='Repository name for resource tagging (default: infrastructure-accelerator)'
     )
+    parser.add_argument(
+        '--ci-provider',
+        default='gitlab',
+        choices=['gitlab', 'github', 'azuredevops'],
+        help='CI/CD provider (default: gitlab)'
+    )
 
     args = parser.parse_args()
 
@@ -533,6 +623,7 @@ def main() -> None:
         'aws_account_id': args.aws_account_id or config.get('aws_account_id', ''),
         'aws_profile': args.aws_profile or config.get('aws_profile', 'default'),
         'repository': args.repository or config.get('repository', 'infrastructure-accelerator'),
+        'ci_provider': args.ci_provider or config.get('ci_provider', 'gitlab'),
     })
 
     # Generate infrastructure
