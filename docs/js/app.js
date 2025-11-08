@@ -613,9 +613,9 @@ function updateDiagram() {
     // Outer provider container
     const outerPadding = 10;
     const outerX = outerPadding;
-    const outerY = 40;
+    const outerY = 50; // Increased from 40 to give more space for header
     const outerWidth = viewBoxWidth - outerPadding * 2;
-    const outerHeight = (hasEKS && hasRDS) ? 500 : (hasEKS || hasRDS) ? 400 : 300;
+    const outerHeight = (hasEKS && hasRDS) ? 460 : (hasEKS || hasRDS) ? 380 : 300;
 
     // Draw outer container with provider branding
     addRect(svg, outerX, outerY, outerWidth, outerHeight, 'transparent', colors.border.env, 3);
@@ -676,7 +676,7 @@ function updateDiagram() {
         detailsText = parts.join(' | ');
 
         if (detailsText) {
-            addText(svg, 70, headerY + 22, detailsText, 'tiny', 'start', colors.textSecondary);
+            addText(svg, 70, headerY + 18, detailsText, 'tiny', 'start', colors.textSecondary);
         }
     }
 
