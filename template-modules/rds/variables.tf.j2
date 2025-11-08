@@ -1,0 +1,131 @@
+variable "project_name" {
+  description = "Project name used for resource naming"
+  type        = string
+  default     = "{{ project_name }}"
+}
+
+variable "env" {
+  description = "Environment name (dev/uat/prod)"
+  type        = string
+}
+
+variable "repository" {
+  description = "Repository name for resource tagging"
+  type        = string
+  default     = "{{ repository }}"
+}
+
+variable "region" {
+  description = "AWS Region"
+  type        = string
+  default     = "{{ region }}"
+}
+
+variable "aws_profile" {
+  description = "AWS Profile for local authentication"
+  type        = string
+  default     = "{{ aws_profile }}"
+}
+
+variable "database_name" {
+  description = "Name of the default database to create"
+  type        = string
+  default     = "{{ project_name | replace('-', '_') }}_db"
+}
+
+variable "master_username" {
+  description = "Master username for the database"
+  type        = string
+  default     = "dbadmin"
+}
+
+variable "engine_version" {
+  description = "Aurora PostgreSQL engine version"
+  type        = string
+  default     = "16.4"
+}
+
+variable "backup_retention_period" {
+  description = "Backup retention period in days per environment"
+  type        = map(number)
+  default = {
+    dev  = 1
+    uat  = 7
+    prod = 30
+  }
+}
+
+variable "deletion_protection" {
+  description = "Enable deletion protection for production"
+  type        = map(bool)
+  default = {
+    dev  = false
+    uat  = false
+    prod = true
+  }
+}
+
+variable "skip_final_snapshot" {
+  description = "Skip final snapshot on deletion (true for dev/uat)"
+  type        = map(bool)
+  default = {
+    dev  = true
+    uat  = true
+    prod = false
+  }
+}
+
+# Aurora Serverless v2 scaling configuration
+variable "serverlessv2_min_capacity" {
+  description = "Minimum ACUs (Aurora Capacity Units). Use 0 for true sleep mode in non-prod"
+  type        = map(number)
+  default = {
+    dev  = 0    # True sleep mode - scales to zero when idle
+    uat  = 0.5  # Minimal capacity
+    prod = 2    # Always available
+  }
+}
+
+variable "serverlessv2_max_capacity" {
+  description = "Maximum ACUs (Aurora Capacity Units)"
+  type        = map(number)
+  default = {
+    dev  = 1    # Low max for dev
+    uat  = 4    # Moderate for uat
+    prod = 16   # High capacity for prod
+  }
+}
+
+variable "instance_count" {
+  description = "Number of Aurora instances per environment"
+  type        = map(number)
+  default = {
+    dev  = 1  # Single instance
+    uat  = 1  # Single instance
+    prod = 2  # Multi-AZ (2 instances)
+  }
+}
+
+variable "monitoring_interval" {
+  description = "Enhanced monitoring interval in seconds (0, 1, 5, 10, 15, 30, 60)"
+  type        = number
+  default     = 60
+}
+
+variable "enable_http_endpoint" {
+  description = "Enable Data API for serverless access"
+  type        = bool
+  default     = true
+}
+
+variable "iam_database_authentication_enabled" {
+  description = "Enable IAM database authentication"
+  type        = bool
+  default     = true
+}
+
+variable "apply_immediately" {
+  description = "Apply changes immediately instead of during maintenance window"
+  type        = bool
+  default     = true
+}
