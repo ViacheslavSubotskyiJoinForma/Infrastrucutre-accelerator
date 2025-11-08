@@ -381,15 +381,33 @@ function updateComponentList() {
  */
 function updateDiagram() {
     const svg = document.getElementById('diagram');
-    const width = svg.clientWidth || 600;
+    const containerWidth = svg.clientWidth || 600;
+    const envCount = selectedEnvironments.length;
+    const hasEKS = selectedComponents.includes('eks-auto');
+
+    // Calculate required width based on environment count
+    // Minimum 220px per environment to avoid text overlap
+    const minEnvWidth = 220;
+    const calculatedWidth = Math.max(containerWidth, minEnvWidth * envCount + 80);
+    const width = calculatedWidth;
     const height = 450;
 
     // Clear existing
     svg.innerHTML = '';
     svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
 
-    const envCount = selectedEnvironments.length;
-    const hasEKS = selectedComponents.includes('eks-auto');
+    // Enable horizontal scroll if needed
+    const container = svg.parentElement;
+    if (width > containerWidth) {
+        container.style.overflowX = 'auto';
+        svg.style.minWidth = `${width}px`;
+        container.setAttribute('data-scrollable', 'true');
+    } else {
+        container.style.overflowX = 'visible';
+        svg.style.minWidth = '100%';
+        container.setAttribute('data-scrollable', 'false');
+    }
+
     const isDark = theme.isDark();
 
     // Theme-aware colors
@@ -457,31 +475,36 @@ function updateDiagram() {
         // VPC with CIDR
         const vpcY = y + 40;
         const vpcHeight = hasEKS ? 260 : 160;
-        addRect(svg, x + 15, vpcY, envWidth - 50, vpcHeight, colors.vpc, colors.border.vpc);
+        const vpcPadding = 12;
+        addRect(svg, x + vpcPadding, vpcY, envWidth - vpcPadding * 2 - 8, vpcHeight, colors.vpc, colors.border.vpc);
         addText(svg, x + envWidth / 2, vpcY + 18, 'VPC', 'normal', 'middle', colors.text);
         addText(svg, x + envWidth / 2, vpcY + 35, vpcCidr, 'tiny', 'middle', colors.textSecondary);
 
         // Subnets with CIDR details
         const subnetY = vpcY + 50;
         const subnetHeight = 70;
-        const subnetWidth = (envWidth - 80) / 2;
+        const subnetGap = 8;
+        const subnetPadding = 20;
+        const totalSubnetWidth = envWidth - vpcPadding * 2 - subnetPadding * 2;
+        const subnetWidth = (totalSubnetWidth - subnetGap) / 2;
 
         // Public subnet
-        addRect(svg, x + 25, subnetY, subnetWidth, subnetHeight, colors.public, colors.border.public);
-        addText(svg, x + 25 + subnetWidth / 2, subnetY + 20, 'Public', 'small', 'middle', colors.text);
-        addText(svg, x + 25 + subnetWidth / 2, subnetY + 38, publicCidr, 'tiny', 'middle', colors.textSecondary);
-        addText(svg, x + 25 + subnetWidth / 2, subnetY + 53, 'Multi-AZ', 'tiny', 'middle', colors.textSecondary);
+        addRect(svg, x + vpcPadding + subnetPadding, subnetY, subnetWidth, subnetHeight, colors.public, colors.border.public);
+        addText(svg, x + vpcPadding + subnetPadding + subnetWidth / 2, subnetY + 18, 'Public', 'small', 'middle', colors.text);
+        addText(svg, x + vpcPadding + subnetPadding + subnetWidth / 2, subnetY + 36, publicCidr, 'tiny', 'middle', colors.textSecondary);
+        addText(svg, x + vpcPadding + subnetPadding + subnetWidth / 2, subnetY + 53, 'Multi-AZ', 'tiny', 'middle', colors.textSecondary);
 
         // Private subnet
-        addRect(svg, x + 35 + subnetWidth, subnetY, subnetWidth, subnetHeight, colors.private, colors.border.private);
-        addText(svg, x + 35 + subnetWidth + subnetWidth / 2, subnetY + 20, 'Private', 'small', 'middle', colors.text);
-        addText(svg, x + 35 + subnetWidth + subnetWidth / 2, subnetY + 38, privateCidr, 'tiny', 'middle', colors.textSecondary);
-        addText(svg, x + 35 + subnetWidth + subnetWidth / 2, subnetY + 53, 'Multi-AZ', 'tiny', 'middle', colors.textSecondary);
+        addRect(svg, x + vpcPadding + subnetPadding + subnetWidth + subnetGap, subnetY, subnetWidth, subnetHeight, colors.private, colors.border.private);
+        addText(svg, x + vpcPadding + subnetPadding + subnetWidth + subnetGap + subnetWidth / 2, subnetY + 18, 'Private', 'small', 'middle', colors.text);
+        addText(svg, x + vpcPadding + subnetPadding + subnetWidth + subnetGap + subnetWidth / 2, subnetY + 36, privateCidr, 'tiny', 'middle', colors.textSecondary);
+        addText(svg, x + vpcPadding + subnetPadding + subnetWidth + subnetGap + subnetWidth / 2, subnetY + 53, 'Multi-AZ', 'tiny', 'middle', colors.textSecondary);
 
         // EKS if selected
         if (hasEKS) {
             const eksY = subnetY + 90;
-            addRect(svg, x + 25, eksY, envWidth - 50, 90, colors.eks, colors.border.eks);
+            const eksPadding = 20;
+            addRect(svg, x + vpcPadding + eksPadding, eksY, envWidth - vpcPadding * 2 - eksPadding * 2, 90, colors.eks, colors.border.eks);
             addText(svg, x + envWidth / 2, eksY + 25, 'EKS Cluster', 'normal', 'middle', colors.text);
             addText(svg, x + envWidth / 2, eksY + 45, 'Auto Mode', 'small', 'middle', colors.textSecondary);
             addText(svg, x + envWidth / 2, eksY + 63, 'Automatic Node', 'tiny', 'middle', colors.textSecondary);

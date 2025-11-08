@@ -537,6 +537,7 @@ small.hide {
 }
 
 .diagram-container {
+    position: relative;
     background: var(--diagram-bg);
     border-radius: 8px;
     padding: 1rem;
@@ -544,8 +545,53 @@ small.hide {
     min-height: 450px;
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     transition: background 0.3s ease;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+.diagram-container::-webkit-scrollbar {
+    height: 8px;
+}
+
+.diagram-container::-webkit-scrollbar-track {
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+}
+
+.diagram-container::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+}
+
+.diagram-container::-webkit-scrollbar-thumb:hover {
+    background: var(--primary);
+}
+
+.diagram-container svg {
+    display: block;
+}
+
+/* Scroll hint for multiple environments */
+@media (min-width: 768px) {
+    .diagram-container::after {
+        content: '';
+        position: absolute;
+        right: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 30px;
+        height: 30px;
+        background: linear-gradient(to right, transparent, var(--diagram-bg));
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .diagram-container[data-scrollable="true"]::after {
+        opacity: 1;
+    }
 }
 
 .info-box {
