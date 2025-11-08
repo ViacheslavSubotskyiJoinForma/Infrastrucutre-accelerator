@@ -522,7 +522,7 @@ function updateDiagram() {
     if (envCount === 1) {
         // Use container width for single environment to match other blocks
         // This ensures the diagram fills the full width like other right panel elements
-        const containerWidth = container.clientWidth - 32; // Subtract padding (1rem * 2)
+        const containerWidth = container.clientWidth - 48; // Subtract padding (1.5rem * 2)
         viewBoxWidth = Math.max(containerWidth, 600); // Minimum 600px for readability
     } else {
         // Multiple environments: calculate needed width for all environments

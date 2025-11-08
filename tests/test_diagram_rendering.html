@@ -122,7 +122,7 @@
             // Calculate viewBox width (matching app.js logic)
             let viewBoxWidth;
             if (envCount === 1) {
-                const containerWidth = 800 - 32; // Simulated container width minus padding
+                const containerWidth = 800 - 48; // Simulated container width minus padding (1.5rem * 2)
                 viewBoxWidth = Math.max(containerWidth, 600);
             } else {
                 viewBoxWidth = 260 * envCount + 120;
