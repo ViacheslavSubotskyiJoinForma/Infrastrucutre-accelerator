@@ -226,12 +226,24 @@ function setupEventListeners() {
         }
     });
 
-    // AWS Account ID - clear errors and update diagram in real-time
-    document.getElementById('awsAccountId').addEventListener('input', function() {
+    // AWS Account ID - clear errors on input, update diagram on blur
+    const awsAccountIdInput = document.getElementById('awsAccountId');
+    awsAccountIdInput.addEventListener('input', function() {
         if (this.classList.contains('error')) {
             clearError(this);
         }
-        debouncedUpdateDiagram();
+    });
+
+    // Update diagram when user finishes entering Account ID (prevents jumping on every keystroke)
+    awsAccountIdInput.addEventListener('blur', () => {
+        updateDiagram();
+    });
+
+    // Also update on Enter key
+    awsAccountIdInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            updateDiagram();
+        }
     });
 }
 
@@ -390,15 +402,17 @@ function updateComponentList() {
 function updateDiagram() {
     const svg = document.getElementById('diagram');
     const container = svg.parentElement;
-    // Use container's clientWidth to avoid size changes when theme switches
-    const containerWidth = container.clientWidth || 600;
+
+    // Fixed width calculation to prevent jumping on theme switch
+    // Use a stable base width instead of container.clientWidth which can change
     const envCount = selectedEnvironments.length;
     const hasEKS = selectedComponents.includes('eks-auto');
 
     // Calculate required width based on environment count
     // Minimum 220px per environment to avoid text overlap
     const minEnvWidth = 220;
-    const calculatedWidth = Math.max(containerWidth, minEnvWidth * envCount + 120);
+    const baseWidth = 800; // Fixed base width
+    const calculatedWidth = Math.max(baseWidth, minEnvWidth * envCount + 120);
     const width = calculatedWidth;
     const height = 520;
 
@@ -407,6 +421,7 @@ function updateDiagram() {
     svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
 
     // Enable horizontal scroll if needed
+    const containerWidth = container.clientWidth || 600;
     if (width > containerWidth) {
         container.style.overflowX = 'auto';
         svg.style.minWidth = `${width}px`;
@@ -592,13 +607,14 @@ function updateDiagram() {
         }
     });
 
-    // Legend
-    const legendY = height - 25;
-    addText(svg, 40, legendY, `● ${providerNames[selectedProvider]} VPC`, 'small', 'start', colors.border.vpc);
+    // Legend - positioned inside the outer container
+    const legendY = outerY + outerHeight - 15;
+    const legendX = outerX + 20; // Start from inside the container
+    addText(svg, legendX, legendY, `● ${providerNames[selectedProvider]} VPC`, 'small', 'start', colors.border.vpc);
     if (hasEKS) {
-        addText(svg, 160, legendY, '● EKS Auto Mode', 'small', 'start', colors.border.eks);
+        addText(svg, legendX + 120, legendY, '● EKS Auto Mode', 'small', 'start', colors.border.eks);
     }
-    addText(svg, width - 100, legendY, '● Multi-AZ', 'tiny', 'end', colors.textSecondary);
+    addText(svg, outerX + outerWidth - 20, legendY, '● Multi-AZ', 'tiny', 'end', colors.textSecondary);
 }
 
 /**
