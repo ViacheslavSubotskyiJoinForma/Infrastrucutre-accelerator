@@ -367,6 +367,11 @@ small.hide {
     transition: opacity 0.3s ease;
 }
 
+/* Fix GitHub icon visibility in dark mode */
+body.dark-mode input[value="github"] ~ .provider-card .provider-icon path {
+    fill: #ffffff;
+}
+
 .provider-info {
     display: flex;
     flex-direction: column;
