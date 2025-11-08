@@ -103,7 +103,9 @@ class CostCalculator {
         );
 
         checkboxes.forEach(checkbox => {
-            if (checkbox.checked && !checkbox.disabled) {
+            // Include checked components regardless of disabled state
+            // VPC is always checked but disabled (required component)
+            if (checkbox.checked) {
                 selected.push(checkbox.value);
             }
         });
