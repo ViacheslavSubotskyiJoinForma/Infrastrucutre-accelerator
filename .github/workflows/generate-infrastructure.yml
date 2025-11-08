@@ -40,9 +40,25 @@ on:
         type: string
         default: 'infrastructure-accelerator'
 
+# Prevent concurrent runs for the same workflow
+concurrency:
+  group: generate-infra-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+# Minimal permissions following principle of least privilege
+permissions:
+  contents: read
+  actions: read
+
 jobs:
   generate:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    # Job-specific permissions for artifact upload
+    permissions:
+      contents: read
+      actions: write  # Required for uploading artifacts
 
     steps:
       - name: Checkout repository
@@ -72,7 +88,7 @@ jobs:
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.9.8
+          terraform_version: 1.10.3  # Updated to latest stable version
 
       - name: Validate Terraform - Init
         run: |
@@ -136,12 +152,12 @@ jobs:
             fi
           done
 
-      - name: Install tflint
-        run: |
-          curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: latest
 
       - name: Run tflint
-        continue-on-error: true
         run: |
           echo "Running tflint..."
 
@@ -156,6 +172,11 @@ jobs:
               cd - > /dev/null
             fi
           done
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
       - name: Install gitlab-ci-local
         run: |

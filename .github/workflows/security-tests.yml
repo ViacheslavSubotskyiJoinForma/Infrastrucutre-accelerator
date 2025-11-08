@@ -7,14 +7,26 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+# Prevent concurrent test runs for the same workflow
+concurrency:
+  group: security-tests-${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true  # Cancel in-progress for tests
+
+# Minimal permissions following principle of least privilege
+permissions:
+  contents: read
+  pull-requests: write  # Required for PR comments
+  actions: write        # Required for uploading artifacts
+
 jobs:
   security-tests:
     name: Security & Unit Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     strategy:
       matrix:
-        python-version: ['3.9', '3.10', '3.11']
+        python-version: ['3.10', '3.11', '3.12']  # Removed 3.9 (EOL Oct 2025), added 3.12
 
     steps:
       - name: Checkout code
@@ -110,6 +122,7 @@ jobs:
   web-security-tests:
     name: Web Security Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout code
@@ -182,6 +195,7 @@ jobs:
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout code
@@ -202,7 +216,7 @@ jobs:
           retention-days: 30
 
       - name: Check for secrets
-        uses: trufflesecurity/trufflehog@main
+        uses: trufflesecurity/trufflehog@v3.90
         with:
           path: ./
           base: ${{ github.event.repository.default_branch }}
@@ -212,6 +226,7 @@ jobs:
   code-quality:
     name: Code Quality
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout code
@@ -243,6 +258,7 @@ jobs:
   test-summary:
     name: Test Summary
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs: [security-tests, web-security-tests, security-scan, code-quality]
     if: always()
 
