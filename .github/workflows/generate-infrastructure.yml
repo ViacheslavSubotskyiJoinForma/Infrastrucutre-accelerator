@@ -296,12 +296,31 @@ jobs:
           ls -la generated-infra/
           echo ""
 
-          if [ -f "generated-infra/.gitlab-ci.yml" ]; then
-            echo "✅ .gitlab-ci.yml exists"
-            echo "File size: $(stat -f%z generated-infra/.gitlab-ci.yml 2>/dev/null || stat -c%s generated-infra/.gitlab-ci.yml) bytes"
-          else
-            echo "❌ ERROR: .gitlab-ci.yml NOT FOUND"
-            exit 1
+          # Verify CI/CD configuration file based on provider
+          if [ "${{ inputs.ci_provider }}" = "gitlab" ]; then
+            if [ -f "generated-infra/.gitlab-ci.yml" ]; then
+              echo "✅ .gitlab-ci.yml exists"
+              echo "File size: $(stat -f%z generated-infra/.gitlab-ci.yml 2>/dev/null || stat -c%s generated-infra/.gitlab-ci.yml) bytes"
+            else
+              echo "❌ ERROR: .gitlab-ci.yml NOT FOUND"
+              exit 1
+            fi
+          elif [ "${{ inputs.ci_provider }}" = "github" ]; then
+            if [ -f "generated-infra/.github/workflows/terraform-ci.yml" ]; then
+              echo "✅ GitHub Actions workflow exists"
+              echo "File size: $(stat -f%z generated-infra/.github/workflows/terraform-ci.yml 2>/dev/null || stat -c%s generated-infra/.github/workflows/terraform-ci.yml) bytes"
+            else
+              echo "❌ ERROR: .github/workflows/terraform-ci.yml NOT FOUND"
+              exit 1
+            fi
+          elif [ "${{ inputs.ci_provider }}" = "azuredevops" ]; then
+            if [ -f "generated-infra/azure-pipelines.yml" ]; then
+              echo "✅ azure-pipelines.yml exists"
+              echo "File size: $(stat -f%z generated-infra/azure-pipelines.yml 2>/dev/null || stat -c%s generated-infra/azure-pipelines.yml) bytes"
+            else
+              echo "❌ ERROR: azure-pipelines.yml NOT FOUND"
+              exit 1
+            fi
           fi
 
           if [ -f "generated-infra/README.md" ]; then
