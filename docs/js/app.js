@@ -254,9 +254,9 @@ function setupEventListeners() {
         cb.addEventListener('change', handleComponentChange);
     });
 
-    // Environment checkboxes - use 'click' to prevent state change before it happens
+    // Environment checkboxes
     document.querySelectorAll('.environments input[type="checkbox"]').forEach(cb => {
-        cb.addEventListener('click', handleEnvironmentChange);
+        cb.addEventListener('change', handleEnvironmentChange);
     });
 
     // Cloud provider radio buttons
@@ -354,40 +354,29 @@ function handleComponentChange(e) {
 }
 
 /**
- * Handle environment checkbox clicks
+ * Handle environment checkbox changes
  * - Adds/removes environments from selection
- * - Ensures at least one environment is always selected (defaults to dev)
+ * - Ensures at least one environment is always selected
  * - Updates diagram and component list
  * - Shows/hides IP range inputs based on selected environments
- * @param {Event} e - Checkbox click event
+ * @param {Event} e - Checkbox change event
  * @returns {void}
  */
 function handleEnvironmentChange(e) {
-    const value = e.target.value;
-    const willBeChecked = !e.target.checked; // After click, state will flip
+    // Check actual DOM state after change event
+    const allCheckboxes = document.querySelectorAll('.environments input[type="checkbox"]');
+    const checkedBoxes = Array.from(allCheckboxes).filter(cb => cb.checked);
 
-    // If trying to uncheck and it's the only one selected, prevent it
-    if (e.target.checked && selectedEnvironments.length === 1 && selectedEnvironments.includes(value)) {
-        e.preventDefault(); // Stop the click from unchecking
-        return; // Don't process the change
+    // If no checkboxes are checked, revert this change
+    if (checkedBoxes.length === 0) {
+        e.target.checked = true; // Force it back to checked
+        return; // Don't update state or UI
     }
 
-    // Let the click proceed, then update our state
-    if (willBeChecked) {
-        if (!selectedEnvironments.includes(value)) {
-            selectedEnvironments.push(value);
-        }
-    } else {
-        selectedEnvironments = selectedEnvironments.filter(env => env !== value);
-    }
+    // Update our state based on actual DOM state
+    selectedEnvironments = checkedBoxes.map(cb => cb.value);
 
-    // At least one environment (fallback safety check)
-    if (selectedEnvironments.length === 0) {
-        selectedEnvironments = ['dev'];
-        document.querySelector('.environments input[value="dev"]').checked = true;
-    }
-
-    // Update IP range visibility
+    // Update IP range visibility and diagram
     updateIPRangeVisibility();
     updateDiagram();
 }
