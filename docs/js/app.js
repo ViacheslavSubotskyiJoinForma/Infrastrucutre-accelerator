@@ -515,17 +515,17 @@ function updateDiagram() {
     const hasEKS = selectedComponents.includes('eks-auto');
     const hasRDS = selectedComponents.includes('rds');
 
-    // Get container width (accounting for padding)
-    const containerWidth = container.clientWidth - 32; // Subtract padding (1rem * 2 = 32px)
+    // Get actual available width for content (clientWidth already excludes padding)
+    const availableWidth = container.clientWidth;
 
-    // Calculate width: 1 env = full container, 2+ envs = allow scroll
+    // Calculate width: 1 env = full container, 2+ envs = calculated width with scroll
     let width;
     if (envCount === 1) {
-        // Single environment gets full container width
-        width = containerWidth;
+        // Single environment uses full available width
+        width = availableWidth;
     } else {
-        // Multiple environments: calculate needed width and allow scroll if needed
-        width = Math.max(260 * envCount + 120, containerWidth);
+        // Multiple environments: calculate needed width, allow scroll if exceeds container
+        width = Math.max(260 * envCount + 120, availableWidth);
     }
     // Increase height if we have both EKS and RDS
     const height = (hasEKS && hasRDS) ? 590 : (hasEKS || hasRDS) ? 490 : 390;
