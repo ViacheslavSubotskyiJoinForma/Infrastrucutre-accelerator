@@ -61,10 +61,19 @@ function calculateSubnetCIDR(vpcCidr, subnetIndex) {
     const [baseIp, prefix] = vpcCidr.split('/');
     const octets = baseIp.split('.').map(Number);
 
-    // For /16 VPC, create /20 subnets
-    // Public: .0.0/20, Private: .16.0/20
+    // For /16 VPC, create /20 subnets (4096 IPs each)
+    // subnetIndex: 0 = Public, 1 = Private, 2 = Database
     if (prefix === '16') {
-        octets[2] = subnetIndex * 16;
+        if (subnetIndex === 0) {
+            // Public: .0.0/20
+            octets[2] = 0;
+        } else if (subnetIndex === 1) {
+            // Private: .48.0/20
+            octets[2] = 48;
+        } else if (subnetIndex === 2) {
+            // Database: .96.0/20
+            octets[2] = 96;
+        }
         return `${octets.join('.')}/20`;
     }
 
@@ -200,21 +209,25 @@ function updateAutoSplitText(env) {
     }
 
     // Calculate subnets based on availability zones (fixed to 3)
+    // Optimized /16 split: /20 subnets (4096 IPs each)
     const azCount = 3;
     if (vpcCidr) {
         const [baseIp, prefix] = vpcCidr.split('/');
         const octets = baseIp.split('.').map(Number);
 
         if (prefix === '16') {
-            // Show range based on AZ count
-            const publicStart = `${octets[0]}.${octets[1]}.21.0/24`;
-            const publicEnd = azCount > 1 ? `-${octets[0]}.${octets[1]}.${20 + azCount}.0/24` : '';
-            const privateStart = `${octets[0]}.${octets[1]}.1.0/24`;
-            const privateEnd = azCount > 1 ? `-${octets[0]}.${octets[1]}.${azCount}.0/24` : '';
-            const dbStart = `${octets[0]}.${octets[1]}.61.0/24`;
-            const dbEnd = azCount > 1 ? `-${octets[0]}.${octets[1]}.${60 + azCount}.0/24` : '';
+            // Show optimized /20 ranges
+            const publicRange = azCount > 1
+                ? `${octets[0]}.${octets[1]}.0.0/20-${octets[0]}.${octets[1]}.32.0/20`
+                : `${octets[0]}.${octets[1]}.0.0/20`;
+            const privateRange = azCount > 1
+                ? `${octets[0]}.${octets[1]}.48.0/20-${octets[0]}.${octets[1]}.80.0/20`
+                : `${octets[0]}.${octets[1]}.48.0/20`;
+            const dbRange = azCount > 1
+                ? `${octets[0]}.${octets[1]}.96.0/20-${octets[0]}.${octets[1]}.128.0/20`
+                : `${octets[0]}.${octets[1]}.96.0/20`;
 
-            autoSplitElement.textContent = `Public (${publicStart}${publicEnd}), Private (${privateStart}${privateEnd}), DB (${dbStart}${dbEnd})`;
+            autoSplitElement.textContent = `Public (${publicRange}), Private (${privateRange}), DB (${dbRange})`;
             autoSplitElement.style.color = ''; // Reset to default color
         } else {
             autoSplitElement.textContent = 'Auto-split works best with /16 CIDR';
@@ -530,6 +543,7 @@ function updateDiagram() {
         vpc: '#1f2937',
         public: '#1e3a5f',
         private: '#78350f',
+        database: '#065f46',
         eks: '#4c1d95',
         rds: '#164e63',
         text: '#f9fafb',
@@ -539,6 +553,7 @@ function updateDiagram() {
             vpc: '#10b981',
             public: '#0ea5e9',
             private: '#f59e0b',
+            database: '#10b981',
             eks: '#8b5cf6',
             rds: '#06b6d4'
         }
@@ -548,6 +563,7 @@ function updateDiagram() {
         vpc: '#ffffff',
         public: '#e0f2fe',
         private: '#fef3c7',
+        database: '#d1fae5',
         eks: '#ddd6fe',
         rds: '#cffafe',
         text: '#1f2937',
@@ -557,6 +573,7 @@ function updateDiagram() {
             vpc: '#10b981',
             public: '#0ea5e9',
             private: '#f59e0b',
+            database: '#10b981',
             eks: '#8b5cf6',
             rds: '#06b6d4'
         }
@@ -660,6 +677,7 @@ function updateDiagram() {
         const vpcCidr = getVPCCIDR(env);
         const publicCidr = calculateSubnetCIDR(vpcCidr, 0);
         const privateCidr = calculateSubnetCIDR(vpcCidr, 1);
+        const databaseCidr = calculateSubnetCIDR(vpcCidr, 2);
 
         // Environment box
         const boxHeight = (hasEKS && hasRDS) ? 440 : (hasEKS || hasRDS) ? 340 : 240;
@@ -676,25 +694,33 @@ function updateDiagram() {
         addText(svg, x + envBoxWidth / 2, vpcY + 18, 'VPC', 'normal', 'middle', colors.text);
         addText(svg, x + envBoxWidth / 2, vpcY + 35, vpcCidr, 'tiny', 'middle', colors.textSecondary);
 
-        // Subnets with CIDR details
+        // Subnets with CIDR details (3 subnets: Public, Private, Database)
         const subnetY = vpcY + 50;
         const subnetHeight = 70;
-        const subnetGap = 10;
+        const subnetGap = 6;
         const subnetPadding = 18;
         const totalSubnetWidth = vpcWidth - subnetPadding * 2;
-        const subnetWidth = (totalSubnetWidth - subnetGap) / 2;
+        const subnetWidth = (totalSubnetWidth - 2 * subnetGap) / 3;
 
         // Public subnet
         addRect(svg, x + vpcPadding + subnetPadding, subnetY, subnetWidth, subnetHeight, colors.public, colors.border.public);
         addText(svg, x + vpcPadding + subnetPadding + subnetWidth / 2, subnetY + 18, 'Public', 'small', 'middle', colors.text);
         addText(svg, x + vpcPadding + subnetPadding + subnetWidth / 2, subnetY + 36, publicCidr, 'tiny', 'middle', colors.textSecondary);
-        addText(svg, x + vpcPadding + subnetPadding + subnetWidth / 2, subnetY + 53, 'Multi-AZ', 'tiny', 'middle', colors.textSecondary);
+        addText(svg, x + vpcPadding + subnetPadding + subnetWidth / 2, subnetY + 53, '3 AZs', 'tiny', 'middle', colors.textSecondary);
 
         // Private subnet
-        addRect(svg, x + vpcPadding + subnetPadding + subnetWidth + subnetGap, subnetY, subnetWidth, subnetHeight, colors.private, colors.border.private);
-        addText(svg, x + vpcPadding + subnetPadding + subnetWidth + subnetGap + subnetWidth / 2, subnetY + 18, 'Private', 'small', 'middle', colors.text);
-        addText(svg, x + vpcPadding + subnetPadding + subnetWidth + subnetGap + subnetWidth / 2, subnetY + 36, privateCidr, 'tiny', 'middle', colors.textSecondary);
-        addText(svg, x + vpcPadding + subnetPadding + subnetWidth + subnetGap + subnetWidth / 2, subnetY + 53, 'Multi-AZ', 'tiny', 'middle', colors.textSecondary);
+        const privateX = x + vpcPadding + subnetPadding + subnetWidth + subnetGap;
+        addRect(svg, privateX, subnetY, subnetWidth, subnetHeight, colors.private, colors.border.private);
+        addText(svg, privateX + subnetWidth / 2, subnetY + 18, 'Private', 'small', 'middle', colors.text);
+        addText(svg, privateX + subnetWidth / 2, subnetY + 36, privateCidr, 'tiny', 'middle', colors.textSecondary);
+        addText(svg, privateX + subnetWidth / 2, subnetY + 53, '3 AZs', 'tiny', 'middle', colors.textSecondary);
+
+        // Database subnet
+        const databaseX = privateX + subnetWidth + subnetGap;
+        addRect(svg, databaseX, subnetY, subnetWidth, subnetHeight, colors.database, colors.border.database);
+        addText(svg, databaseX + subnetWidth / 2, subnetY + 18, 'Database', 'small', 'middle', colors.text);
+        addText(svg, databaseX + subnetWidth / 2, subnetY + 36, databaseCidr, 'tiny', 'middle', colors.textSecondary);
+        addText(svg, databaseX + subnetWidth / 2, subnetY + 53, '3 AZs', 'tiny', 'middle', colors.textSecondary);
 
         // EKS if selected
         let currentY = subnetY + 90;
