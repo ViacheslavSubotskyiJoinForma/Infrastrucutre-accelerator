@@ -518,21 +518,23 @@ function updateDiagram() {
     // Get actual available width for content (clientWidth already excludes padding)
     const availableWidth = container.clientWidth;
 
-    // Calculate width: 1 env = full container, 2+ envs = calculated width with scroll
-    let width;
+    // Calculate viewBox width: fixed for 1 env (for proper scaling), dynamic for multiple
+    // SVG will scale to fill container, but viewBox determines coordinate system
+    let viewBoxWidth;
     if (envCount === 1) {
-        // Single environment uses full available width
-        width = availableWidth;
+        // Use fixed viewBox width for consistent rendering, SVG will scale via width: 100%
+        viewBoxWidth = 900;
     } else {
-        // Multiple environments: calculate needed width, allow scroll if exceeds container
-        width = Math.max(260 * envCount + 120, availableWidth);
+        // Multiple environments: calculate needed width for all environments
+        viewBoxWidth = 260 * envCount + 120;
     }
+
     // Increase height if we have both EKS and RDS
     const height = (hasEKS && hasRDS) ? 590 : (hasEKS || hasRDS) ? 490 : 390;
 
     // Clear existing
     svg.innerHTML = '';
-    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    svg.setAttribute('viewBox', `0 0 ${viewBoxWidth} ${height}`);
 
     // Set width: full for 1 env, fixed with scroll for multiple
     if (envCount === 1) {
@@ -542,9 +544,9 @@ function updateDiagram() {
         container.style.overflowX = 'hidden';
         container.setAttribute('data-scrollable', 'false');
     } else {
-        svg.style.width = `${width}px`;
-        svg.style.minWidth = `${width}px`;
-        svg.style.maxWidth = `${width}px`;
+        svg.style.width = `${viewBoxWidth}px`;
+        svg.style.minWidth = `${viewBoxWidth}px`;
+        svg.style.maxWidth = `${viewBoxWidth}px`;
         container.style.overflowX = 'auto';
         container.setAttribute('data-scrollable', 'true');
     }
@@ -611,7 +613,7 @@ function updateDiagram() {
     const outerPadding = 20;
     const outerX = outerPadding;
     const outerY = 60;
-    const outerWidth = width - outerPadding * 2;
+    const outerWidth = viewBoxWidth - outerPadding * 2;
     const outerHeight = (hasEKS && hasRDS) ? 500 : (hasEKS || hasRDS) ? 400 : 300;
 
     // Draw outer container with provider branding
