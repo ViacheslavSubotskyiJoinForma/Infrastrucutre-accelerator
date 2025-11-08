@@ -7,23 +7,34 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+# Prevent concurrent test runs for the same workflow
+concurrency:
+  group: security-tests-${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true  # Cancel in-progress for tests
+
+# Minimal permissions following principle of least privilege
+permissions:
+  contents: read
+  pull-requests: write  # Required for PR comments
+  actions: write        # Required for uploading artifacts
+
+env:
+  PYTHON_VERSION: '3.12'  # Single Python version for all jobs
+
 jobs:
   security-tests:
     name: Security & Unit Tests
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        python-version: ['3.9', '3.10', '3.11']
+    timeout-minutes: 20
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
 
       - name: Install dependencies
@@ -49,14 +60,13 @@ jobs:
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
-        if: matrix.python-version == '3.11'
         with:
           name: coverage-report
           path: htmlcov/
           retention-days: 30
 
       - name: Generate coverage badge
-        if: matrix.python-version == '3.11' && github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main'
         run: |
           COVERAGE=$(coverage report | grep TOTAL | awk '{print $4}' | sed 's/%//')
           echo "COVERAGE=$COVERAGE" >> $GITHUB_ENV
@@ -75,7 +85,7 @@ jobs:
         continue-on-error: true
 
       - name: Comment coverage on PR
-        if: github.event_name == 'pull_request' && matrix.python-version == '3.11'
+        if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
@@ -110,6 +120,7 @@ jobs:
   web-security-tests:
     name: Web Security Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout code
@@ -182,6 +193,7 @@ jobs:
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout code
@@ -202,7 +214,7 @@ jobs:
           retention-days: 30
 
       - name: Check for secrets
-        uses: trufflesecurity/trufflehog@main
+        uses: trufflesecurity/trufflehog@v3.90.13
         with:
           path: ./
           base: ${{ github.event.repository.default_branch }}
@@ -212,6 +224,7 @@ jobs:
   code-quality:
     name: Code Quality
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout code
@@ -220,7 +233,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install linting tools
         run: |
@@ -243,6 +256,7 @@ jobs:
   test-summary:
     name: Test Summary
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs: [security-tests, web-security-tests, security-scan, code-quality]
     if: always()
 

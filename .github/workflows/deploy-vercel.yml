@@ -10,6 +10,12 @@ on:
     paths:
       - 'vercel-backend/**'
       - '.github/workflows/deploy-vercel.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'vercel-backend/**'
+      - '.github/workflows/deploy-vercel.yml'
 
   workflow_dispatch:
     inputs:
@@ -22,9 +28,21 @@ on:
           - preview
         default: 'preview'
 
+# Prevent concurrent deployments to the same environment
+concurrency:
+  group: vercel-deploy-${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: false
+
+# Minimal permissions following principle of least privilege
+permissions:
+  contents: read
+  pull-requests: write  # Required for PR comments
+  deployments: write    # Required for deployments
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment: main
 
     env:
@@ -58,6 +76,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          # Note: npm cache disabled - no package-lock.json, only global vercel CLI install
 
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
