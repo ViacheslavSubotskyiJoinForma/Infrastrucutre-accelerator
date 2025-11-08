@@ -542,6 +542,7 @@ function updateDiagram() {
     // Clear existing
     svg.innerHTML = '';
     svg.setAttribute('viewBox', `0 0 ${viewBoxWidth} ${height}`);
+    svg.setAttribute('height', height); // Set dynamic height based on content
 
     // Set width: full for 1 env, fixed with scroll for multiple
     if (envCount === 1) {
