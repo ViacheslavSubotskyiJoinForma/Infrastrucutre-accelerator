@@ -1,0 +1,22 @@
+{
+  "name": "infrastructure-accelerator",
+  "version": "1.0.0",
+  "description": "Infrastructure Template Generator - Production-ready Terraform templates for AWS",
+  "scripts": {
+    "test": "npm run test:validation && npm run test:cloud",
+    "test:validation": "node tests/validation.test.js",
+    "test:cloud": "node tests/cloud_features.test.js",
+    "test:all": "npm test",
+    "test:watch": "echo 'Open tests/test_validation.html and tests/test_cloud_features.html in browser for interactive testing'"
+  },
+  "keywords": [
+    "terraform",
+    "aws",
+    "infrastructure",
+    "devops",
+    "automation"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {}
+}
