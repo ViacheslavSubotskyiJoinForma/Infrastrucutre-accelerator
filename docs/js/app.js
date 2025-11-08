@@ -367,6 +367,7 @@ function handleEnvironmentChange(e) {
 
     // If trying to uncheck and it's the only one selected, prevent it
     if (!e.target.checked && selectedEnvironments.length === 1 && selectedEnvironments.includes(value)) {
+        e.preventDefault(); // Prevent checkbox state change
         e.target.checked = true; // Keep it checked
         return; // Don't process the change
     }
