@@ -351,6 +351,9 @@ class InfrastructureGenerator:
         gitlab_ci_file.write_text(rendered)
         print(f"✓ Generated: {gitlab_ci_file}")
 
+        # Validate YAML syntax
+        self._validate_yaml_file(gitlab_ci_file)
+
     def _generate_github_actions(self, output_dir: Path) -> None:
         """Generate GitHub Actions workflow configuration from template"""
         print("🔧 Generating GitHub Actions workflow...")
@@ -386,6 +389,9 @@ class InfrastructureGenerator:
         workflow_file.write_text(rendered)
         print(f"✓ Generated: {workflow_file}")
 
+        # Validate YAML syntax
+        self._validate_yaml_file(workflow_file)
+
     def _generate_azure_devops(self, output_dir: Path) -> None:
         """Generate Azure DevOps pipeline configuration from template"""
         print("🔧 Generating Azure DevOps pipeline...")
@@ -415,6 +421,26 @@ class InfrastructureGenerator:
         azure_pipeline_file = output_dir / 'azure-pipelines.yml'
         azure_pipeline_file.write_text(rendered)
         print(f"✓ Generated: {azure_pipeline_file}")
+
+        # Validate YAML syntax
+        self._validate_yaml_file(azure_pipeline_file)
+
+    def _validate_yaml_file(self, file_path: Path) -> None:
+        """Validate YAML syntax of generated CI/CD configuration file"""
+        try:
+            import yaml
+            with open(file_path, 'r') as f:
+                yaml.safe_load(f)
+            print(f"✓ YAML validation passed: {file_path.name}")
+        except ImportError:
+            print(f"⚠️  Warning: PyYAML not installed, skipping YAML validation")
+            print(f"   Install with: pip install pyyaml")
+        except yaml.YAMLError as e:
+            raise ValueError(
+                f"❌ YAML syntax error in {file_path}:\n"
+                f"   {str(e)}\n"
+                f"   Please check the template and regenerate."
+            )
 
     def _generate_config_structure(self, output_dir: Path) -> None:
         """Generate config directory structure with sample tfvars"""
