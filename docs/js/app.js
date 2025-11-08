@@ -219,31 +219,21 @@ function setupEventListeners() {
     document.getElementById('loginBtn').addEventListener('click', () => auth.login());
     document.getElementById('logoutBtn').addEventListener('click', () => auth.logout());
 
-    // Clear validation errors on input
+    // Project Name - clear errors and update diagram in real-time
     document.getElementById('projectName').addEventListener('input', function() {
         if (this.classList.contains('error')) {
             clearError(this);
         }
+        debouncedUpdateDiagram();
     });
 
-    // AWS Account ID - clear errors on input, update diagram on blur
+    // AWS Account ID - clear errors and update diagram in real-time
     const awsAccountIdInput = document.getElementById('awsAccountId');
     awsAccountIdInput.addEventListener('input', function() {
         if (this.classList.contains('error')) {
             clearError(this);
         }
-    });
-
-    // Update diagram when user finishes entering Account ID (prevents jumping on every keystroke)
-    awsAccountIdInput.addEventListener('blur', () => {
-        updateDiagram();
-    });
-
-    // Also update on Enter key
-    awsAccountIdInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            updateDiagram();
-        }
+        debouncedUpdateDiagram();
     });
 }
 
@@ -403,20 +393,26 @@ function updateDiagram() {
     const svg = document.getElementById('diagram');
     const container = svg.parentElement;
 
-    // Fixed width calculation based ONLY on environment count (prevents jumping)
+    // Adaptive width: full container for 1 env, scales down for multiple
     const envCount = selectedEnvironments.length;
     const hasEKS = selectedComponents.includes('eks-auto');
 
-    // Calculate width based purely on environment count (stable, never changes for same envCount)
-    const minEnvWidth = 220;
-    const width = minEnvWidth * envCount + 120;
+    // Calculate width: 1 env = wider, 2+ envs = scale down
+    let width;
+    if (envCount === 1) {
+        // Single environment gets full width (fixed to prevent jumping)
+        width = 760; // Wide single environment
+    } else {
+        // Multiple environments use compact calculation
+        width = 220 * envCount + 120;
+    }
     const height = 520;
 
     // Clear existing
     svg.innerHTML = '';
     svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
 
-    // Always set fixed width and enable scroll (prevents any size jumping)
+    // Always set fixed width and enable scroll (prevents jumping)
     svg.style.width = `${width}px`;
     svg.style.minWidth = `${width}px`;
     svg.style.maxWidth = `${width}px`;
@@ -516,24 +512,31 @@ function updateDiagram() {
     // Title with provider
     addText(svg, 70, headerY + 5, `${providerNames[selectedProvider]} Cloud Architecture`, 'bold', 'start', colors.text);
 
-    // AWS Account ID and Region
+    // Get Project Name from input
+    const projectNameInput = document.getElementById('projectName');
+    const projectName = projectNameInput ? projectNameInput.value.trim() : '';
+
+    // Build metadata line: Project | Account | Region
     if (selectedProvider === 'aws') {
         let detailsText = '';
-        if (awsAccountId && region) {
-            detailsText = `Account: ${awsAccountId} | Region: ${region}`;
-        } else if (awsAccountId) {
-            detailsText = `Account: ${awsAccountId}`;
-        } else if (region) {
-            detailsText = `Region: ${region}`;
+        const parts = [];
+
+        if (projectName) {
+            parts.push(`Project: ${projectName}`);
         }
+        if (awsAccountId) {
+            parts.push(`Account: ${awsAccountId}`);
+        }
+        if (region) {
+            parts.push(`Region: ${region}`);
+        }
+
+        detailsText = parts.join(' | ');
 
         if (detailsText) {
             addText(svg, 70, headerY + 22, detailsText, 'tiny', 'start', colors.textSecondary);
         }
     }
-
-    // Environments subtitle
-    addText(svg, width - outerPadding - 10, headerY + 12, selectedEnvironments.join(', ').toUpperCase(), 'small', 'end', colors.textSecondary);
 
     // Draw environments with equal spacing
     const innerPadding = 20; // Equal padding from outer container to environments
