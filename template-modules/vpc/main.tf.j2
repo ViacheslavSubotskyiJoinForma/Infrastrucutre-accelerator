@@ -1,5 +1,5 @@
 resource "aws_eip" "nat" {
-  count = var.env == "prod" ? 3 : 0
+  count = var.env == "prod" ? var.availability_zone_count : 0
 
   tags = local.tags
 }
@@ -11,7 +11,7 @@ module "vpc" {
   name = "vpc"
   cidr = "${var.cidr[var.env]}.0.0/16"
 
-  azs              = data.aws_availability_zones.available.names
+  azs              = slice(data.aws_availability_zones.available.names, 0, var.availability_zone_count)
   private_subnets  = local.private_subnets
   public_subnets   = local.public_subnets
   database_subnets = local.database_subnets

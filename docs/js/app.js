@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 /**
  * Update auto-split subnet text based on VPC CIDR input
- * Calculates and displays public/private subnet CIDRs dynamically
+ * Calculates and displays public/private/database subnet CIDRs dynamically
  * @param {string} env - Environment name (dev, staging, prod)
  * @returns {void}
  */
@@ -199,13 +199,27 @@ function updateAutoSplitText(env) {
         return;
     }
 
-    // Calculate subnets
-    const publicCidr = calculateSubnetCIDR(vpcCidr, 0);
-    const privateCidr = calculateSubnetCIDR(vpcCidr, 1);
+    // Calculate subnets based on availability zones
+    const azCount = parseInt(document.getElementById('availabilityZones')?.value || '3');
+    if (vpcCidr) {
+        const [baseIp, prefix] = vpcCidr.split('/');
+        const octets = baseIp.split('.').map(Number);
 
-    if (publicCidr && privateCidr) {
-        autoSplitElement.textContent = `Auto-split: Public (${publicCidr}), Private (${privateCidr})`;
-        autoSplitElement.style.color = ''; // Reset to default color
+        if (prefix === '16') {
+            // Show range based on AZ count
+            const publicStart = `${octets[0]}.${octets[1]}.21.0/24`;
+            const publicEnd = azCount > 1 ? `-${octets[0]}.${octets[1]}.${20 + azCount}.0/24` : '';
+            const privateStart = `${octets[0]}.${octets[1]}.1.0/24`;
+            const privateEnd = azCount > 1 ? `-${octets[0]}.${octets[1]}.${azCount}.0/24` : '';
+            const dbStart = `${octets[0]}.${octets[1]}.61.0/24`;
+            const dbEnd = azCount > 1 ? `-${octets[0]}.${octets[1]}.${60 + azCount}.0/24` : '';
+
+            autoSplitElement.textContent = `Public (${publicStart}${publicEnd}), Private (${privateStart}${privateEnd}), DB (${dbStart}${dbEnd})`;
+            autoSplitElement.style.color = ''; // Reset to default color
+        } else {
+            autoSplitElement.textContent = 'Auto-split works best with /16 CIDR';
+            autoSplitElement.style.color = '#9ca3af'; // Gray color
+        }
     } else {
         autoSplitElement.textContent = 'Auto-split: Enter valid VPC CIDR';
         autoSplitElement.style.color = '#9ca3af'; // Gray color
@@ -268,6 +282,16 @@ function setupEventListeners() {
     const regionSelect = document.getElementById('region');
     if (regionSelect) {
         regionSelect.addEventListener('change', () => updateDiagram());
+    }
+
+    // Availability zones select - update auto-split text and diagram
+    const azSelect = document.getElementById('availabilityZones');
+    if (azSelect) {
+        azSelect.addEventListener('change', () => {
+            // Update auto-split text for all visible environments
+            selectedEnvironments.forEach(env => updateAutoSplitText(env));
+            updateDiagram();
+        });
     }
 
     // Generate button
@@ -449,6 +473,12 @@ function updateComponentList() {
         items.push('✅ IAM roles and policies');
     }
 
+    if (selectedComponents.includes('rds')) {
+        items.push('✅ Aurora PostgreSQL Serverless v2');
+        items.push('✅ Auto-scaling database capacity');
+        items.push('✅ AWS Secrets Manager integration');
+    }
+
     list.innerHTML = items.map(item => `<li>${item}</li>`).join('');
 }
 
@@ -467,6 +497,7 @@ function updateDiagram() {
     // Adaptive width: full container for 1 env, scales down for multiple
     const envCount = selectedEnvironments.length;
     const hasEKS = selectedComponents.includes('eks-auto');
+    const hasRDS = selectedComponents.includes('rds');
 
     // Calculate width: 1 env = wider, 2+ envs = scale down
     let width;
@@ -477,7 +508,8 @@ function updateDiagram() {
         // Multiple environments use compact calculation
         width = 220 * envCount + 120;
     }
-    const height = 520;
+    // Increase height if we have both EKS and RDS
+    const height = (hasEKS && hasRDS) ? 620 : (hasEKS || hasRDS) ? 520 : 420;
 
     // Clear existing
     svg.innerHTML = '';
@@ -500,6 +532,7 @@ function updateDiagram() {
         public: '#1e3a5f',
         private: '#78350f',
         eks: '#4c1d95',
+        rds: '#164e63',
         text: '#f9fafb',
         textSecondary: '#9ca3af',
         border: {
@@ -507,7 +540,8 @@ function updateDiagram() {
             vpc: '#10b981',
             public: '#0ea5e9',
             private: '#f59e0b',
-            eks: '#8b5cf6'
+            eks: '#8b5cf6',
+            rds: '#06b6d4'
         }
     } : {
         envLight: '#f3f4f6',
@@ -516,6 +550,7 @@ function updateDiagram() {
         public: '#e0f2fe',
         private: '#fef3c7',
         eks: '#ddd6fe',
+        rds: '#cffafe',
         text: '#1f2937',
         textSecondary: '#6b7280',
         border: {
@@ -523,7 +558,8 @@ function updateDiagram() {
             vpc: '#10b981',
             public: '#0ea5e9',
             private: '#f59e0b',
-            eks: '#8b5cf6'
+            eks: '#8b5cf6',
+            rds: '#06b6d4'
         }
     };
 
@@ -545,7 +581,7 @@ function updateDiagram() {
     const outerX = outerPadding;
     const outerY = 60;
     const outerWidth = width - outerPadding * 2;
-    const outerHeight = hasEKS ? 430 : 330;
+    const outerHeight = (hasEKS && hasRDS) ? 530 : (hasEKS || hasRDS) ? 430 : 330;
 
     // Draw outer container with provider branding
     addRect(svg, outerX, outerY, outerWidth, outerHeight, 'transparent', colors.border.env, 3);
@@ -626,14 +662,14 @@ function updateDiagram() {
         const privateCidr = calculateSubnetCIDR(vpcCidr, 1);
 
         // Environment box
-        const boxHeight = hasEKS ? 340 : 240;
+        const boxHeight = (hasEKS && hasRDS) ? 440 : (hasEKS || hasRDS) ? 340 : 240;
         const envBoxWidth = envWidth; // Use full envWidth without subtraction
         addRect(svg, x, y, envBoxWidth, boxHeight, env === 'prod' ? colors.envProd : colors.envLight, colors.border.env);
         addText(svg, x + envBoxWidth / 2, y + 20, env.toUpperCase(), 'bold', 'middle', colors.text);
 
         // VPC with CIDR
         const vpcY = y + 40;
-        const vpcHeight = hasEKS ? 260 : 160;
+        const vpcHeight = (hasEKS && hasRDS) ? 360 : (hasEKS || hasRDS) ? 260 : 160;
         const vpcPadding = 15;
         const vpcWidth = envBoxWidth - vpcPadding * 2;
         addRect(svg, x + vpcPadding, vpcY, vpcWidth, vpcHeight, colors.vpc, colors.border.vpc);
@@ -661,24 +697,47 @@ function updateDiagram() {
         addText(svg, x + vpcPadding + subnetPadding + subnetWidth + subnetGap + subnetWidth / 2, subnetY + 53, 'Multi-AZ', 'tiny', 'middle', colors.textSecondary);
 
         // EKS if selected
+        let currentY = subnetY + 90;
         if (hasEKS) {
-            const eksY = subnetY + 90;
+            const eksY = currentY;
             const eksWidth = vpcWidth - subnetPadding * 2;
             addRect(svg, x + vpcPadding + subnetPadding, eksY, eksWidth, 90, colors.eks, colors.border.eks);
             addText(svg, x + envBoxWidth / 2, eksY + 25, 'EKS Cluster', 'normal', 'middle', colors.text);
             addText(svg, x + envBoxWidth / 2, eksY + 45, 'Auto Mode', 'small', 'middle', colors.textSecondary);
             addText(svg, x + envBoxWidth / 2, eksY + 63, 'Automatic Node', 'tiny', 'middle', colors.textSecondary);
             addText(svg, x + envBoxWidth / 2, eksY + 76, 'Provisioning', 'tiny', 'middle', colors.textSecondary);
+            currentY = eksY + 100;
+        }
+
+        // RDS if selected
+        if (hasRDS) {
+            const rdsY = currentY;
+            const rdsWidth = vpcWidth - subnetPadding * 2;
+            addRect(svg, x + vpcPadding + subnetPadding, rdsY, rdsWidth, 90, colors.rds, colors.border.rds);
+            addText(svg, x + envBoxWidth / 2, rdsY + 20, 'RDS Aurora', 'normal', 'middle', colors.text);
+            addText(svg, x + envBoxWidth / 2, rdsY + 38, 'PostgreSQL', 'small', 'middle', colors.textSecondary);
+            addText(svg, x + envBoxWidth / 2, rdsY + 56, 'Serverless v2', 'tiny', 'middle', colors.textSecondary);
+            addText(svg, x + envBoxWidth / 2, rdsY + 70, 'Multi-AZ', 'tiny', 'middle', colors.textSecondary);
         }
     });
 
     // Legend - positioned inside the outer container
     const legendY = outerY + outerHeight - 15;
     const legendX = outerX + 20; // Start from inside the container
-    addText(svg, legendX, legendY, `● ${providerNames[selectedProvider]} VPC`, 'small', 'start', colors.border.vpc);
+    let legendOffset = 0;
+
+    addText(svg, legendX + legendOffset, legendY, `● ${providerNames[selectedProvider]} VPC`, 'small', 'start', colors.border.vpc);
+    legendOffset += 120;
+
     if (hasEKS) {
-        addText(svg, legendX + 120, legendY, '● EKS Auto Mode', 'small', 'start', colors.border.eks);
+        addText(svg, legendX + legendOffset, legendY, '● EKS Auto Mode', 'small', 'start', colors.border.eks);
+        legendOffset += 130;
     }
+
+    if (hasRDS) {
+        addText(svg, legendX + legendOffset, legendY, '● RDS Aurora', 'small', 'start', colors.border.rds);
+    }
+
     addText(svg, outerX + outerWidth - 20, legendY, '● Multi-AZ', 'tiny', 'end', colors.textSecondary);
 }
 
@@ -855,20 +914,40 @@ async function handleGenerate() {
 
     const components = selectedComponents.join(',');
     const environments = selectedEnvironments.join(',');
+    const availabilityZones = document.getElementById('availabilityZones').value;
+
+    // Collect VPC CIDRs for selected environments
+    const vpcCidrs = {};
+    selectedEnvironments.forEach(env => {
+        const inputId = `ipRange${env.charAt(0).toUpperCase() + env.slice(1)}`;
+        const input = document.getElementById(inputId);
+        const customCidr = input ? input.value.trim() : '';
+        if (customCidr) {
+            vpcCidrs[env] = customCidr;
+        }
+    });
 
     // If authenticated, trigger workflow directly
     if (auth.isAuthenticated()) {
         try {
             showModalSafe('⚡ Triggering Workflow', 'Please wait...');
 
-            const runId = await auth.triggerWorkflow({
+            const workflowInputs = {
                 project_name: projectName,
                 components: components,
                 environments: environments,
                 region: region,
                 aws_account_id: awsAccountId,
-                ci_provider: selectedCIProvider
-            });
+                ci_provider: selectedCIProvider,
+                availability_zones: availabilityZones
+            };
+
+            // Add VPC CIDRs if any were specified
+            if (Object.keys(vpcCidrs).length > 0) {
+                workflowInputs.vpc_cidrs = JSON.stringify(vpcCidrs);
+            }
+
+            const runId = await auth.triggerWorkflow(workflowInputs);
 
             // Close initial modal
             closeModal();
