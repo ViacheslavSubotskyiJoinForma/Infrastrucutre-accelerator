@@ -515,9 +515,6 @@ function updateDiagram() {
     const hasEKS = selectedComponents.includes('eks-auto');
     const hasRDS = selectedComponents.includes('rds');
 
-    // Get actual available width for content (clientWidth already excludes padding)
-    const availableWidth = container.clientWidth;
-
     // Calculate viewBox width: fixed for 1 env (for proper scaling), dynamic for multiple
     // SVG will scale to fill container, but viewBox determines coordinate system
     let viewBoxWidth;
