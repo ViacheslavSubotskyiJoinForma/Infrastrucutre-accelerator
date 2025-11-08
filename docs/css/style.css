@@ -831,6 +831,12 @@ footer a:hover {
     background: var(--bg-hover, rgba(0, 0, 0, 0.05));
 }
 
+.job-item.active {
+    background: rgba(59, 130, 246, 0.1);
+    border-left: 3px solid #3b82f6;
+    padding-left: calc(0.75rem - 3px);
+}
+
 .job-status {
     font-size: 1.25rem;
     flex-shrink: 0;
@@ -918,6 +924,11 @@ body.dark-mode .job-item {
 
 body.dark-mode .job-item:hover {
     background: rgba(255, 255, 255, 0.05);
+}
+
+body.dark-mode .job-item.active {
+    background: rgba(59, 130, 246, 0.15);
+    border-left-color: #60a5fa;
 }
 
 /* Download info styles */

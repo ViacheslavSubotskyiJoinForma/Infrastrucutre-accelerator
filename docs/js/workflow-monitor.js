@@ -205,6 +205,7 @@ class WorkflowMonitor {
         }
 
         jobList.innerHTML = '';
+        let firstInProgressItem = null;
 
         jobs.forEach(job => {
             // Display each step instead of just the job
@@ -235,6 +236,12 @@ class WorkflowMonitor {
                     } else if (step.status === 'in_progress') {
                         statusIcon = '⚡';
                         statusClass = 'in-progress';
+                        // Remember first in-progress item for auto-scroll
+                        if (!firstInProgressItem) {
+                            firstInProgressItem = jobItem;
+                            // Add active class for visual highlight
+                            jobItem.classList.add('active');
+                        }
                     }
 
                     jobItem.innerHTML = `
@@ -258,6 +265,10 @@ class WorkflowMonitor {
                 } else if (job.status === 'in_progress') {
                     statusIcon = '⚡';
                     statusClass = 'in-progress';
+                    if (!firstInProgressItem) {
+                        firstInProgressItem = jobItem;
+                        jobItem.classList.add('active');
+                    }
                 }
 
                 jobItem.innerHTML = `
@@ -268,6 +279,18 @@ class WorkflowMonitor {
                 jobList.appendChild(jobItem);
             }
         });
+
+        // Auto-scroll to the first in-progress step
+        if (firstInProgressItem) {
+            // Use setTimeout to ensure DOM is updated before scrolling
+            setTimeout(() => {
+                firstInProgressItem.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'nearest',
+                    inline: 'nearest'
+                });
+            }, 100);
+        }
     }
 
     /**
