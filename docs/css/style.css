@@ -297,8 +297,12 @@ small.hide {
 
 .checkbox small {
     display: block;
-    margin-top: 0.5rem;
+    margin-top: 0.25rem;
     margin-left: 0;
+}
+
+.checkbox div {
+    flex: 1;
 }
 
 .environments .checkbox {
