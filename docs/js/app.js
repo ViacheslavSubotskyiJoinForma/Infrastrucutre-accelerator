@@ -326,13 +326,14 @@ function setupEventListeners() {
     });
 
     // AWS Account ID - clear errors and update diagram in real-time
-    const awsAccountIdInput = document.getElementById('awsAccountId');
-    awsAccountIdInput.addEventListener('input', function() {
-        if (this.classList.contains('error')) {
-            clearError(this);
-        }
-        debouncedUpdateDiagram();
-    });
+    if (awsAccountIdInput) {
+        awsAccountIdInput.addEventListener('input', function() {
+            if (this.classList.contains('error')) {
+                clearError(this);
+            }
+            debouncedUpdateDiagram();
+        });
+    }
 }
 
 /**
