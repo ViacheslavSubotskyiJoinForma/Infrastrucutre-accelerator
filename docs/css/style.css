@@ -1287,6 +1287,46 @@ body.dark-mode .info-box.warning code {
     background: rgba(255, 255, 255, 0.1);
 }
 
+/* Component list grouping */
+#componentList {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.component-group {
+    margin-bottom: 1rem;
+    list-style: none;
+}
+
+.component-group:last-child {
+    margin-bottom: 0;
+}
+
+.component-group strong {
+    color: var(--primary);
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.95rem;
+}
+
+.component-items {
+    margin: 0;
+    padding-left: 1.25rem;
+    list-style: none;
+}
+
+.component-items li {
+    margin-bottom: 0.375rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.component-items li:last-child {
+    margin-bottom: 0;
+}
+
 /* Mobile adjustments */
 @media (max-width: 640px) {
     .tooltip-icon::after {

@@ -488,40 +488,75 @@ function getVPCCIDR(env) {
  */
 function updateComponentList() {
     const list = document.getElementById('componentList');
-    const items = [];
+    const groups = [];
 
     if (selectedComponents.includes('terraform-backend')) {
-        items.push('✅ S3 bucket for Terraform state');
-        items.push('✅ S3 native state locking (Terraform 1.10+)');
-        items.push('✅ Encryption and versioning enabled');
+        groups.push({
+            title: 'Terraform Backend',
+            items: [
+                'S3 bucket for Terraform state',
+                'S3 native state locking (Terraform 1.10+)',
+                'Encryption and versioning enabled'
+            ]
+        });
     }
 
-    items.push('✅ VPC with multi-AZ subnets');
-    items.push('✅ NAT Gateway and Internet Gateway');
-    items.push('✅ Security Groups and Network ACLs');
+    groups.push({
+        title: 'VPC Networking',
+        items: [
+            'VPC with multi-AZ subnets',
+            'NAT Gateway and Internet Gateway',
+            'Security Groups and Network ACLs'
+        ]
+    });
 
     if (selectedComponents.includes('eks-auto')) {
-        items.push('✅ EKS Auto Mode cluster');
-        items.push('✅ Automatic node provisioning');
-        items.push('✅ IAM roles and policies');
+        groups.push({
+            title: 'EKS Auto Mode',
+            items: [
+                'EKS Auto Mode cluster',
+                'Automatic node provisioning',
+                'IAM roles and policies'
+            ]
+        });
     }
 
     if (selectedComponents.includes('rds')) {
-        items.push('✅ Aurora PostgreSQL Serverless v2');
-        items.push('✅ Auto-scaling database capacity');
-        items.push('✅ AWS Secrets Manager integration');
+        groups.push({
+            title: 'RDS Database',
+            items: [
+                'Aurora PostgreSQL Serverless v2',
+                'Auto-scaling database capacity',
+                'AWS Secrets Manager integration'
+            ]
+        });
     }
 
     // CI/CD configuration
     const ciProviderNames = {
-        'gitlab': 'GitLab CI/CD pipeline',
-        'github': 'GitHub Actions workflow',
-        'azuredevops': 'Azure DevOps pipeline'
+        'gitlab': 'GitLab CI/CD',
+        'github': 'GitHub Actions',
+        'azuredevops': 'Azure DevOps'
     };
-    const ciConfigName = ciProviderNames[selectedCIProvider] || 'CI/CD configuration';
-    items.push(`✅ ${ciConfigName}`);
+    const ciTitle = ciProviderNames[selectedCIProvider] || 'CI/CD';
+    groups.push({
+        title: ciTitle,
+        items: [
+            `${ciProviderNames[selectedCIProvider] || 'CI/CD'} pipeline configuration`,
+            'Automated validation and deployment',
+            'Environment-specific workflows'
+        ]
+    });
 
-    list.innerHTML = items.map(item => `<li>${item}</li>`).join('');
+    // Render grouped list
+    list.innerHTML = groups.map(group => `
+        <li class="component-group">
+            <strong>${group.title}:</strong>
+            <ul class="component-items">
+                ${group.items.map(item => `<li>✅ ${item}</li>`).join('')}
+            </ul>
+        </li>
+    `).join('');
 }
 
 /**
