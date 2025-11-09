@@ -35,8 +35,14 @@ Visit the **[Interactive Generator](https://viacheslavsubotskyijoinforma.github.
 
 ### Available Components
 
+- **Terraform Backend** ✅ - S3 + DynamoDB state management
+  - S3 bucket with versioning and encryption
+  - DynamoDB table for state locking
+  - Lifecycle policies for state cleanup
+  - Helper scripts for migration
+
 - **VPC** ✅ - Complete networking setup
-  - Multi-AZ public/private/database subnets
+  - Multi-AZ public/private/database subnets (1-3 AZs configurable)
   - NAT Gateway and Internet Gateway
   - Security Groups and NACLs
   - Optional VPC Flow Logs
@@ -47,8 +53,13 @@ Visit the **[Interactive Generator](https://viacheslavsubotskyijoinforma.github.
   - IAM roles and policies
   - CloudWatch logging
 
+- **RDS** ✅ - Aurora PostgreSQL Serverless v2
+  - Auto-scaling database capacity
+  - Multi-AZ deployment
+  - AWS Secrets Manager integration
+  - Automated backups
+
 - **Coming Soon** 🚧
-  - RDS - Managed PostgreSQL databases
   - Services - API Gateway, Lambda, S3, CloudFront, SES
   - Secrets Manager - Secure credential storage
   - OpenSearch - Logging and analytics
@@ -75,13 +86,30 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install jinja2
 
-# Generate infrastructure
+# Generate infrastructure with local backend (MVP/testing)
 python3 scripts/generators/generate_infrastructure.py \
   --project-name my-project \
-  --components vpc,eks-auto \
+  --components vpc,eks-auto,rds \
   --environments dev,staging,prod \
   --region us-east-1 \
   --aws-account-id YOUR_ACCOUNT_ID
+
+# Generate with S3 backend (recommended for production)
+# First, deploy terraform-backend component
+python3 scripts/generators/generate_infrastructure.py \
+  --project-name my-project \
+  --components terraform-backend \
+  --environments dev \
+  --aws-account-id YOUR_ACCOUNT_ID
+
+# Then, use the outputs to configure other components
+python3 scripts/generators/generate_infrastructure.py \
+  --project-name my-project \
+  --components vpc,eks-auto,rds \
+  --environments dev,staging,prod \
+  --backend-type s3 \
+  --state-bucket my-project-terraform-state-YOUR_ACCOUNT_ID \
+  --dynamodb-table my-project-terraform-locks
 ```
 
 ## 📖 Usage
@@ -122,10 +150,11 @@ terraform apply -var-file=../config/dev.tfvars
 
 Components must be deployed in order due to dependencies:
 
-1. **vpc** - Foundational networking (always first)
-2. **eks-auto** - Kubernetes cluster (depends on VPC)
-3. **rds** - Databases (depends on VPC)
-4. **services** - Applications (depends on VPC + EKS)
+1. **terraform-backend** - S3 + DynamoDB for state (optional, deploy first if using S3 backend)
+2. **vpc** - Foundational networking (always first)
+3. **eks-auto** - Kubernetes cluster (depends on VPC)
+4. **rds** - Databases (depends on VPC)
+5. **services** - Applications (depends on VPC + EKS)
 
 ## 🏗️ Architecture
 
@@ -275,10 +304,12 @@ Contributions welcome! Please:
 
 ## 💡 Roadmap
 
-- [ ] OAuth integration for workflow triggers
-- [ ] More components (RDS, Services, etc.)
+- [x] OAuth integration for workflow triggers ✅
+- [x] S3 Backend for Terraform state ✅
+- [x] RDS Aurora PostgreSQL Serverless v2 ✅
+- [x] Cost estimation in Web UI ✅
+- [ ] More components (Services, Secrets Manager, etc.)
 - [ ] Multi-cloud support (Azure, GCP)
-- [ ] Cost estimation
 - [ ] Compliance scanning
 
 ## 📧 Support

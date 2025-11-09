@@ -1,0 +1,11 @@
+# This component uses local backend because it's the bootstrap component
+# that creates the S3 backend for other components
+#
+# IMPORTANT: Store the state file securely and consider using
+# a separate backend bucket if working in a team
+
+terraform {
+  backend "local" {
+    path = "terraform.tfstate"
+  }
+}

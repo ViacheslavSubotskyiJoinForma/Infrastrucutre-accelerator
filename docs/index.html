@@ -123,6 +123,11 @@
                     <label>Components</label>
                     <div class="checkbox-group">
                         <label class="checkbox">
+                            <input type="checkbox" value="terraform-backend" id="terraform-backend">
+                            <span>Terraform Backend</span>
+                            <small>S3 bucket + DynamoDB table for state management (deploy first)</small>
+                        </label>
+                        <label class="checkbox">
                             <input type="checkbox" value="vpc" checked disabled>
                             <span>VPC (Required)</span>
                             <small>Virtual Private Cloud with public/private subnets</small>
@@ -194,7 +199,50 @@
                     </button>
                     <div id="advancedOptions" class="advanced-options collapsed" role="region" aria-labelledby="toggleAdvanced">
                         <div class="advanced-content">
-                            <h3>Network Configuration</h3>
+                            <h3>Backend Configuration</h3>
+                            <small class="section-description">Configure Terraform state storage (S3 recommended for production)</small>
+
+                            <div class="form-group">
+                                <label>Backend Type</label>
+                                <div class="radio-group inline">
+                                    <label class="radio-option">
+                                        <input type="radio" name="backendType" value="local" checked>
+                                        <span>Local</span>
+                                        <small>State stored locally (MVP, testing)</small>
+                                    </label>
+                                    <label class="radio-option">
+                                        <input type="radio" name="backendType" value="s3">
+                                        <span>S3 + DynamoDB</span>
+                                        <small>Remote state with locking (recommended for teams)</small>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div id="s3BackendOptions" class="s3-backend-options hidden">
+                                <div class="info-box warning">
+                                    <strong>⚠️ Prerequisites:</strong> First deploy the <code>terraform-backend</code> component to create S3 bucket and DynamoDB table.
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="stateBucket">
+                                        S3 State Bucket
+                                        <span class="tooltip-icon" data-tooltip="S3 bucket created by terraform-backend component">ⓘ</span>
+                                    </label>
+                                    <input type="text" id="stateBucket" placeholder="my-project-terraform-state-123456789012">
+                                    <small>Bucket name from terraform-backend output</small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="dynamodbTable">
+                                        DynamoDB Lock Table
+                                        <span class="tooltip-icon" data-tooltip="DynamoDB table for state locking">ⓘ</span>
+                                    </label>
+                                    <input type="text" id="dynamodbTable" placeholder="my-project-terraform-locks">
+                                    <small>Table name from terraform-backend output</small>
+                                </div>
+                            </div>
+
+                            <h3 style="margin-top: 1.5rem;">Network Configuration</h3>
                             <small class="section-description">Customize IP ranges for each environment (optional, good defaults provided)</small>
 
                             <div id="ipRangeInputs" class="ip-range-inputs">

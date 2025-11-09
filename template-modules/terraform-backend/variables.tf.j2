@@ -1,0 +1,21 @@
+variable "project_name" {
+  description = "Project name used for resource naming"
+  type        = string
+  default     = "{{ project_name }}"
+}
+
+variable "env" {
+  description = "Environment name (dev, uat, prod)"
+  type        = string
+}
+
+variable "account" {
+  description = "AWS Account ID"
+  type        = string
+}
+
+variable "region" {
+  description = "AWS Region"
+  type        = string
+  default     = "{{ region }}"
+}

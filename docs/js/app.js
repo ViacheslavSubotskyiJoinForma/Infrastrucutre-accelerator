@@ -269,6 +269,11 @@ function setupEventListeners() {
         radio.addEventListener('change', handleCIProviderChange);
     });
 
+    // Backend type radio buttons
+    document.querySelectorAll('input[name="backendType"]').forEach(radio => {
+        radio.addEventListener('change', handleBackendTypeChange);
+    });
+
     // Advanced options toggle
     document.getElementById('toggleAdvanced').addEventListener('click', toggleAdvancedOptions);
 
@@ -408,6 +413,21 @@ function handleCIProviderChange(e) {
 }
 
 /**
+ * Handle backend type change
+ * Shows/hides S3 backend options based on selection
+ * @param {Event} e - Radio button change event
+ * @returns {void}
+ */
+function handleBackendTypeChange(e) {
+    const s3Options = document.getElementById('s3BackendOptions');
+    if (e.target.value === 's3') {
+        s3Options.classList.remove('hidden');
+    } else {
+        s3Options.classList.add('hidden');
+    }
+}
+
+/**
  * Toggle advanced options visibility
  * Updates aria-expanded attribute for accessibility
  * @returns {void}
@@ -469,6 +489,12 @@ function getVPCCIDR(env) {
 function updateComponentList() {
     const list = document.getElementById('componentList');
     const items = [];
+
+    if (selectedComponents.includes('terraform-backend')) {
+        items.push('✅ S3 bucket for Terraform state');
+        items.push('✅ DynamoDB table for state locking');
+        items.push('✅ Encryption and versioning enabled');
+    }
 
     items.push('✅ VPC with multi-AZ subnets');
     items.push('✅ NAT Gateway and Internet Gateway');
@@ -978,6 +1004,11 @@ async function handleGenerate() {
         try {
             showModalSafe('⚡ Triggering Workflow', 'Please wait...');
 
+            // Collect backend configuration
+            const backendType = document.querySelector('input[name="backendType"]:checked')?.value || 'local';
+            const stateBucket = document.getElementById('stateBucket')?.value.trim() || '';
+            const dynamodbTable = document.getElementById('dynamodbTable')?.value.trim() || '';
+
             const workflowInputs = {
                 project_name: projectName,
                 components: components,
@@ -985,12 +1016,19 @@ async function handleGenerate() {
                 region: region,
                 aws_account_id: awsAccountId,
                 ci_provider: selectedCIProvider,
-                availability_zones: availabilityZones
+                availability_zones: availabilityZones,
+                backend_type: backendType
             };
 
             // Add VPC CIDRs if any were specified
             if (Object.keys(vpcCidrs).length > 0) {
                 workflowInputs.vpc_cidrs = JSON.stringify(vpcCidrs);
+            }
+
+            // Add S3 backend configuration if selected
+            if (backendType === 's3') {
+                workflowInputs.state_bucket = stateBucket;
+                workflowInputs.dynamodb_table = dynamodbTable;
             }
 
             const runId = await auth.triggerWorkflow(workflowInputs);
