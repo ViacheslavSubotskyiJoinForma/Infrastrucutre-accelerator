@@ -1,13 +1,16 @@
 terraform {
   backend "{% if backend_type == 's3' %}s3{% else %}local{% endif %}" {
-{% if backend_type == 's3' %}    # S3 backend configuration with native state locking (Terraform 1.10+)
+{%- if backend_type == 's3' %}
+    # S3 backend configuration with native state locking (Terraform 1.10+)
     # Initialize with: terraform init -backend-config="key=${ENV}/eks-auto/terraform.tfstate"
     bucket       = "{{ state_bucket }}"
     key          = "ENVIRONMENT_PLACEHOLDER/eks-auto/terraform.tfstate"
     region       = "{{ region }}"
     encrypt      = true
     use_lockfile = true
-{% else %}    # Local backend configuration for MVP
+{%- else %}
+    # Local backend configuration for MVP
     path = "terraform.tfstate"
-{% endif %}  }
+{% endif -%}
+  }
 }
