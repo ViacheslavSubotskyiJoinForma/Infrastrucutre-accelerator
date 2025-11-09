@@ -209,37 +209,17 @@
                     </button>
                     <div id="advancedOptions" class="advanced-options collapsed" role="region" aria-labelledby="toggleAdvanced">
                         <div class="advanced-content">
-                            <h3>Backend Configuration</h3>
-                            <small class="section-description">Configure Terraform state storage (S3 recommended for production)</small>
-
-                            <div class="form-group">
-                                <label>Backend Type</label>
-                                <div class="radio-group inline">
-                                    <label class="radio-option">
-                                        <input type="radio" name="backendType" value="local" checked>
-                                        <span>Local</span>
-                                        <small>State stored locally (MVP, testing)</small>
-                                    </label>
-                                    <label class="radio-option">
-                                        <input type="radio" name="backendType" value="s3">
-                                        <span>S3 Native Locking</span>
-                                        <small>Remote state with S3 native locking (Terraform 1.10+, recommended for teams)</small>
-                                    </label>
-                                </div>
-                            </div>
-
                             <div id="s3BackendOptions" class="s3-backend-options hidden">
-                                <div class="info-box warning">
-                                    <strong>⚠️ Prerequisites:</strong> First deploy the <code>terraform-backend</code> component to create S3 bucket with native state locking.
-                                </div>
+                                <h3>Backend Configuration</h3>
+                                <small class="section-description">S3 backend with native state locking (Terraform 1.10+)</small>
 
                                 <div class="form-group">
                                     <label for="stateBucket">
-                                        S3 State Bucket
-                                        <span class="tooltip-icon" data-tooltip="S3 bucket created by terraform-backend component">ⓘ</span>
+                                        S3 State Bucket Name
+                                        <span class="tooltip-icon" data-tooltip="Customize the S3 bucket name for Terraform state storage">ⓘ</span>
                                     </label>
-                                    <input type="text" id="stateBucket" placeholder="my-project-terraform-state-123456789012">
-                                    <small>Bucket name from terraform-backend output (uses S3 native locking, no DynamoDB needed)</small>
+                                    <input type="text" id="stateBucket" placeholder="">
+                                    <small>Default: {project-name}-terraform-state-{account-id}</small>
                                 </div>
                             </div>
 

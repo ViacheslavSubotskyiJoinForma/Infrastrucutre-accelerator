@@ -269,10 +269,15 @@ function setupEventListeners() {
         radio.addEventListener('change', handleCIProviderChange);
     });
 
-    // Backend type radio buttons
-    document.querySelectorAll('input[name="backendType"]').forEach(radio => {
-        radio.addEventListener('change', handleBackendTypeChange);
-    });
+    // Update backend options placeholder when project name or AWS account ID changes
+    const projectNameInput = document.getElementById('projectName');
+    const awsAccountIdInput = document.getElementById('awsAccountId');
+    if (projectNameInput) {
+        projectNameInput.addEventListener('input', updateBackendOptions);
+    }
+    if (awsAccountIdInput) {
+        awsAccountIdInput.addEventListener('input', updateBackendOptions);
+    }
 
     // Advanced options toggle
     document.getElementById('toggleAdvanced').addEventListener('click', toggleAdvancedOptions);
@@ -356,6 +361,7 @@ function handleComponentChange(e) {
 
     updateDiagram();
     updateComponentList();
+    updateBackendOptions();
 }
 
 /**
@@ -413,15 +419,22 @@ function handleCIProviderChange(e) {
 }
 
 /**
- * Handle backend type change
- * Shows/hides S3 backend options based on selection
- * @param {Event} e - Radio button change event
+ * Update backend configuration options based on terraform-backend component selection
+ * - Shows S3 backend options only if terraform-backend is selected
+ * - Dynamically updates placeholder with project name and AWS account ID
  * @returns {void}
  */
-function handleBackendTypeChange(e) {
+function updateBackendOptions() {
     const s3Options = document.getElementById('s3BackendOptions');
-    if (e.target.value === 's3') {
+    const stateBucketInput = document.getElementById('stateBucket');
+
+    if (selectedComponents.includes('terraform-backend')) {
         s3Options.classList.remove('hidden');
+
+        // Update placeholder dynamically
+        const projectName = document.getElementById('projectName')?.value.trim() || 'my-project';
+        const awsAccountId = document.getElementById('awsAccountId')?.value.trim() || '123456789012';
+        stateBucketInput.placeholder = `${projectName}-terraform-state-${awsAccountId}`;
     } else {
         s3Options.classList.add('hidden');
     }
@@ -1040,8 +1053,12 @@ async function handleGenerate() {
             showModalSafe('⚡ Triggering Workflow', 'Please wait...');
 
             // Collect backend configuration
-            const backendType = document.querySelector('input[name="backendType"]:checked')?.value || 'local';
-            const stateBucket = document.getElementById('stateBucket')?.value.trim() || '';
+            // Auto-determine backend type based on terraform-backend component selection
+            const backendType = selectedComponents.includes('terraform-backend') ? 's3' : 'local';
+            const stateBucketInput = document.getElementById('stateBucket')?.value.trim() || '';
+            // Use custom bucket name or generate default
+            const defaultBucketName = `${projectName}-terraform-state-${awsAccountId}`;
+            const stateBucket = stateBucketInput || defaultBucketName;
 
             const workflowInputs = {
                 project_name: projectName,
@@ -1059,7 +1076,7 @@ async function handleGenerate() {
                 workflowInputs.vpc_cidrs = JSON.stringify(vpcCidrs);
             }
 
-            // Add S3 backend configuration if selected
+            // Add S3 backend configuration if terraform-backend is selected
             if (backendType === 's3') {
                 workflowInputs.state_bucket = stateBucket;
             }
