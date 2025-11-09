@@ -175,7 +175,7 @@ jobs:
           # Convert comma-separated components to JSON array
           components="${{ inputs.components }}"
           # Remove spaces and split by comma
-          components_array=$(echo "$components" | tr -d ' ' | tr ',' '\n' | jq -R . | jq -s .)
+          components_array=$(echo "$components" | tr -d ' ' | tr ',' '\n' | jq -R . | jq -sc .)
           echo "components_list=$components_array" >> $GITHUB_OUTPUT
           echo "Components to deploy: $components_array"
 
@@ -185,7 +185,7 @@ jobs:
           # Convert comma-separated environments to JSON array
           environments="${{ inputs.environments }}"
           # Remove spaces and split by comma
-          environments_array=$(echo "$environments" | tr -d ' ' | tr ',' '\n' | jq -R . | jq -s .)
+          environments_array=$(echo "$environments" | tr -d ' ' | tr ',' '\n' | jq -R . | jq -sc .)
           echo "environments_list=$environments_array" >> $GITHUB_OUTPUT
           echo "Environments to deploy: $environments_array"
 
