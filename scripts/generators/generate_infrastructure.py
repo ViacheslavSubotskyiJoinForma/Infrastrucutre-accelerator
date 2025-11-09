@@ -634,6 +634,17 @@ def main() -> None:
         choices=['gitlab', 'github', 'azuredevops'],
         help='CI/CD provider (default: gitlab)'
     )
+    parser.add_argument(
+        '--availability-zones',
+        type=int,
+        default=3,
+        choices=[1, 2, 3],
+        help='Number of Availability Zones (default: 3)'
+    )
+    parser.add_argument(
+        '--vpc-cidrs',
+        help='VPC CIDRs per environment as JSON string (e.g., \'{"dev":"10.0.0.0/16","prod":"10.2.0.0/16"}\')'
+    )
 
     args = parser.parse_args()
 
@@ -647,6 +658,14 @@ def main() -> None:
         with open(args.config) as f:
             config = json.load(f)
 
+    # Parse VPC CIDRs if provided
+    vpc_cidrs = {}
+    if args.vpc_cidrs:
+        try:
+            vpc_cidrs = json.loads(args.vpc_cidrs)
+        except json.JSONDecodeError:
+            print(f"⚠️  Warning: Invalid JSON for vpc-cidrs, using defaults")
+
     # Merge CLI args with config
     config.update({
         'output_dir': args.output_dir,
@@ -655,6 +674,8 @@ def main() -> None:
         'aws_profile': args.aws_profile or config.get('aws_profile', 'default'),
         'repository': args.repository or config.get('repository', 'infrastructure-accelerator'),
         'ci_provider': args.ci_provider or config.get('ci_provider', 'gitlab'),
+        'availability_zones': args.availability_zones,
+        'vpc_cidrs': vpc_cidrs,
     })
 
     # Generate infrastructure

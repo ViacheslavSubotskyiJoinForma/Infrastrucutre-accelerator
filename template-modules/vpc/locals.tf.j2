@@ -1,20 +1,23 @@
 locals {
-  private_subnets = [
-    "${var.cidr[var.env]}.1.0/24",
-    "${var.cidr[var.env]}.2.0/24",
-    "${var.cidr[var.env]}.3.0/24"
-  ]
+  # Dynamic subnet creation based on availability_zone_count
+  # Optimized /16 split: Each subnet gets /20 (4096 IPs) for better utilization
 
-  database_subnets = [
-    "${var.cidr[var.env]}.61.0/24",
-    "${var.cidr[var.env]}.62.0/24",
-    "${var.cidr[var.env]}.63.0/24"
-  ]
-
+  # Public subnets: .0.0/20, .16.0/20, .32.0/20
   public_subnets = [
-    "${var.cidr[var.env]}.21.0/24",
-    "${var.cidr[var.env]}.22.0/24",
-    "${var.cidr[var.env]}.23.0/24"
+    for i in range(var.availability_zone_count) :
+    "${var.cidr[var.env]}.${i * 16}.0/20"
+  ]
+
+  # Private subnets: .48.0/20, .64.0/20, .80.0/20
+  private_subnets = [
+    for i in range(var.availability_zone_count) :
+    "${var.cidr[var.env]}.${48 + i * 16}.0/20"
+  ]
+
+  # Database subnets: .96.0/20, .112.0/20, .128.0/20
+  database_subnets = [
+    for i in range(var.availability_zone_count) :
+    "${var.cidr[var.env]}.${96 + i * 16}.0/20"
   ]
 
   cluster_name = "{{ project_name }}_${upper(var.env)}"

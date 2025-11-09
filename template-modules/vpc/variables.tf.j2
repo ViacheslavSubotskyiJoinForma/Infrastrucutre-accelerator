@@ -31,9 +31,32 @@ variable "cidr" {
   description = "CIDR blocks for each environment"
   type        = map(any)
   default = {
+{% if vpc_cidrs and vpc_cidrs.get('dev') %}
+    dev  = "{{ vpc_cidrs.get('dev', '10.0.0.0/16').split('.')[0] }}.{{ vpc_cidrs.get('dev', '10.0.0.0/16').split('.')[1] }}"
+{% else %}
     dev  = "10.1"
+{% endif %}
+{% if vpc_cidrs and vpc_cidrs.get('uat') %}
+    uat  = "{{ vpc_cidrs.get('uat', '10.1.0.0/16').split('.')[0] }}.{{ vpc_cidrs.get('uat', '10.1.0.0/16').split('.')[1] }}"
+{% else %}
     uat  = "10.2"
+{% endif %}
+{% if vpc_cidrs and vpc_cidrs.get('prod') %}
+    prod = "{{ vpc_cidrs.get('prod', '10.2.0.0/16').split('.')[0] }}.{{ vpc_cidrs.get('prod', '10.2.0.0/16').split('.')[1] }}"
+{% else %}
     prod = "10.3"
+{% endif %}
+  }
+}
+
+variable "availability_zone_count" {
+  description = "Number of Availability Zones (1-3)"
+  type        = number
+  default     = {{ availability_zones | default(3) }}
+
+  validation {
+    condition     = var.availability_zone_count >= 1 && var.availability_zone_count <= 3
+    error_message = "Availability zone count must be between 1 and 3."
   }
 }
 

@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Environment Checkbox Test v2</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 1rem;
+        }
+        .test-section {
+            background: #f3f4f6;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+        }
+        .checkbox-group {
+            display: flex;
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+        .test-result {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        .success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .info {
+            background: #dbeafe;
+            color: #1e3a8a;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 0.5rem;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        .debug {
+            background: #fef3c7;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>Environment Checkbox Tests v2</h1>
+    <p class="info">
+        <strong>Test Goal:</strong> Verify environment checkboxes work correctly with capture phase listener.<br>
+        - At least one checkbox must always remain checked<br>
+        - Should be able to check/uncheck freely except the last one<br>
+        - Cost calculator should never see 0 environments
+    </p>
+
+    <!-- Test 1 -->
+    <div class="test-section">
+        <h2>Test 1: Try to uncheck the only selected environment</h2>
+        <p>Initial state: Only "dev" is checked</p>
+        <div class="checkbox-group environments">
+            <label>
+                <input type="checkbox" value="dev" checked>
+                Development
+            </label>
+            <label>
+                <input type="checkbox" value="staging">
+                Staging
+            </label>
+            <label>
+                <input type="checkbox" value="prod">
+                Production
+            </label>
+        </div>
+        <button onclick="runTest1()">Run Test 1</button>
+        <div id="test1Result"></div>
+        <div id="test1Debug" class="debug" style="display: none;"></div>
+    </div>
+
+    <!-- Test 2 -->
+    <div class="test-section">
+        <h2>Test 2: Check and uncheck multiple environments</h2>
+        <p>Initial state: Only "dev" is checked</p>
+        <div class="checkbox-group environments2">
+            <label>
+                <input type="checkbox" value="dev" checked>
+                Development
+            </label>
+            <label>
+                <input type="checkbox" value="staging">
+                Staging
+            </label>
+            <label>
+                <input type="checkbox" value="prod">
+                Production
+            </label>
+        </div>
+        <button onclick="runTest2()">Run Test 2</button>
+        <div id="test2Result"></div>
+        <div id="test2Debug" class="debug" style="display: none;"></div>
+    </div>
+
+    <!-- Test 3 -->
+    <div class="test-section">
+        <h2>Test 3: Cost Calculator Integration</h2>
+        <p>Simulates cost calculator behavior - should never see 0 environments</p>
+        <div class="checkbox-group environments3">
+            <label>
+                <input type="checkbox" value="dev" checked>
+                Development
+            </label>
+            <label>
+                <input type="checkbox" value="staging">
+                Staging
+            </label>
+            <label>
+                <input type="checkbox" value="prod">
+                Production
+            </label>
+        </div>
+        <div id="costDisplay" style="margin: 1rem 0; padding: 1rem; background: #fff; border-radius: 4px;">
+            <strong>Estimated Cost:</strong> <span id="costValue">$0</span><br>
+            <strong>Environments:</strong> <span id="envCount">0</span>
+        </div>
+        <button onclick="runTest3()">Run Test 3</button>
+        <div id="test3Result"></div>
+        <div id="test3Debug" class="debug" style="display: none;"></div>
+    </div>
+
+    <script>
+        // Global state
+        let selectedEnvironments = ['dev'];
+        let costCalculatorSawZero = false;
+
+        // Environment handler (capture phase)
+        function handleEnvironmentChange(e) {
+            const checkbox = e.target;
+            const allCheckboxes = checkbox.closest('.checkbox-group').querySelectorAll('input[type="checkbox"]');
+            const currentlyChecked = Array.from(allCheckboxes).filter(cb => cb.checked);
+
+            if (currentlyChecked.length === 0) {
+                e.stopImmediatePropagation();
+                checkbox.checked = true;
+                return;
+            }
+
+            selectedEnvironments = currentlyChecked.map(cb => cb.value);
+        }
+
+        // Simulated cost calculator (bubble phase - runs after)
+        function costCalculatorHandler() {
+            const checkboxes = document.querySelectorAll('.environments3 input[type="checkbox"]');
+            const checked = Array.from(checkboxes).filter(cb => cb.checked);
+
+            if (checked.length === 0) {
+                costCalculatorSawZero = true;
+            }
+
+            document.getElementById('envCount').textContent = checked.length;
+            document.getElementById('costValue').textContent = `$${checked.length * 100}`;
+        }
+
+        // Setup listeners
+        function setupListeners(selector, testNumber) {
+            const checkboxes = document.querySelectorAll(`${selector} input[type="checkbox"]`);
+            checkboxes.forEach(cb => {
+                // Our handler in capture phase (runs first)
+                cb.addEventListener('change', handleEnvironmentChange, true);
+
+                // Cost calculator in bubble phase (runs after) - only for test 3
+                if (testNumber === 3) {
+                    cb.addEventListener('change', costCalculatorHandler);
+                }
+            });
+        }
+
+        // Test 1: Try to uncheck last environment
+        function runTest1() {
+            setupListeners('.environments', 1);
+
+            const result = document.getElementById('test1Result');
+            const debug = document.getElementById('test1Debug');
+            debug.style.display = 'block';
+
+            const devCheckbox = document.querySelector('.environments input[value="dev"]');
+
+            debug.textContent = 'Before click: dev.checked = ' + devCheckbox.checked;
+
+            // Try to click
+            devCheckbox.click();
+
+            debug.textContent += '\nAfter click: dev.checked = ' + devCheckbox.checked;
+
+            if (devCheckbox.checked) {
+                result.className = 'test-result success';
+                result.textContent = '✓ PASS: Cannot uncheck last environment';
+            } else {
+                result.className = 'test-result error';
+                result.textContent = '✗ FAIL: Last environment was unchecked';
+            }
+        }
+
+        // Test 2: Multiple check/uncheck operations
+        function runTest2() {
+            setupListeners('.environments2', 2);
+
+            const result = document.getElementById('test2Result');
+            const debug = document.getElementById('test2Debug');
+            debug.style.display = 'block';
+
+            const devCb = document.querySelector('.environments2 input[value="dev"]');
+            const stagingCb = document.querySelector('.environments2 input[value="staging"]');
+            const prodCb = document.querySelector('.environments2 input[value="prod"]');
+
+            let log = '';
+
+            // Step 1: Check staging
+            log += 'Step 1: Check staging\n';
+            stagingCb.click();
+            log += `  dev: ${devCb.checked}, staging: ${stagingCb.checked}, prod: ${prodCb.checked}\n`;
+
+            // Step 2: Check prod
+            log += 'Step 2: Check prod\n';
+            prodCb.click();
+            log += `  dev: ${devCb.checked}, staging: ${stagingCb.checked}, prod: ${prodCb.checked}\n`;
+
+            // Step 3: Uncheck dev
+            log += 'Step 3: Uncheck dev\n';
+            devCb.click();
+            log += `  dev: ${devCb.checked}, staging: ${stagingCb.checked}, prod: ${prodCb.checked}\n`;
+
+            // Step 4: Try to uncheck all
+            log += 'Step 4: Try to uncheck staging (should fail - last one)\n';
+            stagingCb.click();
+            log += `  dev: ${devCb.checked}, staging: ${stagingCb.checked}, prod: ${prodCb.checked}\n`;
+
+            prodCb.click();
+            log += 'Step 5: Try to uncheck prod (should fail - last one)\n';
+            log += `  dev: ${devCb.checked}, staging: ${stagingCb.checked}, prod: ${prodCb.checked}\n`;
+
+            debug.textContent = log;
+
+            const checkedCount = [devCb, stagingCb, prodCb].filter(cb => cb.checked).length;
+
+            if (checkedCount >= 1) {
+                result.className = 'test-result success';
+                result.textContent = `✓ PASS: At least one environment remains checked (${checkedCount})`;
+            } else {
+                result.className = 'test-result error';
+                result.textContent = '✗ FAIL: No environments are checked';
+            }
+        }
+
+        // Test 3: Cost calculator integration
+        function runTest3() {
+            costCalculatorSawZero = false;
+            setupListeners('.environments3', 3);
+
+            const result = document.getElementById('test3Result');
+            const debug = document.getElementById('test3Debug');
+            debug.style.display = 'block';
+
+            const devCb = document.querySelector('.environments3 input[value="dev"]');
+
+            let log = 'Testing cost calculator integration...\n\n';
+
+            // Try to uncheck the only environment
+            log += 'Attempting to uncheck last environment...\n';
+            devCb.click();
+            log += `After click: dev.checked = ${devCb.checked}\n`;
+            log += `Cost calculator saw zero environments: ${costCalculatorSawZero}\n`;
+
+            debug.textContent = log;
+
+            if (!costCalculatorSawZero && devCb.checked) {
+                result.className = 'test-result success';
+                result.textContent = '✓ PASS: Cost calculator never saw 0 environments';
+            } else {
+                result.className = 'test-result error';
+                result.textContent = `✗ FAIL: ${costCalculatorSawZero ? 'Cost calculator saw 0 environments' : 'Checkbox was unchecked'}`;
+            }
+        }
+    </script>
+</body>
+</html>

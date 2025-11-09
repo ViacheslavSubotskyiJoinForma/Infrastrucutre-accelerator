@@ -435,7 +435,7 @@ body.dark-mode input[value="github"] ~ .provider-card .provider-icon path {
 }
 
 .advanced-options.expanded {
-    max-height: 600px;
+    max-height: 1200px; /* Increased to accommodate all environments */
 }
 
 .advanced-content {
@@ -545,11 +545,10 @@ body.dark-mode input[value="github"] ~ .provider-card .provider-icon path {
     position: relative;
     background: var(--diagram-bg);
     border-radius: 8px;
-    padding: 1rem;
+    padding: 0;
     margin-bottom: 1.5rem;
-    min-height: 520px;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: flex-start;
     transition: background 0.3s ease;
     overflow-x: auto;
