@@ -1,12 +1,12 @@
 provider "aws" {
   region = var.region
-{%- if aws_profile %}
+{% if aws_profile -%}
   profile = "{{ aws_profile }}"
-{%- endif %}
-{%- if aws_account_id %}
+{% endif -%}
+{% if aws_account_id -%}
 
   allowed_account_ids = ["{{ aws_account_id }}"]
-{%- endif %}
+{% endif -%}
 
   default_tags {
     tags = {
