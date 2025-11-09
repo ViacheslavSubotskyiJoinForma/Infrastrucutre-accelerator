@@ -29,15 +29,9 @@ variable "aws_profile" {
 
 {% if backend_type == 's3' %}
 variable "state_bucket" {
-  description = "S3 bucket for Terraform state"
+  description = "S3 bucket for Terraform state (with native locking)"
   type        = string
   default     = "{{ state_bucket }}"
-}
-
-variable "dynamodb_table" {
-  description = "DynamoDB table for state locking"
-  type        = string
-  default     = "{{ dynamodb_table }}"
 }
 {% endif %}
 

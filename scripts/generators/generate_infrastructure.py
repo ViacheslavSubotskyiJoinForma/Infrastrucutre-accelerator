@@ -25,7 +25,7 @@ class InfrastructureGenerator:
 
     # Available components with templates
     AVAILABLE_COMPONENTS = [
-        'terraform-backend',  # S3 + DynamoDB for Terraform state (ready)
+        'terraform-backend',  # S3 bucket with native state locking (ready)
         'vpc',                # VPC networking (ready)
         'eks-auto',           # EKS Auto Mode cluster (ready)
         'rds',                # Aurora PostgreSQL Serverless v2 (ready)
@@ -287,10 +287,9 @@ class InfrastructureGenerator:
             'region': self.config.get('region', 'us-east-1'),
             'aws_account_id': self.config.get('aws_account_id', ''),
             'aws_profile': self.config.get('aws_profile', 'default'),
-            # Backend configuration (MVP uses local, S3 backend support planned)
+            # Backend configuration (local or S3 with native locking)
             'backend_type': self.config.get('backend_type', 'local'),
             'state_bucket': self.config.get('state_bucket', ''),
-            'dynamodb_table': self.config.get('dynamodb_table', ''),
             **self.config
         }
 
@@ -567,7 +566,7 @@ The repository includes a `.gitlab-ci.yml` file that automates:
 
 Backend Type: **{self.config.get('backend_type', 'local').upper()}**
 - **State Storage**: {'S3 (' + self.config.get('state_bucket', '') + ')' if self.config.get('backend_type') == 's3' else 'Local (terraform.tfstate in each component directory)'}
-- **State Locking**: {'DynamoDB (' + self.config.get('dynamodb_table', '') + ')' if self.config.get('backend_type') == 's3' else 'None (local backend only)'}
+- **State Locking**: {'S3 Native (Terraform 1.10+)' if self.config.get('backend_type') == 's3' else 'None (local backend only)'}
 - **Region**: `{self.config.get('region', 'us-east-1')}`
 - **AWS Account**: `{self.config.get('aws_account_id', 'TBD')}`
 """
@@ -586,7 +585,7 @@ If migrating from local to S3 backend, use the provided helper script:
 """
         else:
             readme += """
-**Note**: For production use, consider migrating to S3 backend with DynamoDB state locking.
+**Note**: For production use, consider migrating to S3 backend with native state locking (Terraform 1.10+).
 """
 
         readme += """
@@ -645,7 +644,7 @@ echo ""
 echo "Backend configuration:"
 echo "  Bucket: {self.config.get('state_bucket', 'BUCKET_NAME')}"
 echo "  Key: $ENV/$COMPONENT/terraform.tfstate"
-echo "  DynamoDB: {self.config.get('dynamodb_table', 'TABLE_NAME')}"
+echo "  Locking: S3 Native (Terraform 1.10+)"
 echo "  Region: {self.config.get('region', 'us-east-1')}"
 echo ""
 
@@ -716,7 +715,6 @@ echo "✅ Initialization complete!"
 set -e
 
 BUCKET="{self.config.get('state_bucket', 'BUCKET_NAME')}"
-TABLE="{self.config.get('dynamodb_table', 'TABLE_NAME')}"
 REGION="{self.config.get('region', 'us-east-1')}"
 
 echo "🔍 Validating S3 backend configuration..."
@@ -748,24 +746,9 @@ else
 fi
 
 echo ""
-
-# Check DynamoDB table
-echo "Checking DynamoDB table: $TABLE"
-if aws dynamodb describe-table --table-name "$TABLE" --region "$REGION" >/dev/null 2>&1; then
-    echo "  ✅ DynamoDB table exists and is accessible"
-
-    # Check PITR
-    PITR=$(aws dynamodb describe-continuous-backups --table-name "$TABLE" --region "$REGION" --query 'ContinuousBackupsDescription.PointInTimeRecoveryDescription.PointInTimeRecoveryStatus' --output text 2>/dev/null || echo "DISABLED")
-    if [ "$PITR" = "ENABLED" ]; then
-        echo "  ✅ Point-in-time recovery is enabled"
-    else
-        echo "  ⚠️  Warning: Point-in-time recovery is not enabled"
-    fi
-else
-    echo "  ❌ DynamoDB table does not exist or is not accessible"
-    exit 1
-fi
-
+echo "✅ S3 backend configuration is valid!"
+echo ""
+echo "Note: Using S3 native state locking (Terraform 1.10+)"
 echo ""
 echo "✅ Backend validation complete!"
 """
@@ -851,10 +834,6 @@ def main() -> None:
         '--state-bucket',
         help='S3 bucket name for Terraform state (required if backend-type=s3). Example: my-project-terraform-state-123456789012'
     )
-    parser.add_argument(
-        '--dynamodb-table',
-        help='DynamoDB table name for state locking (required if backend-type=s3). Example: my-project-terraform-locks'
-    )
 
     args = parser.parse_args()
 
@@ -880,11 +859,10 @@ def main() -> None:
     backend_type = args.backend_type or config.get('backend_type', 'local')
     if backend_type == 's3':
         state_bucket = args.state_bucket or config.get('state_bucket', '')
-        dynamodb_table = args.dynamodb_table or config.get('dynamodb_table', '')
 
-        if not state_bucket or not dynamodb_table:
-            print("❌ Error: --state-bucket and --dynamodb-table are required when --backend-type=s3")
-            print("\nTip: First deploy the terraform-backend component to create these resources:")
+        if not state_bucket:
+            print("❌ Error: --state-bucket is required when --backend-type=s3")
+            print("\nTip: First deploy the terraform-backend component to create the S3 bucket:")
             print("  python3 scripts/generators/generate_infrastructure.py \\")
             print("    --project-name my-project \\")
             print("    --components terraform-backend \\")
@@ -892,7 +870,6 @@ def main() -> None:
             sys.exit(1)
     else:
         state_bucket = ''
-        dynamodb_table = ''
 
     # Merge CLI args with config
     config.update({
@@ -906,7 +883,6 @@ def main() -> None:
         'vpc_cidrs': vpc_cidrs,
         'backend_type': backend_type,
         'state_bucket': state_bucket,
-        'dynamodb_table': dynamodb_table,
     })
 
     # Generate infrastructure

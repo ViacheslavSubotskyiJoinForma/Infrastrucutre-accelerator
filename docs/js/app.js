@@ -492,7 +492,7 @@ function updateComponentList() {
 
     if (selectedComponents.includes('terraform-backend')) {
         items.push('✅ S3 bucket for Terraform state');
-        items.push('✅ DynamoDB table for state locking');
+        items.push('✅ S3 native state locking (Terraform 1.10+)');
         items.push('✅ Encryption and versioning enabled');
     }
 
@@ -1007,7 +1007,6 @@ async function handleGenerate() {
             // Collect backend configuration
             const backendType = document.querySelector('input[name="backendType"]:checked')?.value || 'local';
             const stateBucket = document.getElementById('stateBucket')?.value.trim() || '';
-            const dynamodbTable = document.getElementById('dynamodbTable')?.value.trim() || '';
 
             const workflowInputs = {
                 project_name: projectName,
@@ -1028,7 +1027,6 @@ async function handleGenerate() {
             // Add S3 backend configuration if selected
             if (backendType === 's3') {
                 workflowInputs.state_bucket = stateBucket;
-                workflowInputs.dynamodb_table = dynamodbTable;
             }
 
             const runId = await auth.triggerWorkflow(workflowInputs);

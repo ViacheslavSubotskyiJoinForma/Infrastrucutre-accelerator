@@ -125,7 +125,7 @@
                         <label class="checkbox">
                             <input type="checkbox" value="terraform-backend" id="terraform-backend">
                             <span>Terraform Backend</span>
-                            <small>S3 bucket + DynamoDB table for state management (deploy first)</small>
+                            <small>S3 bucket with native state locking (deploy first)</small>
                         </label>
                         <label class="checkbox">
                             <input type="checkbox" value="vpc" checked disabled>
@@ -212,15 +212,15 @@
                                     </label>
                                     <label class="radio-option">
                                         <input type="radio" name="backendType" value="s3">
-                                        <span>S3 + DynamoDB</span>
-                                        <small>Remote state with locking (recommended for teams)</small>
+                                        <span>S3 Native Locking</span>
+                                        <small>Remote state with S3 native locking (Terraform 1.10+, recommended for teams)</small>
                                     </label>
                                 </div>
                             </div>
 
                             <div id="s3BackendOptions" class="s3-backend-options hidden">
                                 <div class="info-box warning">
-                                    <strong>⚠️ Prerequisites:</strong> First deploy the <code>terraform-backend</code> component to create S3 bucket and DynamoDB table.
+                                    <strong>⚠️ Prerequisites:</strong> First deploy the <code>terraform-backend</code> component to create S3 bucket with native state locking.
                                 </div>
 
                                 <div class="form-group">
@@ -229,16 +229,7 @@
                                         <span class="tooltip-icon" data-tooltip="S3 bucket created by terraform-backend component">ⓘ</span>
                                     </label>
                                     <input type="text" id="stateBucket" placeholder="my-project-terraform-state-123456789012">
-                                    <small>Bucket name from terraform-backend output</small>
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="dynamodbTable">
-                                        DynamoDB Lock Table
-                                        <span class="tooltip-icon" data-tooltip="DynamoDB table for state locking">ⓘ</span>
-                                    </label>
-                                    <input type="text" id="dynamodbTable" placeholder="my-project-terraform-locks">
-                                    <small>Table name from terraform-backend output</small>
+                                    <small>Bucket name from terraform-backend output (uses S3 native locking, no DynamoDB needed)</small>
                                 </div>
                             </div>
 

@@ -1,22 +1,17 @@
 # Terraform Backend Component
 
 This component creates the foundational infrastructure for Terraform state management:
-- **S3 Bucket** - For storing Terraform state files
-- **DynamoDB Table** - For state locking and consistency
+- **S3 Bucket** - For storing Terraform state files with native state locking
 
 ## Features
 
-### S3 Bucket
+### S3 Bucket with Native State Locking
+- ✅ **Native state locking** - Uses S3 Conditional Writes (Terraform 1.10+, no DynamoDB needed)
 - ✅ Versioning enabled (90-day retention for old versions)
 - ✅ Server-side encryption (AES256)
 - ✅ Public access blocked
 - ✅ TLS-only access enforced
 - ✅ Lifecycle policies for cleanup
-
-### DynamoDB Table
-- ✅ Pay-per-request billing (cost-effective)
-- ✅ Point-in-time recovery enabled
-- ✅ Automatic scaling
 
 ## Usage
 
@@ -33,24 +28,23 @@ terraform apply -var-file=../config/dev.tfvars
 
 ### 2. Note the Outputs
 
-After deployment, note these outputs:
+After deployment, note the S3 bucket name:
 ```bash
 terraform output s3_bucket_name
-terraform output dynamodb_table_name
 ```
 
 ### 3. Configure Other Components
 
-Use the outputs to configure backend for other components (VPC, EKS, RDS, etc.):
+Use the bucket name to configure backend for other components (VPC, EKS, RDS, etc.):
 
 ```hcl
 terraform {
   backend "s3" {
-    bucket         = "your-project-terraform-state-123456789012"
-    key            = "dev/vpc/terraform.tfstate"
-    region         = "us-east-1"
-    dynamodb_table = "your-project-terraform-locks"
-    encrypt        = true
+    bucket       = "your-project-terraform-state-123456789012"
+    key          = "dev/vpc/terraform.tfstate"
+    region       = "us-east-1"
+    encrypt      = true
+    use_lockfile = true  # S3 native locking (Terraform 1.10+)
   }
 }
 ```
@@ -65,8 +59,8 @@ This component uses **local backend** because it creates the S3 backend that oth
 
 ⚠️ **Critical**: The `terraform.tfstate` file for this component contains sensitive information:
 - S3 bucket name
-- DynamoDB table name
 - AWS account ID
+- Resource ARNs
 
 **Recommendations:**
 1. Store the state file in a secure location (encrypted drive, secrets manager)
@@ -95,16 +89,15 @@ s3://project-terraform-state-123456789012/
 ## Cost Estimate
 
 - **S3**: ~$0.023/GB/month + minimal request costs
-- **DynamoDB**: ~$0.00013 per read/write (pay-per-request)
+- **No DynamoDB costs** - Native S3 locking is free
 
-**Typical monthly cost**: < $1 for small teams
+**Typical monthly cost**: < $0.50 for small teams (significantly reduced from DynamoDB-based approach)
 
 ## Resources Created
 
 | Resource | Name Pattern | Purpose |
 |----------|--------------|---------|
-| S3 Bucket | `{project}-terraform-state-{account}` | State storage |
-| DynamoDB Table | `{project}-terraform-locks` | State locking |
+| S3 Bucket | `{project}-terraform-state-{account}` | State storage with native locking |
 
 ## Migration from Local to S3 Backend
 
@@ -122,7 +115,7 @@ If migrating existing components from local to S3 backend:
 ✅ Encryption at rest - AES256 encryption
 ✅ TLS-only policy - Prevents unencrypted transfers
 ✅ Public access blocked - No public access allowed
-✅ Point-in-time recovery - DynamoDB backup capability
+✅ Native S3 locking - Uses S3 Conditional Writes (Terraform 1.10+)
 
 ## Troubleshooting
 
@@ -130,11 +123,15 @@ If migrating existing components from local to S3 backend:
 
 If you see "Error acquiring the state lock":
 ```bash
-# List locks
-aws dynamodb scan --table-name {project}-terraform-locks
+# S3 native locking uses .tflock files in the bucket
+# List lock files
+aws s3 ls s3://{bucket}/{environment}/{component}/ | grep tflock
 
 # Force unlock (use with caution!)
 terraform force-unlock {LOCK_ID}
+
+# Or manually delete the lock file (extreme caution!)
+aws s3 rm s3://{bucket}/{environment}/{component}/terraform.tfstate.tflock
 ```
 
 ### Bucket Already Exists

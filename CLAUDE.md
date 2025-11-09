@@ -55,8 +55,7 @@ python3 scripts/generators/generate_infrastructure.py \
   --region us-east-1 \
   --aws-account-id YOUR_ACCOUNT_ID \
   --backend-type s3 \
-  --state-bucket my-project-terraform-state-YOUR_ACCOUNT_ID \
-  --dynamodb-table my-project-terraform-locks
+  --state-bucket my-project-terraform-state-YOUR_ACCOUNT_ID
 ```
 
 **CI/CD Provider Options**:
@@ -66,11 +65,11 @@ python3 scripts/generators/generate_infrastructure.py \
 
 **Backend Options**:
 - `local` - Local state storage (default, for MVP/testing)
-- `s3` - S3 + DynamoDB for remote state with locking (recommended for production)
+- `s3` - S3 with native state locking (Terraform 1.10+, recommended for production)
 
 **Important**:
 - Always use `.venv/bin/activate` before running the generator locally
-- For S3 backend, first deploy `terraform-backend` component to create S3 bucket and DynamoDB table
+- For S3 backend, first deploy `terraform-backend` component to create S3 bucket with native locking
 
 ### Generated Output
 
@@ -87,7 +86,7 @@ Creates a complete infrastructure project:
 ### Component Dependencies
 
 The generator automatically resolves dependencies:
-- **terraform-backend**: No dependencies (bootstrap component for S3 + DynamoDB state management) ✅
+- **terraform-backend**: No dependencies (bootstrap component for S3 state management with native locking) ✅
 - **vpc**: No dependencies (foundational) ✅
 - **eks-auto**: Requires vpc (EKS Auto Mode - simplified cluster with automatic node management) ✅
 - **rds**: Requires vpc (Aurora PostgreSQL Serverless v2) ✅
@@ -147,9 +146,8 @@ cd generated-infra/infra/terraform-backend
 terraform init
 terraform apply -var-file=../config/dev.tfvars
 
-# Note bucket and table names from outputs
+# Note bucket name from output
 terraform output s3_bucket_name
-terraform output dynamodb_table_name
 
 # Step 2: Generate infrastructure with S3 backend
 python3 scripts/generators/generate_infrastructure.py \
@@ -157,8 +155,7 @@ python3 scripts/generators/generate_infrastructure.py \
   --components vpc \
   --environments dev \
   --backend-type s3 \
-  --state-bucket <bucket-from-output> \
-  --dynamodb-table <table-from-output>
+  --state-bucket <bucket-from-output>
 
 # Step 3: Initialize with S3 backend
 cd generated-infra/infra/vpc

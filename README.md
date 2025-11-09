@@ -35,9 +35,9 @@ Visit the **[Interactive Generator](https://viacheslavsubotskyijoinforma.github.
 
 ### Available Components
 
-- **Terraform Backend** ✅ - S3 + DynamoDB state management
+- **Terraform Backend** ✅ - S3 state management with native locking
   - S3 bucket with versioning and encryption
-  - DynamoDB table for state locking
+  - S3 native state locking (Terraform 1.10+, no DynamoDB needed)
   - Lifecycle policies for state cleanup
   - Helper scripts for migration
 
@@ -108,8 +108,7 @@ python3 scripts/generators/generate_infrastructure.py \
   --components vpc,eks-auto,rds \
   --environments dev,staging,prod \
   --backend-type s3 \
-  --state-bucket my-project-terraform-state-YOUR_ACCOUNT_ID \
-  --dynamodb-table my-project-terraform-locks
+  --state-bucket my-project-terraform-state-YOUR_ACCOUNT_ID
 ```
 
 ## 📖 Usage
@@ -150,7 +149,7 @@ terraform apply -var-file=../config/dev.tfvars
 
 Components must be deployed in order due to dependencies:
 
-1. **terraform-backend** - S3 + DynamoDB for state (optional, deploy first if using S3 backend)
+1. **terraform-backend** - S3 with native state locking (optional, deploy first if using S3 backend)
 2. **vpc** - Foundational networking (always first)
 3. **eks-auto** - Kubernetes cluster (depends on VPC)
 4. **rds** - Databases (depends on VPC)

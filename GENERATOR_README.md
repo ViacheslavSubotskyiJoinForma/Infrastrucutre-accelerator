@@ -40,8 +40,7 @@ python3 scripts/generators/generate_infrastructure.py \
   --components vpc,rds,eks,services \
   --environments dev,uat,prod \
   --region us-east-1 \
-  --state-bucket my-tf-state-bucket \
-  --dynamodb-table my-tf-lock-table
+  --state-bucket my-tf-state-bucket
 
 # Output will be in generated-infra/
 ```
@@ -84,8 +83,7 @@ The generator automatically includes required dependencies. For example:
 #### Optional
 - **custom_components**: If preset=custom, specify components (e.g., `vpc,rds,eks,services,secrets,opensearch,monitoring,common`)
 - **region**: AWS region (default: `us-east-1`)
-- **state_bucket**: S3 bucket for Terraform state (auto-generated if empty)
-- **dynamodb_table**: DynamoDB table for state locking (auto-generated if empty)
+- **state_bucket**: S3 bucket for Terraform state (with native locking, Terraform 1.10+)
 - **use_assume_role**: Enable AWS role assumption (default: true)
 
 ### Component Presets
@@ -317,7 +315,7 @@ The generator will copy files from `infra/<component>/` as fallback. To create p
 Common fixes:
 - Ensure `.tfvars` files exist in `infra/config/`
 - Verify AWS credentials are configured in GitLab
-- Check S3 bucket and DynamoDB table exist
+- Check S3 bucket exists (if using S3 backend)
 - Review variable names match across files
 
 ## Best Practices
@@ -334,7 +332,7 @@ Common fixes:
 
 - ✅ Use separate state files per component and environment
 - ✅ Enable S3 versioning on state bucket
-- ✅ Use DynamoDB for state locking
+- ✅ Use S3 native state locking (Terraform 1.10+)
 - ✅ Implement state backup strategy
 - ✅ Consider Terraform Cloud/Enterprise for teams
 
@@ -374,8 +372,7 @@ python3 scripts/generators/generate_infrastructure.py \
   --components vpc,rds,secrets,eks,services,opensearch,monitoring,common \
   --environments dev,staging,prod \
   --region eu-west-1 \
-  --state-bucket my-company-terraform-state \
-  --dynamodb-table my-company-terraform-locks
+  --state-bucket my-company-terraform-state
 ```
 
 ### Kubernetes-focused
