@@ -25,18 +25,20 @@ class InfrastructureGenerator:
 
     # Available components with templates
     AVAILABLE_COMPONENTS = [
-        'vpc',      # VPC networking (ready)
-        'eks-auto', # EKS Auto Mode cluster (ready)
-        'rds',      # Aurora PostgreSQL Serverless v2 (ready)
+        'terraform-backend',  # S3 bucket with native state locking (ready)
+        'vpc',                # VPC networking (ready)
+        'eks-auto',           # EKS Auto Mode cluster (ready)
+        'rds',                # Aurora PostgreSQL Serverless v2 (ready)
         # Future components (templates to be created):
         # 'secrets', 'eks', 'services', 'opensearch', 'monitoring', 'common'
     ]
 
     # Component dependencies (only for available components)
     DEPENDENCIES = {
-        'vpc': [],           # No dependencies (foundational)
-        'eks-auto': ['vpc'], # EKS Auto Mode - requires VPC only
-        'rds': ['vpc'],      # Aurora PostgreSQL Serverless v2 - requires VPC
+        'terraform-backend': [],  # No dependencies (bootstrap component)
+        'vpc': [],                # No dependencies (foundational)
+        'eks-auto': ['vpc'],      # EKS Auto Mode - requires VPC only
+        'rds': ['vpc'],           # Aurora PostgreSQL Serverless v2 - requires VPC
         # Future dependencies (when components are added):
         # 'secrets': ['eks', 'services'],
         # 'eks': ['vpc'],
@@ -222,9 +224,17 @@ class InfrastructureGenerator:
         # Generate README
         self._generate_readme(infra_dir.parent)
 
+        # Generate backend helper scripts if using S3
+        if self.config.get('backend_type') == 's3':
+            self._generate_backend_scripts(infra_dir.parent)
+
         print(f"\n{'='*60}")
         print(f"✅ Infrastructure generated successfully!")
         print(f"📁 Output directory: {self.output_dir}")
+        if self.config.get('backend_type') == 's3':
+            print(f"📦 Backend: S3 ({self.config.get('state_bucket')})")
+        else:
+            print(f"📦 Backend: Local (consider S3 for production)")
         print(f"{'='*60}\n")
 
     def _generate_component(self, component: str, infra_dir: Path) -> None:
@@ -277,10 +287,9 @@ class InfrastructureGenerator:
             'region': self.config.get('region', 'us-east-1'),
             'aws_account_id': self.config.get('aws_account_id', ''),
             'aws_profile': self.config.get('aws_profile', 'default'),
-            # Backend configuration (MVP uses local, S3 backend support planned)
+            # Backend configuration (local or S3 with native locking)
             'backend_type': self.config.get('backend_type', 'local'),
             'state_bucket': self.config.get('state_bucket', ''),
-            'dynamodb_table': self.config.get('dynamodb_table', ''),
             **self.config
         }
 
@@ -555,12 +564,31 @@ The repository includes a `.gitlab-ci.yml` file that automates:
 
 ## Configuration
 
-This is an MVP version with local state backend:
-- **State Storage**: Local (terraform.tfstate in each component directory)
+Backend Type: **{self.config.get('backend_type', 'local').upper()}**
+- **State Storage**: {'S3 (' + self.config.get('state_bucket', '') + ')' if self.config.get('backend_type') == 's3' else 'Local (terraform.tfstate in each component directory)'}
+- **State Locking**: {'S3 Native (Terraform 1.10+)' if self.config.get('backend_type') == 's3' else 'None (local backend only)'}
 - **Region**: `{self.config.get('region', 'us-east-1')}`
 - **AWS Account**: `{self.config.get('aws_account_id', 'TBD')}`
+"""
 
-**Note**: For production use, consider migrating to S3 backend with DynamoDB state locking.
+        # Add backend-specific section
+        if self.config.get('backend_type') == 's3':
+            readme += """
+### S3 Backend Migration
+
+If migrating from local to S3 backend, use the provided helper script:
+
+```bash
+./scripts/migrate-to-s3-backend.sh <component> <environment>
+# Example: ./scripts/migrate-to-s3-backend.sh vpc dev
+```
+"""
+        else:
+            readme += """
+**Note**: For production use, consider migrating to S3 backend with native state locking (Terraform 1.10+).
+"""
+
+        readme += """
 
 ## VPC Flow Logs
 
@@ -578,6 +606,157 @@ enable_flow_logs = false
 
         (output_dir / 'README.md').write_text(readme)
         print(f"✓ Generated: README.md with deployment instructions")
+
+    def _generate_backend_scripts(self, output_dir: Path) -> None:
+        """Generate helper scripts for S3 backend management"""
+        print("🔧 Generating backend helper scripts...")
+
+        scripts_dir = output_dir / 'scripts'
+        scripts_dir.mkdir(exist_ok=True)
+
+        # Migration script
+        migration_script = f"""#!/bin/bash
+# Migrate Terraform component from local to S3 backend
+#
+# Usage: ./scripts/migrate-to-s3-backend.sh <component> <environment>
+# Example: ./scripts/migrate-to-s3-backend.sh vpc dev
+
+set -e
+
+COMPONENT=$1
+ENV=$2
+
+if [ -z "$COMPONENT" ] || [ -z "$ENV" ]; then
+    echo "Usage: $0 <component> <environment>"
+    echo "Example: $0 vpc dev"
+    exit 1
+fi
+
+COMPONENT_DIR="infra/$COMPONENT"
+
+if [ ! -d "$COMPONENT_DIR" ]; then
+    echo "❌ Error: Component directory not found: $COMPONENT_DIR"
+    exit 1
+fi
+
+echo "🔄 Migrating $COMPONENT ($ENV) to S3 backend..."
+echo ""
+echo "Backend configuration:"
+echo "  Bucket: {self.config.get('state_bucket', 'BUCKET_NAME')}"
+echo "  Key: $ENV/$COMPONENT/terraform.tfstate"
+echo "  Locking: S3 Native (Terraform 1.10+)"
+echo "  Region: {self.config.get('region', 'us-east-1')}"
+echo ""
+
+cd "$COMPONENT_DIR"
+
+# Reinitialize with backend config
+terraform init \\
+  -migrate-state \\
+  -backend-config="key=$ENV/$COMPONENT/terraform.tfstate"
+
+echo "✅ Migration complete!"
+echo ""
+echo "Verify state in S3:"
+echo "  aws s3 ls s3://{self.config.get('state_bucket', 'BUCKET_NAME')}/$ENV/$COMPONENT/"
+"""
+
+        migration_script_path = scripts_dir / 'migrate-to-s3-backend.sh'
+        migration_script_path.write_text(migration_script)
+        migration_script_path.chmod(0o755)
+        print(f"✓ Generated: scripts/migrate-to-s3-backend.sh")
+
+        # Backend init script
+        init_script = f"""#!/bin/bash
+# Initialize Terraform with S3 backend configuration
+#
+# Usage: ./scripts/init-backend.sh <component> <environment>
+# Example: ./scripts/init-backend.sh vpc dev
+
+set -e
+
+COMPONENT=$1
+ENV=$2
+
+if [ -z "$COMPONENT" ] || [ -z "$ENV" ]; then
+    echo "Usage: $0 <component> <environment>"
+    echo "Example: $0 vpc dev"
+    exit 1
+fi
+
+COMPONENT_DIR="infra/$COMPONENT"
+
+if [ ! -d "$COMPONENT_DIR" ]; then
+    echo "❌ Error: Component directory not found: $COMPONENT_DIR"
+    exit 1
+fi
+
+echo "🔧 Initializing $COMPONENT ($ENV) with S3 backend..."
+
+cd "$COMPONENT_DIR"
+
+terraform init \\
+  -backend-config="key=$ENV/$COMPONENT/terraform.tfstate"
+
+echo "✅ Initialization complete!"
+"""
+
+        init_script_path = scripts_dir / 'init-backend.sh'
+        init_script_path.write_text(init_script)
+        init_script_path.chmod(0o755)
+        print(f"✓ Generated: scripts/init-backend.sh")
+
+        # Backend validation script
+        validate_script = f"""#!/bin/bash
+# Validate S3 backend configuration
+#
+# Usage: ./scripts/validate-backend.sh
+
+set -e
+
+BUCKET="{self.config.get('state_bucket', 'BUCKET_NAME')}"
+REGION="{self.config.get('region', 'us-east-1')}"
+
+echo "🔍 Validating S3 backend configuration..."
+echo ""
+
+# Check S3 bucket
+echo "Checking S3 bucket: $BUCKET"
+if aws s3 ls "s3://$BUCKET" --region "$REGION" >/dev/null 2>&1; then
+    echo "  ✅ S3 bucket exists and is accessible"
+
+    # Check versioning
+    VERSIONING=$(aws s3api get-bucket-versioning --bucket "$BUCKET" --region "$REGION" --query 'Status' --output text 2>/dev/null || echo "None")
+    if [ "$VERSIONING" = "Enabled" ]; then
+        echo "  ✅ Versioning is enabled"
+    else
+        echo "  ⚠️  Warning: Versioning is not enabled"
+    fi
+
+    # Check encryption
+    ENCRYPTION=$(aws s3api get-bucket-encryption --bucket "$BUCKET" --region "$REGION" 2>/dev/null && echo "Enabled" || echo "Disabled")
+    if [ "$ENCRYPTION" = "Enabled" ]; then
+        echo "  ✅ Encryption is enabled"
+    else
+        echo "  ⚠️  Warning: Encryption is not enabled"
+    fi
+else
+    echo "  ❌ S3 bucket does not exist or is not accessible"
+    exit 1
+fi
+
+echo ""
+echo "✅ S3 backend configuration is valid!"
+echo ""
+echo "Note: Using S3 native state locking (Terraform 1.10+)"
+echo ""
+echo "✅ Backend validation complete!"
+"""
+
+        validate_script_path = scripts_dir / 'validate-backend.sh'
+        validate_script_path.write_text(validate_script)
+        validate_script_path.chmod(0o755)
+        print(f"✓ Generated: scripts/validate-backend.sh")
 
 
 def main() -> None:
@@ -645,6 +824,16 @@ def main() -> None:
         '--vpc-cidrs',
         help='VPC CIDRs per environment as JSON string (e.g., \'{"dev":"10.0.0.0/16","prod":"10.2.0.0/16"}\')'
     )
+    parser.add_argument(
+        '--backend-type',
+        default='local',
+        choices=['local', 's3'],
+        help='Terraform backend type (default: local). Use "s3" for production with state locking.'
+    )
+    parser.add_argument(
+        '--state-bucket',
+        help='S3 bucket name for Terraform state (required if backend-type=s3). Example: my-project-terraform-state-123456789012'
+    )
 
     args = parser.parse_args()
 
@@ -666,6 +855,22 @@ def main() -> None:
         except json.JSONDecodeError:
             print(f"⚠️  Warning: Invalid JSON for vpc-cidrs, using defaults")
 
+    # Validate backend configuration
+    backend_type = args.backend_type or config.get('backend_type', 'local')
+    if backend_type == 's3':
+        state_bucket = args.state_bucket or config.get('state_bucket', '')
+
+        if not state_bucket:
+            print("❌ Error: --state-bucket is required when --backend-type=s3")
+            print("\nTip: First deploy the terraform-backend component to create the S3 bucket:")
+            print("  python3 scripts/generators/generate_infrastructure.py \\")
+            print("    --project-name my-project \\")
+            print("    --components terraform-backend \\")
+            print("    --environments dev")
+            sys.exit(1)
+    else:
+        state_bucket = ''
+
     # Merge CLI args with config
     config.update({
         'output_dir': args.output_dir,
@@ -676,6 +881,8 @@ def main() -> None:
         'ci_provider': args.ci_provider or config.get('ci_provider', 'gitlab'),
         'availability_zones': args.availability_zones,
         'vpc_cidrs': vpc_cidrs,
+        'backend_type': backend_type,
+        'state_bucket': state_bucket,
     })
 
     # Generate infrastructure

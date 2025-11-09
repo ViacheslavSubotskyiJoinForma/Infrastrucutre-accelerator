@@ -37,7 +37,7 @@ source .venv/bin/activate
 # Install dependencies (if not already installed)
 pip install jinja2
 
-# Generate infrastructure
+# Generate infrastructure with local backend (MVP/testing)
 python3 scripts/generators/generate_infrastructure.py \
   --project-name my-project \
   --components vpc,eks-auto \
@@ -46,6 +46,16 @@ python3 scripts/generators/generate_infrastructure.py \
   --aws-account-id YOUR_ACCOUNT_ID \
   --aws-profile YOUR_PROFILE \
   --ci-provider gitlab
+
+# OR generate with S3 backend (recommended for production)
+python3 scripts/generators/generate_infrastructure.py \
+  --project-name my-project \
+  --components vpc,eks-auto \
+  --environments dev,uat,prod \
+  --region us-east-1 \
+  --aws-account-id YOUR_ACCOUNT_ID \
+  --backend-type s3 \
+  --state-bucket my-project-terraform-state-YOUR_ACCOUNT_ID
 ```
 
 **CI/CD Provider Options**:
@@ -53,7 +63,13 @@ python3 scripts/generators/generate_infrastructure.py \
 - `github` - GitHub Actions
 - `azuredevops` - Azure DevOps Pipelines
 
-**Important**: Always use `.venv/bin/activate` before running the generator locally.
+**Backend Options**:
+- `local` - Local state storage (default, for MVP/testing)
+- `s3` - S3 with native state locking (Terraform 1.10+, recommended for production)
+
+**Important**:
+- Always use `.venv/bin/activate` before running the generator locally
+- For S3 backend, first deploy `terraform-backend` component to create S3 bucket with native locking
 
 ### Generated Output
 
@@ -70,9 +86,10 @@ Creates a complete infrastructure project:
 ### Component Dependencies
 
 The generator automatically resolves dependencies:
-- **vpc**: No dependencies (foundational)
-- **eks-auto**: Requires vpc (EKS Auto Mode - simplified cluster with automatic node management)
-- **rds**: Requires vpc (future)
+- **terraform-backend**: No dependencies (bootstrap component for S3 state management with native locking) ✅
+- **vpc**: No dependencies (foundational) ✅
+- **eks-auto**: Requires vpc (EKS Auto Mode - simplified cluster with automatic node management) ✅
+- **rds**: Requires vpc (Aurora PostgreSQL Serverless v2) ✅
 - **eks**: Requires vpc (future - traditional EKS with manual node groups)
 - **services**: Requires vpc, eks (future)
 - **secrets**: Requires eks, services (future)
@@ -92,9 +109,10 @@ The workflow automatically validates generated code:
 ### Testing
 
 **Automated testing** is performed via GitHub Actions workflow. The generator has been tested with:
-- ✅ Local generation: `vpc+eks-auto` components
+- ✅ Local generation: `vpc+eks-auto+rds+terraform-backend` components
 - ✅ Terraform validation: init, fmt, validate all pass
 - ✅ VPC deployment: Successfully tested apply and destroy
+- ✅ S3 Backend: terraform-backend component tested and validated
 - ⚠️ EKS-Auto deployment: Plan works, but apply requires elevated IAM permissions beyond AWS Contributor role
 
 **Local testing** (when needed):
@@ -113,6 +131,35 @@ python3 scripts/generators/generate_infrastructure.py \
 cd generated-infra/infra/vpc
 terraform init
 terraform plan -var-file=../config/dev.tfvars
+```
+
+**Testing S3 Backend** (production workflow):
+```bash
+# Step 1: Generate and deploy terraform-backend first
+python3 scripts/generators/generate_infrastructure.py \
+  --project-name test \
+  --components terraform-backend \
+  --environments dev \
+  --aws-profile YOUR_PROFILE
+
+cd generated-infra/infra/terraform-backend
+terraform init
+terraform apply -var-file=../config/dev.tfvars
+
+# Note bucket name from output
+terraform output s3_bucket_name
+
+# Step 2: Generate infrastructure with S3 backend
+python3 scripts/generators/generate_infrastructure.py \
+  --project-name test \
+  --components vpc \
+  --environments dev \
+  --backend-type s3 \
+  --state-bucket <bucket-from-output>
+
+# Step 3: Initialize with S3 backend
+cd generated-infra/infra/vpc
+./../../scripts/init-backend.sh vpc dev
 ```
 
 **Note**: Do not test manually via GitHub Actions unless investigating specific workflow issues. All standard testing is automated.

@@ -123,24 +123,39 @@
                     <label>Components</label>
                     <div class="checkbox-group">
                         <label class="checkbox">
+                            <input type="checkbox" value="terraform-backend" id="terraform-backend">
+                            <div>
+                                <span>Terraform Backend</span>
+                                <small>S3 bucket with native state locking (deploy first)</small>
+                            </div>
+                        </label>
+                        <label class="checkbox">
                             <input type="checkbox" value="vpc" checked disabled>
-                            <span>VPC (Required)</span>
-                            <small>Virtual Private Cloud with public/private subnets</small>
+                            <div>
+                                <span>VPC (Required)</span>
+                                <small>Virtual Private Cloud with public/private subnets</small>
+                            </div>
                         </label>
                         <label class="checkbox">
                             <input type="checkbox" value="eks-auto" id="eks-auto">
-                            <span>EKS Auto Mode</span>
-                            <small>Managed Kubernetes cluster with automatic node provisioning</small>
+                            <div>
+                                <span>EKS Auto Mode</span>
+                                <small>Managed Kubernetes cluster with automatic node provisioning</small>
+                            </div>
                         </label>
                         <label class="checkbox">
                             <input type="checkbox" value="rds" id="rds">
-                            <span>RDS Database</span>
-                            <small>Aurora PostgreSQL Serverless v2 with auto-scaling</small>
+                            <div>
+                                <span>RDS Database</span>
+                                <small>Aurora PostgreSQL Serverless v2 with auto-scaling</small>
+                            </div>
                         </label>
                         <label class="checkbox disabled">
                             <input type="checkbox" value="services" disabled>
-                            <span>Services (Coming Soon)</span>
-                            <small>API Gateway, Lambda, S3, CloudFront</small>
+                            <div>
+                                <span>Services (Coming Soon)</span>
+                                <small>API Gateway, Lambda, S3, CloudFront</small>
+                            </div>
                         </label>
                     </div>
                 </div>
@@ -194,7 +209,21 @@
                     </button>
                     <div id="advancedOptions" class="advanced-options collapsed" role="region" aria-labelledby="toggleAdvanced">
                         <div class="advanced-content">
-                            <h3>Network Configuration</h3>
+                            <div id="s3BackendOptions" class="s3-backend-options hidden">
+                                <h3>Backend Configuration</h3>
+                                <small class="section-description">S3 backend with native state locking (Terraform 1.10+)</small>
+
+                                <div class="form-group">
+                                    <label for="stateBucket">
+                                        S3 State Bucket Name
+                                        <span class="tooltip-icon" data-tooltip="Customize the S3 bucket name for Terraform state storage">ⓘ</span>
+                                    </label>
+                                    <input type="text" id="stateBucket" placeholder="">
+                                    <small>Default: {project-name}-terraform-state-{account-id}</small>
+                                </div>
+                            </div>
+
+                            <h3 style="margin-top: 1.5rem;">Network Configuration</h3>
                             <small class="section-description">Customize IP ranges for each environment (optional, good defaults provided)</small>
 
                             <div id="ipRangeInputs" class="ip-range-inputs">

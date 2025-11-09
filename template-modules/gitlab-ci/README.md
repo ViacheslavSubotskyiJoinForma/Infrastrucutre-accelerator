@@ -151,18 +151,18 @@ For production use, configure S3 backend in generated `backend.tf`:
 ```hcl
 terraform {
   backend "s3" {
-    bucket         = "my-terraform-state"
-    key            = "vpc/terraform.tfstate"
-    region         = "us-east-1"
-    dynamodb_table = "terraform-locks"
-    encrypt        = true
+    bucket       = "my-terraform-state"
+    key          = "vpc/terraform.tfstate"
+    region       = "us-east-1"
+    encrypt      = true
+    use_lockfile = true
   }
 }
 ```
 
 **Benefits:**
 - Centralized state storage
-- State locking with DynamoDB
+- S3 native state locking (Terraform 1.10+)
 - Team collaboration support
 - Encryption at rest
 

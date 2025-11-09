@@ -269,6 +269,16 @@ function setupEventListeners() {
         radio.addEventListener('change', handleCIProviderChange);
     });
 
+    // Update backend options placeholder when project name or AWS account ID changes
+    const projectNameInput = document.getElementById('projectName');
+    const awsAccountIdInput = document.getElementById('awsAccountId');
+    if (projectNameInput) {
+        projectNameInput.addEventListener('input', updateBackendOptions);
+    }
+    if (awsAccountIdInput) {
+        awsAccountIdInput.addEventListener('input', updateBackendOptions);
+    }
+
     // Advanced options toggle
     document.getElementById('toggleAdvanced').addEventListener('click', toggleAdvancedOptions);
 
@@ -316,13 +326,14 @@ function setupEventListeners() {
     });
 
     // AWS Account ID - clear errors and update diagram in real-time
-    const awsAccountIdInput = document.getElementById('awsAccountId');
-    awsAccountIdInput.addEventListener('input', function() {
-        if (this.classList.contains('error')) {
-            clearError(this);
-        }
-        debouncedUpdateDiagram();
-    });
+    if (awsAccountIdInput) {
+        awsAccountIdInput.addEventListener('input', function() {
+            if (this.classList.contains('error')) {
+                clearError(this);
+            }
+            debouncedUpdateDiagram();
+        });
+    }
 }
 
 /**
@@ -351,6 +362,7 @@ function handleComponentChange(e) {
 
     updateDiagram();
     updateComponentList();
+    updateBackendOptions();
 }
 
 /**
@@ -405,6 +417,28 @@ function handleProviderChange(e) {
 function handleCIProviderChange(e) {
     selectedCIProvider = e.target.value;
     updateComponentList(); // Update component list to show correct CI/CD config
+}
+
+/**
+ * Update backend configuration options based on terraform-backend component selection
+ * - Shows S3 backend options only if terraform-backend is selected
+ * - Dynamically updates placeholder with project name and AWS account ID
+ * @returns {void}
+ */
+function updateBackendOptions() {
+    const s3Options = document.getElementById('s3BackendOptions');
+    const stateBucketInput = document.getElementById('stateBucket');
+
+    if (selectedComponents.includes('terraform-backend')) {
+        s3Options.classList.remove('hidden');
+
+        // Update placeholder dynamically
+        const projectName = document.getElementById('projectName')?.value.trim() || 'my-project';
+        const awsAccountId = document.getElementById('awsAccountId')?.value.trim() || '123456789012';
+        stateBucketInput.placeholder = `${projectName}-terraform-state-${awsAccountId}`;
+    } else {
+        s3Options.classList.add('hidden');
+    }
 }
 
 /**
@@ -468,34 +502,75 @@ function getVPCCIDR(env) {
  */
 function updateComponentList() {
     const list = document.getElementById('componentList');
-    const items = [];
+    const groups = [];
 
-    items.push('✅ VPC with multi-AZ subnets');
-    items.push('✅ NAT Gateway and Internet Gateway');
-    items.push('✅ Security Groups and Network ACLs');
+    if (selectedComponents.includes('terraform-backend')) {
+        groups.push({
+            title: 'Terraform Backend',
+            items: [
+                'S3 bucket for Terraform state',
+                'S3 native state locking (Terraform 1.10+)',
+                'Encryption and versioning enabled'
+            ]
+        });
+    }
+
+    groups.push({
+        title: 'VPC Networking',
+        items: [
+            'VPC with multi-AZ subnets',
+            'NAT Gateway and Internet Gateway',
+            'Security Groups and Network ACLs'
+        ]
+    });
 
     if (selectedComponents.includes('eks-auto')) {
-        items.push('✅ EKS Auto Mode cluster');
-        items.push('✅ Automatic node provisioning');
-        items.push('✅ IAM roles and policies');
+        groups.push({
+            title: 'EKS Auto Mode',
+            items: [
+                'EKS Auto Mode cluster',
+                'Automatic node provisioning',
+                'IAM roles and policies'
+            ]
+        });
     }
 
     if (selectedComponents.includes('rds')) {
-        items.push('✅ Aurora PostgreSQL Serverless v2');
-        items.push('✅ Auto-scaling database capacity');
-        items.push('✅ AWS Secrets Manager integration');
+        groups.push({
+            title: 'RDS Database',
+            items: [
+                'Aurora PostgreSQL Serverless v2',
+                'Auto-scaling database capacity',
+                'AWS Secrets Manager integration'
+            ]
+        });
     }
 
     // CI/CD configuration
     const ciProviderNames = {
-        'gitlab': 'GitLab CI/CD pipeline',
-        'github': 'GitHub Actions workflow',
-        'azuredevops': 'Azure DevOps pipeline'
+        'gitlab': 'GitLab CI/CD',
+        'github': 'GitHub Actions',
+        'azuredevops': 'Azure DevOps'
     };
-    const ciConfigName = ciProviderNames[selectedCIProvider] || 'CI/CD configuration';
-    items.push(`✅ ${ciConfigName}`);
+    const ciTitle = ciProviderNames[selectedCIProvider] || 'CI/CD';
+    groups.push({
+        title: ciTitle,
+        items: [
+            `${ciProviderNames[selectedCIProvider] || 'CI/CD'} pipeline configuration`,
+            'Automated validation and deployment',
+            'Environment-specific workflows'
+        ]
+    });
 
-    list.innerHTML = items.map(item => `<li>${item}</li>`).join('');
+    // Render grouped list
+    list.innerHTML = groups.map(group => `
+        <li class="component-group">
+            <strong>${group.title}:</strong>
+            <ul class="component-items">
+                ${group.items.map(item => `<li>✅ ${item}</li>`).join('')}
+            </ul>
+        </li>
+    `).join('');
 }
 
 /**
@@ -978,6 +1053,14 @@ async function handleGenerate() {
         try {
             showModalSafe('⚡ Triggering Workflow', 'Please wait...');
 
+            // Collect backend configuration
+            // Auto-determine backend type based on terraform-backend component selection
+            const backendType = selectedComponents.includes('terraform-backend') ? 's3' : 'local';
+            const stateBucketInput = document.getElementById('stateBucket')?.value.trim() || '';
+            // Use custom bucket name or generate default
+            const defaultBucketName = `${projectName}-terraform-state-${awsAccountId}`;
+            const stateBucket = stateBucketInput || defaultBucketName;
+
             const workflowInputs = {
                 project_name: projectName,
                 components: components,
@@ -985,12 +1068,18 @@ async function handleGenerate() {
                 region: region,
                 aws_account_id: awsAccountId,
                 ci_provider: selectedCIProvider,
-                availability_zones: availabilityZones
+                availability_zones: availabilityZones,
+                backend_type: backendType
             };
 
             // Add VPC CIDRs if any were specified
             if (Object.keys(vpcCidrs).length > 0) {
                 workflowInputs.vpc_cidrs = JSON.stringify(vpcCidrs);
+            }
+
+            // Add S3 backend configuration if terraform-backend is selected
+            if (backendType === 's3') {
+                workflowInputs.state_bucket = stateBucket;
             }
 
             const runId = await auth.triggerWorkflow(workflowInputs);
