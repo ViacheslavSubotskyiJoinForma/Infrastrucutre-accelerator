@@ -31,18 +31,14 @@ For enhanced security, configure AWS OIDC authentication:
 
 See [GitHub Actions AWS OIDC Guide](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services)
 
-### GitHub Environments (Recommended)
+### GitHub Environments (Optional)
 
-Create GitHub Environments for approval gates:
+**Note**: GitHub Environments are NOT required for this workflow since all deployments run in a single test AWS account. The workflow runs automatically without approval gates for faster testing cycles.
 
-1. Go to Settings → Environments
-2. Create environments:
-   - `test-deployment-dev`
-   - `test-deployment-uat`
-   - `test-deployment-prod`
-   - `test-cleanup-dev`
-   - `test-cleanup-uat`
-   - `test-cleanup-prod`
+If you want to add approval gates:
+
+1. Uncomment the `environment:` sections in the workflow YAML
+2. Create GitHub Environments in Settings → Environments
 3. Configure required reviewers for each environment
 
 ## Usage
@@ -60,7 +56,9 @@ Click **"Run workflow"** and configure:
 - **Test project name**: Name for test infrastructure (default: `test-infra`)
 - **Components**: Comma-separated list (e.g., `vpc,eks-auto,rds`)
   - Available: `vpc`, `eks-auto`, `rds`, `terraform-backend`
-- **Environment**: Target environment (`dev`, `uat`, `prod`)
+- **Environments**: Comma-separated list (e.g., `dev,uat,prod`)
+  - Deploy to multiple environments in one run
+  - All environments deploy to the same AWS test account
 - **AWS Region**: AWS region for deployment (default: `us-east-1`)
 - **AWS Test Account ID**: Your test AWS account ID
 
@@ -76,14 +74,14 @@ Click **"Run workflow"** and configure:
 
 - **Run terraform apply**:
   - `false` - Validation only (plan without apply)
-  - `true` - Full deployment (requires manual approval)
-- **Run terraform destroy after apply**:
-  - `false` - Keep infrastructure after deployment
-  - `true` - Cleanup infrastructure after testing (requires manual approval)
+  - `true` - Full deployment (no approval required)
+- **Auto-destroy after successful apply**:
+  - `true` - Automatically cleanup infrastructure after successful deployment (default, recommended)
+  - `false` - Keep infrastructure after deployment for manual inspection
 
 #### Advanced Options
 
-- **Number of Availability Zones**: `1`, `2`, or `3` (default: `2`)
+- **Number of Availability Zones**: `1`, `2`, or `3` (default: `3`)
 
 ### 3. Workflow Execution
 
@@ -95,21 +93,20 @@ The workflow executes in stages:
 - Uploads generated infrastructure as artifact
 
 #### Stage 2: Plan (Automatic, if apply=true)
-- Runs `terraform plan` for each component
+- Runs `terraform plan` for each component/environment combination
 - Uploads plan files as artifacts
-- Matrix execution (parallel for multiple components)
+- Matrix execution (parallel for all component/environment combinations)
 
-#### Stage 3: Apply (Manual Approval Required)
-- **Requires approval** via GitHub Environment protection
-- Applies infrastructure changes
-- Matrix execution (sequential, max-parallel=1)
+#### Stage 3: Apply (Automatic, no approval required)
+- Applies infrastructure changes for all component/environment combinations
+- Matrix execution (sequential, max-parallel=1 to avoid conflicts)
 - Uploads outputs as artifacts
 
-#### Stage 4: Destroy (Manual Approval Required, if destroy=true)
-- **Requires approval** via GitHub Environment protection
-- Destroys deployed infrastructure
+#### Stage 4: Destroy (Automatic, if auto_destroy=true)
+- Automatically destroys deployed infrastructure after successful apply
+- No approval required for faster testing cycles
 - Matrix execution (sequential)
-- Cleanup of test resources
+- Cleanup of all test resources
 
 #### Stage 5: Final Summary (Automatic)
 - Generates comprehensive test summary
@@ -123,34 +120,47 @@ The workflow executes in stages:
 
 ```yaml
 run_apply: false
-run_destroy: false
+auto_destroy: true  # ignored when run_apply=false
 ```
 
 **Result**: Generates and validates infrastructure, no AWS resources created
 
-### Scenario 2: Full Deployment Test
+### Scenario 2: Full Deployment Test (Keep Resources)
 
-**Use case**: Test complete deployment workflow
+**Use case**: Deploy infrastructure and keep it for manual inspection
 
 ```yaml
 run_apply: true
-run_destroy: false
+auto_destroy: false
 ```
 
-**Result**: Deploys infrastructure, keeps resources for manual inspection
+**Result**: Deploys infrastructure, keeps resources for manual testing/inspection
 
-### Scenario 3: Complete Test with Cleanup
+### Scenario 3: Complete Test with Auto-Cleanup (Recommended)
 
 **Use case**: Test deployment and automatic cleanup
 
 ```yaml
 run_apply: true
-run_destroy: true
+auto_destroy: true  # default
 ```
 
-**Result**: Deploys infrastructure, then destroys it (full round-trip test)
+**Result**: Deploys infrastructure, validates deployment, then automatically destroys it (full round-trip test)
 
-### Scenario 4: S3 Backend Test
+### Scenario 4: Multi-Environment Deployment
+
+**Use case**: Test deployment to multiple environments at once (all in same AWS account)
+
+```yaml
+environments: dev,uat,prod
+components: vpc
+run_apply: true
+auto_destroy: true
+```
+
+**Result**: Deploys VPC to dev, uat, and prod environments sequentially, then cleans up all
+
+### Scenario 5: S3 Backend Test
 
 **Use case**: Test production-like setup with S3 state backend
 
@@ -158,6 +168,7 @@ run_destroy: true
 backend_type: s3
 state_bucket: my-test-terraform-state-123456789012
 run_apply: true
+auto_destroy: true
 ```
 
 **Prerequisites**: First deploy `terraform-backend` component:
@@ -165,6 +176,7 @@ run_apply: true
 ```bash
 # Generate terraform-backend
 components: terraform-backend
+environments: dev
 backend_type: local
 run_apply: true
 
@@ -174,47 +186,47 @@ run_apply: true
 
 ## Example Configurations
 
-### Test VPC Deployment
+### Test VPC Deployment (Single Environment)
 
 ```yaml
 project_name: test-vpc-v1
 components: vpc
-environment: dev
+environments: dev
 region: us-east-1
 aws_account_id: 123456789012
 backend_type: local
 run_apply: true
-run_destroy: true
-availability_zones: 2
+auto_destroy: true
+availability_zones: 3
 ```
 
-### Test EKS Auto with Dependencies
+### Test EKS Auto with Dependencies (Multi-Environment)
 
 ```yaml
 project_name: test-eks-v1
 components: vpc,eks-auto
-environment: dev
+environments: dev,uat,prod
 region: us-east-1
 aws_account_id: 123456789012
 backend_type: s3
 state_bucket: test-terraform-state-123456789012
 run_apply: true
-run_destroy: false
-availability_zones: 2
+auto_destroy: false
+availability_zones: 3
 ```
 
-### Test Full Stack
+### Test Full Stack (All Environments)
 
 ```yaml
 project_name: test-full-v1
 components: vpc,eks-auto,rds
-environment: dev
+environments: dev,uat,prod
 region: us-east-1
 aws_account_id: 123456789012
 backend_type: s3
 state_bucket: test-terraform-state-123456789012
 run_apply: true
-run_destroy: true
+auto_destroy: true
 availability_zones: 3
 ```
 
@@ -222,9 +234,9 @@ availability_zones: 3
 
 The workflow produces several artifacts (retained for 7 days):
 
-1. **generated-infra-{env}** - Complete generated infrastructure code
-2. **tfplan-{component}-{env}** - Terraform plan files for each component
-3. **outputs-{component}-{env}** - Terraform outputs (JSON) for each component
+1. **generated-infra-{run_id}** - Complete generated infrastructure code
+2. **tfplan-{component}-{env}-{run_id}** - Terraform plan files for each component/environment
+3. **outputs-{component}-{env}-{run_id}** - Terraform outputs (JSON) for each component/environment
 
 ## Monitoring & Troubleshooting
 
@@ -239,10 +251,6 @@ The workflow produces several artifacts (retained for 7 days):
 #### Issue: Plan fails with authentication error
 
 **Solution**: Verify AWS credentials in GitHub Secrets
-
-#### Issue: Apply requires approval but no reviewers configured
-
-**Solution**: Configure reviewers in GitHub Environment settings
 
 #### Issue: S3 backend initialization fails
 
@@ -277,11 +285,11 @@ The workflow produces several artifacts (retained for 7 days):
 - Use OIDC authentication when possible (preferred)
 - Rotate static credentials regularly
 - Limit IAM permissions to test account only
-- Use environment protection rules
 
 ### Resource Cleanup
 
-- Always enable `run_destroy: true` for automated cleanup
+- Enable `auto_destroy: true` (default) for automated cleanup after testing
+- Disable `auto_destroy` only when you need to inspect deployed resources manually
 - Monitor AWS costs in test account
 - Set up AWS Budgets alerts
 - Review orphaned resources monthly
@@ -296,9 +304,9 @@ The workflow produces several artifacts (retained for 7 days):
 
 ### Cost Optimization Tips
 
-1. **Use destroy=true** for short-lived tests
-2. **Choose dev environment** with minimal resources
-3. **Use availability_zones=1** for testing (reduces NAT costs)
+1. **Use auto_destroy=true** (default) for short-lived tests
+2. **Test single environment first** before deploying to all environments
+3. **Use availability_zones=1** for quick tests (reduces NAT Gateway costs)
 4. **Monitor with AWS Cost Explorer**
 5. **Set up billing alerts**
 
@@ -309,12 +317,13 @@ The workflow produces several artifacts (retained for 7 days):
 - [ ] Verify AWS credentials are configured
 - [ ] Check test account has sufficient quota
 - [ ] Review components and dependencies
-- [ ] Decide on cleanup strategy (destroy=true/false)
+- [ ] Choose appropriate environments to test (single or multiple)
+- [ ] Decide on cleanup strategy (auto_destroy=true/false)
 
 ### During Execution
 
-- [ ] Monitor job progress
-- [ ] Review plan outputs before approval
+- [ ] Monitor job progress in Actions tab
+- [ ] Review plan outputs in job logs
 - [ ] Check for unexpected changes
 - [ ] Verify resource creation in AWS console
 
