@@ -645,7 +645,7 @@ function updateDiagram() {
         afterLastComponent: 10, // Gap after last component before VPC bottom
         legendHeight: 20,     // Height reserved for legend inside diagram
         legendPadding: 20,    // Padding above legend (space between env blocks and legend)
-        legendBottomPadding: 0, // No padding below legend - legend touches outer container bottom
+        legendBottomPadding: 3, // Minimal padding below legend for border visibility
     };
 
     // Calculate VPC content height dynamically
@@ -666,7 +666,7 @@ function updateDiagram() {
     const vpcHeight = GAPS.vpcHeader + vpcContentHeight;
     const envBoxHeight = GAPS.envHeader + vpcHeight + GAPS.vpcPadding * 2;
     const outerHeight = envBoxHeight + GAPS.outerPadding + GAPS.legendPadding + GAPS.legendHeight + GAPS.legendBottomPadding;
-    const totalHeight = 50 + outerHeight - 5; // 50 = header space, -5 to minimize bottom padding
+    const totalHeight = 50 + outerHeight + 3; // 50 = header space, +3 to ensure outer border visibility
 
     // Calculate viewBox width: use consistent calculation for proper proportions
     // For single environment, use container-based width for proper scaling
