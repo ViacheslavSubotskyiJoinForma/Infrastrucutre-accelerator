@@ -174,44 +174,40 @@ class WorkflowMonitor {
 
     /**
      * Update progress bar percentage
-     * Uses requestAnimationFrame to ensure UI updates work in background tabs
+     * Direct DOM manipulation without requestAnimationFrame for better reliability
      * @param {number} percent - Progress percentage (0-100)
      * @returns {void}
      */
     updateProgressBar(percent) {
-        // Force UI update using requestAnimationFrame
-        // This ensures progress bar updates even when tab is in background
-        requestAnimationFrame(() => {
-            const progressBar = document.getElementById('progressBar');
-            const progressPercent = document.getElementById('progressPercent');
+        const progressBar = document.getElementById('progressBar');
+        const progressPercent = document.getElementById('progressPercent');
 
-            if (progressBar) {
-                progressBar.style.width = `${percent}%`;
-            }
-            if (progressPercent) {
-                progressPercent.textContent = `${Math.round(percent)}%`;
-            }
-        });
+        if (progressBar) {
+            progressBar.style.width = `${percent}%`;
+            // Force reflow to ensure browser processes the change
+            void progressBar.offsetHeight;
+        }
+        if (progressPercent) {
+            progressPercent.textContent = `${Math.round(percent)}%`;
+        }
     }
 
     /**
      * Update progress message
-     * Uses requestAnimationFrame to ensure UI updates work in background tabs
+     * Direct DOM manipulation without requestAnimationFrame for better reliability
      * @param {string} message - Status message
      * @param {string} status - Status type (queued, in_progress, completed)
      * @returns {void}
      */
     updateProgressMessage(message, status) {
-        // Force UI update using requestAnimationFrame
-        // This ensures message updates even when tab is in background
-        requestAnimationFrame(() => {
-            const messageEl = document.getElementById('progressMessage');
+        const messageEl = document.getElementById('progressMessage');
 
-            if (messageEl) {
-                messageEl.textContent = message;
-                messageEl.className = `progress-message ${status}`;
-            }
-        });
+        if (messageEl) {
+            messageEl.textContent = message;
+            messageEl.className = `progress-message ${status}`;
+            // Force reflow to ensure browser processes the change
+            void messageEl.offsetHeight;
+        }
     }
 
     /**
