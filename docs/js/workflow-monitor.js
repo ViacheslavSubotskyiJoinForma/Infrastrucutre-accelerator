@@ -67,8 +67,8 @@ class WorkflowMonitor {
             this.checkStatus().catch(() => {});
         }, 10000); // Poll every 10 seconds (longer to avoid Chrome throttling)
 
-        // Check immediately
-        await this.checkStatus();
+        // Check immediately (don't await to prevent blocking setInterval)
+        this.checkStatus().catch(() => {});
     }
 
     /**
