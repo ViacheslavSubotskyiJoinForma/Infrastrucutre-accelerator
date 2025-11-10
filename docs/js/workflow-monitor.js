@@ -69,8 +69,8 @@ class WorkflowMonitor {
             if (!document.hidden && this.isMonitoring) {
                 const timeSinceLastPoll = Date.now() - this.lastPollTime;
 
-                // If more than 6 seconds passed, poll immediately
-                if (timeSinceLastPoll > 6000) {
+                // If more than 4 seconds passed, poll immediately
+                if (timeSinceLastPoll > 4000) {
                     await this.checkStatus();
                 }
             }
@@ -98,7 +98,7 @@ class WorkflowMonitor {
             await this.checkStatus();
             // Schedule next poll after current one completes
             this.pollNext();
-        }, 5000); // Poll every 5 seconds
+        }, 3000); // Poll every 3 seconds (faster to combat browser throttling)
     }
 
     /**
@@ -357,16 +357,20 @@ class WorkflowMonitor {
         const seconds = elapsed % 60;
         const timeStr = `${minutes}m ${seconds}s`;
 
+        // Calculate last update time for debugging
+        const now = new Date();
+        const lastUpdateStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+
         let message = '';
         let progressPercent = 0;
 
         switch (run.status) {
             case WorkflowStatus.QUEUED:
-                message = `⏳ Queued (${timeStr})`;
+                message = `⏳ Queued (${timeStr}) • Updated: ${lastUpdateStr}`;
                 progressPercent = 5;
                 break;
             case WorkflowStatus.IN_PROGRESS:
-                message = `⚡ Generating infrastructure... (${timeStr})`;
+                message = `⚡ Generating infrastructure... (${timeStr}) • Updated: ${lastUpdateStr}`;
                 // Use step-based progress (calculated from jobs/steps)
                 progressPercent = this.stepsProgress || 10;
                 break;
