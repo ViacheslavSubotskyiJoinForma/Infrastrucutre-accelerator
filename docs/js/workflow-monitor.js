@@ -174,34 +174,44 @@ class WorkflowMonitor {
 
     /**
      * Update progress bar percentage
+     * Uses requestAnimationFrame to ensure UI updates work in background tabs
      * @param {number} percent - Progress percentage (0-100)
      * @returns {void}
      */
     updateProgressBar(percent) {
-        const progressBar = document.getElementById('progressBar');
-        const progressPercent = document.getElementById('progressPercent');
+        // Force UI update using requestAnimationFrame
+        // This ensures progress bar updates even when tab is in background
+        requestAnimationFrame(() => {
+            const progressBar = document.getElementById('progressBar');
+            const progressPercent = document.getElementById('progressPercent');
 
-        if (progressBar) {
-            progressBar.style.width = `${percent}%`;
-        }
-        if (progressPercent) {
-            progressPercent.textContent = `${Math.round(percent)}%`;
-        }
+            if (progressBar) {
+                progressBar.style.width = `${percent}%`;
+            }
+            if (progressPercent) {
+                progressPercent.textContent = `${Math.round(percent)}%`;
+            }
+        });
     }
 
     /**
      * Update progress message
+     * Uses requestAnimationFrame to ensure UI updates work in background tabs
      * @param {string} message - Status message
      * @param {string} status - Status type (queued, in_progress, completed)
      * @returns {void}
      */
     updateProgressMessage(message, status) {
-        const messageEl = document.getElementById('progressMessage');
+        // Force UI update using requestAnimationFrame
+        // This ensures message updates even when tab is in background
+        requestAnimationFrame(() => {
+            const messageEl = document.getElementById('progressMessage');
 
-        if (messageEl) {
-            messageEl.textContent = message;
-            messageEl.className = `progress-message ${status}`;
-        }
+            if (messageEl) {
+                messageEl.textContent = message;
+                messageEl.className = `progress-message ${status}`;
+            }
+        });
     }
 
     /**
@@ -322,11 +332,6 @@ class WorkflowMonitor {
         // Reset progress
         this.updateProgressBar(0);
         this.updateProgressMessage('⏳ Starting workflow...', 'queued');
-
-        const jobList = document.getElementById('workflowJobs');
-        if (jobList) {
-            jobList.innerHTML = '';
-        }
     }
 
     /**
