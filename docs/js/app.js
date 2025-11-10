@@ -1174,12 +1174,13 @@ async function handleGenerate() {
 
             // Start real-time monitoring if we got a run ID
             if (runId) {
-                // Wait 3 seconds before starting monitoring to avoid concurrent API calls
-                // (dispatch API needs time to complete before we query runs API)
-                await new Promise(resolve => setTimeout(resolve, 3000));
-
-                // Initialize workflow monitor
+                // Initialize workflow monitor and show progress modal immediately
                 workflowMonitor = new WorkflowMonitor(auth.token, GITHUB_REPO);
+                workflowMonitor.showProgressModal();
+
+                // Wait 5 seconds before starting API polling to avoid concurrent dispatch/runs calls
+                // This makes first runs API call at T+5s
+                await new Promise(resolve => setTimeout(resolve, 5000));
                 await workflowMonitor.startMonitoring(runId);
             } else {
                 // Fallback if run ID not available

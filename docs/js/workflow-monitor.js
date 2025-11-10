@@ -59,10 +59,10 @@ class WorkflowMonitor {
         this.isChecking = false;
         this.jobsTimeout = null;
 
-        // Show progress modal
-        this.showProgressModal();
+        // Call checkStatus immediately (T+5s from dispatch)
+        await this.checkStatus().catch(() => {});
 
-        // Start polling - first check happens at 10s to avoid rapid DOM updates
+        // Start polling - subsequent checks every 10 seconds
         this.pollInterval = setInterval(() => {
             this.checkStatus().catch(() => {});
         }, 10000); // Poll every 10 seconds
