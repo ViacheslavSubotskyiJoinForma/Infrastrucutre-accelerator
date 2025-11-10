@@ -144,9 +144,11 @@ jobs:
           done
           echo "✅ All JavaScript files have valid syntax"
 
+      - name: Install dependencies
+        run: npm install
+
       - name: Run npm tests
-        run: |
-          npm test
+        run: npm test
 
       - name: Lint JavaScript with ESLint (optional)
         run: |
