@@ -41,12 +41,14 @@ class WorkflowMonitor {
         this.currentRunId = null;
         this.startTime = null;
         this.stepsProgress = 0; // Track progress based on workflow steps
+        this.isMonitoring = false; // Track monitoring state
     }
 
     /**
      * Start monitoring a workflow run
      * Polls GitHub API every 5 seconds for status updates
      * Updates progress UI and automatically downloads artifacts when complete
+     * Uses recursive setTimeout instead of setInterval to prevent browser throttling
      * @param {number} runId - GitHub workflow run ID
      * @returns {Promise<void>}
      */
@@ -54,17 +56,30 @@ class WorkflowMonitor {
         this.currentRunId = runId;
         this.startTime = Date.now();
         this.stepsProgress = 0;
+        this.isMonitoring = true;
 
         // Show progress modal
         this.showProgressModal();
 
-        // Start polling with arrow function to preserve 'this' context
-        this.pollInterval = setInterval(async () => {
-            await this.checkStatus();
-        }, 5000); // Poll every 5 seconds
+        // Start polling using recursive setTimeout (better than setInterval for background tabs)
+        this.pollNext();
+    }
 
-        // Check immediately
-        await this.checkStatus();
+    /**
+     * Schedule next poll
+     * Uses recursive setTimeout to avoid browser throttling issues
+     * @returns {void}
+     */
+    pollNext() {
+        if (!this.isMonitoring) {
+            return;
+        }
+
+        this.pollInterval = setTimeout(async () => {
+            await this.checkStatus();
+            // Schedule next poll after current one completes
+            this.pollNext();
+        }, 5000); // Poll every 5 seconds
     }
 
     /**
@@ -72,8 +87,9 @@ class WorkflowMonitor {
      * @returns {void}
      */
     stopMonitoring() {
+        this.isMonitoring = false;
         if (this.pollInterval) {
-            clearInterval(this.pollInterval);
+            clearTimeout(this.pollInterval);
             this.pollInterval = null;
         }
     }
