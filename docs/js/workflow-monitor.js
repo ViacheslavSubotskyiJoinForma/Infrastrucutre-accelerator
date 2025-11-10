@@ -40,13 +40,13 @@ class WorkflowMonitor {
         this.pollInterval = null;
         this.currentRunId = null;
         this.startTime = null;
+        this.stepsProgress = 0; // Track progress based on workflow steps
         this.isChecking = false; // Guard to prevent concurrent checkStatus calls
     }
 
     /**
      * Start monitoring a workflow run
-     * Polls GitHub API every 15 seconds for status updates
-     * Longer interval (15s) prevents Chrome tab throttling issues
+     * Polls GitHub API every 10 seconds for status updates
      * Updates progress UI and automatically downloads artifacts when complete
      * @param {number} runId - GitHub workflow run ID
      * @returns {Promise<void>}
@@ -54,19 +54,16 @@ class WorkflowMonitor {
     async startMonitoring(runId) {
         this.currentRunId = runId;
         this.startTime = Date.now();
+        this.stepsProgress = 0;
         this.isChecking = false;
 
         // Show progress modal
         this.showProgressModal();
 
-        // Start polling with proper error handling to prevent polling from stopping
-        // 15s interval helps avoid Chrome's aggressive tab throttling
-        // First check happens at 15s to avoid rapid DOM updates that trigger throttling
+        // Start polling - first check happens at 10s to avoid rapid DOM updates
         this.pollInterval = setInterval(() => {
-            // Fire and forget - don't await to prevent blocking
-            // Silently catch errors to prevent console.error from blocking when devtools closed
             this.checkStatus().catch(() => {});
-        }, 15000); // Poll every 15 seconds (longer to avoid Chrome throttling)
+        }, 10000); // Poll every 10 seconds
     }
 
     /**
@@ -109,13 +106,14 @@ class WorkflowMonitor {
 
             const run = await response.json();
 
-            // Always update progress with current workflow status
-            this.updateProgress(run);
-
             // If completed, stop monitoring and handle completion
             if (run.status === WorkflowStatus.COMPLETED) {
                 this.stopMonitoring();
+                this.updateProgress(run);
                 await this.handleCompletion(run);
+            } else {
+                // Fetch jobs for progress calculation
+                await this.updateJobProgress(run);
             }
 
         } catch (error) {
@@ -126,6 +124,104 @@ class WorkflowMonitor {
             // Always release the guard
             this.isChecking = false;
         }
+    }
+
+    /**
+     * Update job progress details
+     * @param {Object} run - Workflow run object from GitHub API
+     * @returns {Promise<void>}
+     */
+    async updateJobProgress(run) {
+        try {
+            const response = await fetch(
+                `https://api.github.com/repos/${this.repo}/actions/runs/${this.currentRunId}/jobs`,
+                {
+                    headers: {
+                        'Authorization': `Bearer ${this.token}`,
+                        'Accept': 'application/vnd.github.v3+json'
+                    }
+                }
+            );
+
+            if (response.ok) {
+                const { jobs } = await response.json();
+
+                // Calculate progress based on jobs
+                this.stepsProgress = this.calculateJobsProgress(jobs);
+
+                // Display jobs in UI
+                this.displayJobProgress(jobs);
+            }
+        } catch (error) {
+            // Silently fail
+        }
+
+        // Always update progress
+        this.updateProgress(run);
+    }
+
+    /**
+     * Calculate progress percentage based on workflow jobs
+     * @param {Array} jobs - Array of job objects from GitHub API
+     * @returns {number} Progress percentage (0-100)
+     */
+    calculateJobsProgress(jobs) {
+        if (!jobs || jobs.length === 0) {
+            return 10;
+        }
+
+        const completedJobs = jobs.filter(j => j.status === 'completed').length;
+        const inProgressJobs = jobs.filter(j => j.status === 'in_progress').length;
+        const totalJobs = jobs.length;
+
+        // completed = 100%, in_progress = 50% contribution, max 90% until workflow completes
+        const progress = ((completedJobs + inProgressJobs * 0.5) / totalJobs) * 90;
+        return Math.round(Math.max(10, progress));
+    }
+
+    /**
+     * Display job progress in UI
+     * @param {Array} jobs - Array of job objects from GitHub API
+     * @returns {void}
+     */
+    displayJobProgress(jobs) {
+        const jobList = document.getElementById('workflowJobs');
+        if (!jobList) {
+            return;
+        }
+
+        jobList.innerHTML = '';
+
+        jobs.forEach(job => {
+            const jobItem = document.createElement('div');
+            jobItem.className = 'job-item';
+
+            let statusIcon = '⏳';
+            let statusClass = 'pending';
+
+            if (job.status === 'completed') {
+                if (job.conclusion === 'success') {
+                    statusIcon = '✅';
+                    statusClass = 'success';
+                } else if (job.conclusion === 'failure') {
+                    statusIcon = '❌';
+                    statusClass = 'failure';
+                } else {
+                    statusIcon = '⚠️';
+                    statusClass = 'warning';
+                }
+            } else if (job.status === 'in_progress') {
+                statusIcon = '⚡';
+                statusClass = 'in-progress';
+            }
+
+            jobItem.innerHTML = `
+                <span class="job-status ${statusClass}">${statusIcon}</span>
+                <span class="job-name">${Security.escapeHtml(job.name)}</span>
+            `;
+
+            jobList.appendChild(jobItem);
+        });
     }
 
     /**
@@ -149,10 +245,8 @@ class WorkflowMonitor {
                 break;
             case WorkflowStatus.IN_PROGRESS:
                 message = `⚡ Generating infrastructure... (${timeStr})`;
-                // Simple linear progress based on elapsed time (max 90%)
-                // Estimate: ~3 minutes workflow = 180 seconds
-                const estimatedDuration = 180; // seconds
-                progressPercent = Math.min(90, 10 + Math.floor((elapsed / estimatedDuration) * 80));
+                // Use job-based progress (calculated from jobs API)
+                progressPercent = this.stepsProgress || 10;
                 break;
             case WorkflowStatus.COMPLETED:
                 progressPercent = 100;
@@ -346,6 +440,11 @@ class WorkflowMonitor {
                     </div>
 
                     <p id="progressMessage" class="progress-message">⏳ Starting workflow...</p>
+
+                    <div class="jobs-container">
+                        <h4>Workflow Jobs:</h4>
+                        <div id="workflowJobs" class="job-list"></div>
+                    </div>
 
                     <div class="progress-actions">
                         <a id="viewWorkflowLink" href="https://github.com/${this.repo}/actions/runs/${this.currentRunId}" target="_blank" class="btn-secondary">
