@@ -116,11 +116,11 @@ class WorkflowMonitor {
                 this.stopMonitoring();
                 await this.handleCompletion(run);
             } else if (run.status === WorkflowStatus.IN_PROGRESS) {
-                // After 2 seconds, fetch jobs API to update step-based progress
+                // After 5 seconds, fetch jobs API to update step-based progress
                 // This ensures runs and jobs API calls never happen simultaneously
                 setTimeout(() => {
                     this.updateJobProgressDelayed(run).catch(() => {});
-                }, 2000);
+                }, 5000);
             }
 
         } catch (error) {
