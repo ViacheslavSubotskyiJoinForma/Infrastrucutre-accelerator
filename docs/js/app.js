@@ -773,14 +773,14 @@ function updateDiagram() {
         const databaseCidr = `${oct1}.${oct2}.96-128/20`;
 
         // Environment box
-        const boxHeight = (hasEKS && hasRDS) ? 420 : (hasEKS || hasRDS) ? 340 : 240;
+        const boxHeight = (hasEKS && hasRDS) ? 405 : (hasEKS || hasRDS) ? 340 : 240;
         const envBoxWidth = envWidth; // Use full envWidth without subtraction
         addRect(svg, x, y, envBoxWidth, boxHeight, env === 'prod' ? colors.envProd : colors.envLight, colors.border.env);
         addText(svg, x + envBoxWidth / 2, y + 20, env.toUpperCase(), 'bold', 'middle', colors.text);
 
         // VPC with CIDR
         const vpcY = y + 40;
-        const vpcHeight = (hasEKS && hasRDS) ? 340 : (hasEKS || hasRDS) ? 260 : 160;
+        const vpcHeight = (hasEKS && hasRDS) ? 325 : (hasEKS || hasRDS) ? 260 : 160;
         const vpcPadding = 15;
         const vpcWidth = envBoxWidth - vpcPadding * 2;
         addRect(svg, x + vpcPadding, vpcY, vpcWidth, vpcHeight, colors.vpc, colors.border.vpc);
@@ -816,27 +816,27 @@ function updateDiagram() {
         addText(svg, databaseX + subnetWidth / 2, subnetY + 53, '3 AZs', 'tiny', 'middle', colors.textSecondary);
 
         // EKS if selected
-        let currentY = subnetY + 90;
+        let currentY = subnetY + 85;
         if (hasEKS) {
             const eksY = currentY;
             const eksWidth = vpcWidth - subnetPadding * 2;
-            addRect(svg, x + vpcPadding + subnetPadding, eksY, eksWidth, 90, colors.eks, colors.border.eks);
-            addText(svg, x + envBoxWidth / 2, eksY + 25, 'EKS Cluster', 'normal', 'middle', colors.text);
-            addText(svg, x + envBoxWidth / 2, eksY + 45, 'Auto Mode', 'small', 'middle', colors.textSecondary);
-            addText(svg, x + envBoxWidth / 2, eksY + 63, 'Automatic Node', 'tiny', 'middle', colors.textSecondary);
-            addText(svg, x + envBoxWidth / 2, eksY + 76, 'Provisioning', 'tiny', 'middle', colors.textSecondary);
-            currentY = eksY + 100;
+            addRect(svg, x + vpcPadding + subnetPadding, eksY, eksWidth, 80, colors.eks, colors.border.eks);
+            addText(svg, x + envBoxWidth / 2, eksY + 22, 'EKS Cluster', 'normal', 'middle', colors.text);
+            addText(svg, x + envBoxWidth / 2, eksY + 40, 'Auto Mode', 'small', 'middle', colors.textSecondary);
+            addText(svg, x + envBoxWidth / 2, eksY + 56, 'Automatic Node', 'tiny', 'middle', colors.textSecondary);
+            addText(svg, x + envBoxWidth / 2, eksY + 68, 'Provisioning', 'tiny', 'middle', colors.textSecondary);
+            currentY = eksY + 85;
         }
 
         // RDS if selected
         if (hasRDS) {
             const rdsY = currentY;
             const rdsWidth = vpcWidth - subnetPadding * 2;
-            addRect(svg, x + vpcPadding + subnetPadding, rdsY, rdsWidth, 90, colors.rds, colors.border.rds);
-            addText(svg, x + envBoxWidth / 2, rdsY + 20, 'RDS Aurora', 'normal', 'middle', colors.text);
-            addText(svg, x + envBoxWidth / 2, rdsY + 38, 'PostgreSQL', 'small', 'middle', colors.textSecondary);
-            addText(svg, x + envBoxWidth / 2, rdsY + 56, 'Serverless v2', 'tiny', 'middle', colors.textSecondary);
-            addText(svg, x + envBoxWidth / 2, rdsY + 70, 'Multi-AZ', 'tiny', 'middle', colors.textSecondary);
+            addRect(svg, x + vpcPadding + subnetPadding, rdsY, rdsWidth, 80, colors.rds, colors.border.rds);
+            addText(svg, x + envBoxWidth / 2, rdsY + 18, 'RDS Aurora', 'normal', 'middle', colors.text);
+            addText(svg, x + envBoxWidth / 2, rdsY + 35, 'PostgreSQL', 'small', 'middle', colors.textSecondary);
+            addText(svg, x + envBoxWidth / 2, rdsY + 50, 'Serverless v2', 'tiny', 'middle', colors.textSecondary);
+            addText(svg, x + envBoxWidth / 2, rdsY + 64, 'Multi-AZ', 'tiny', 'middle', colors.textSecondary);
         }
     });
 
