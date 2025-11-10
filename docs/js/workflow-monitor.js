@@ -38,6 +38,7 @@ class WorkflowMonitor {
         this.token = token;
         this.repo = repo;
         this.pollInterval = null;
+        this.jobsTimeout = null; // Timer for delayed jobs API call
         this.currentRunId = null;
         this.startTime = null;
         this.stepsProgress = 0; // Track progress based on workflow steps
@@ -56,6 +57,7 @@ class WorkflowMonitor {
         this.startTime = Date.now();
         this.stepsProgress = 0;
         this.isChecking = false;
+        this.jobsTimeout = null;
 
         // Show progress modal
         this.showProgressModal();
@@ -74,6 +76,10 @@ class WorkflowMonitor {
         if (this.pollInterval) {
             clearInterval(this.pollInterval);
             this.pollInterval = null;
+        }
+        if (this.jobsTimeout) {
+            clearTimeout(this.jobsTimeout);
+            this.jobsTimeout = null;
         }
     }
 
@@ -116,10 +122,16 @@ class WorkflowMonitor {
                 this.stopMonitoring();
                 await this.handleCompletion(run);
             } else if (run.status === WorkflowStatus.IN_PROGRESS) {
+                // Cancel any pending jobs API call from previous cycle
+                if (this.jobsTimeout) {
+                    clearTimeout(this.jobsTimeout);
+                }
+
                 // After 5 seconds, fetch jobs API to update step-based progress
                 // This ensures runs and jobs API calls never happen simultaneously
-                setTimeout(() => {
+                this.jobsTimeout = setTimeout(() => {
                     this.updateJobProgressDelayed(run).catch(() => {});
+                    this.jobsTimeout = null;
                 }, 5000);
             }
 
