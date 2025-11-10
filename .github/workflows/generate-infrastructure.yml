@@ -66,6 +66,21 @@ on:
         type: string
         default: ''
 
+      backend_type:
+        description: 'Terraform backend type (local or s3)'
+        required: false
+        type: choice
+        default: 'local'
+        options:
+          - local
+          - s3
+
+      state_bucket:
+        description: 'S3 bucket name for Terraform state (required if backend_type is s3)'
+        required: false
+        type: string
+        default: ''
+
 # Prevent concurrent runs for the same workflow
 concurrency:
   group: generate-infra-${{ github.workflow }}-${{ github.ref }}
@@ -116,6 +131,8 @@ jobs:
             --ci-provider "${{ inputs.ci_provider }}" \
             --availability-zones "${{ inputs.availability_zones }}" \
             ${{ inputs.vpc_cidrs != '' && format('--vpc-cidrs "{0}"', inputs.vpc_cidrs) || '' }} \
+            ${{ inputs.backend_type != '' && inputs.backend_type != 'local' && format('--backend-type {0}', inputs.backend_type) || '' }} \
+            ${{ inputs.state_bucket != '' && format('--state-bucket "{0}"', inputs.state_bucket) || '' }} \
             --output-dir generated-infra
 
       - name: Set up Terraform
@@ -279,6 +296,8 @@ jobs:
           - **Environments**: ${{ inputs.environments }}
           - **Region**: ${{ inputs.region }}
           - **AWS Account**: ${{ inputs.aws_account_id }}
+          - **Backend Type**: ${{ inputs.backend_type || 'local' }}
+          ${{ inputs.state_bucket != '' && format('- **State Bucket**: {0}', inputs.state_bucket) || '' }}
           - **Generated**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
 
           ## Validation Checks
@@ -294,16 +313,16 @@ jobs:
           1. Download and extract the artifact
           2. Review the generated infrastructure code
           3. Create tfvars files with your values (one per environment)
-          4. Initialize Terraform: \`cd infra/<component> && terraform init\`
-          5. Plan changes: \`terraform plan -var-file=../config/<env>.tfvars\`
-          6. Apply infrastructure: \`terraform apply -var-file=../config/<env>.tfvars\`
+          ${{ inputs.backend_type == 's3' && '4. Deploy terraform-backend component first (if included)\n  5. Initialize Terraform with S3 backend: `./scripts/init-backend.sh <component> <env>`' || '4. Initialize Terraform: `cd infra/<component> && terraform init`' }}
+          ${{ inputs.backend_type == 's3' && '6' || '5' }}. Plan changes: \`terraform plan -var-file=../config/<env>.tfvars\`
+          ${{ inputs.backend_type == 's3' && '7' || '6' }}. Apply infrastructure: \`terraform apply -var-file=../config/<env>.tfvars\`
 
           ## Important Notes
 
-          - This is an MVP version with **local state backend**
+          - Backend type: **${{ inputs.backend_type || 'local' }}**
+          ${{ inputs.backend_type == 's3' && '- Deploy terraform-backend component first to create S3 bucket with native state locking\n  - After deploying, use the output bucket name for other components' || '- State files will be stored locally in each component directory' }}
           - Configure your AWS credentials before running Terraform
           - Review all configuration files before applying
-          - State files will be stored locally in each component directory
           EOF
 
       - name: Verify generated files
