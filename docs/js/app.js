@@ -573,10 +573,46 @@ function updateComponentList() {
 
 /**
  * Update the architecture diagram SVG based on selected components and environments
- * Renders a visual representation of the infrastructure with theme-aware colors
- * Displays environments, VPCs, subnets, and EKS clusters if selected
- * Shows cloud provider, IP ranges, and subnet auto-split details
- * Side effect: Updates the diagram SVG element with new content
+ *
+ * This function uses a dynamic layout system that automatically calculates diagram
+ * dimensions based on selected components. This makes it easy to add new components
+ * without hardcoding heights for every possible combination.
+ *
+ * HOW TO ADD NEW COMPONENTS:
+ * ==========================
+ *
+ * 1. Add component height to COMPONENT_HEIGHTS object:
+ *    ```
+ *    const COMPONENT_HEIGHTS = {
+ *      ...
+ *      myNewComponent: 85,  // Height in pixels
+ *    };
+ *    ```
+ *
+ * 2. Add component detection:
+ *    ```
+ *    const hasMyComponent = selectedComponents.includes('my-component');
+ *    ```
+ *
+ * 3. Update vpcContentHeight calculation:
+ *    ```
+ *    if (hasMyComponent) {
+ *      vpcContentHeight += GAPS.afterSubnets + COMPONENT_HEIGHTS.myNewComponent;
+ *    }
+ *    ```
+ *
+ * 4. Add rendering code in the environment loop:
+ *    ```
+ *    if (hasMyComponent) {
+ *      const myComponentY = currentY;
+ *      addRect(...);
+ *      addText(...);
+ *      currentY = myComponentY + COMPONENT_HEIGHTS.myNewComponent + GAPS.betweenComponents;
+ *    }
+ *    ```
+ *
+ * The diagram will automatically adjust its height and maintain proper spacing!
+ *
  * @returns {void}
  */
 function updateDiagram() {
@@ -587,6 +623,44 @@ function updateDiagram() {
     const envCount = selectedEnvironments.length;
     const hasEKS = selectedComponents.includes('eks-auto');
     const hasRDS = selectedComponents.includes('rds');
+
+    // Component height configuration (easily extensible for new components)
+    // To add a new component: just add its height here and follow the steps above
+    const COMPONENT_HEIGHTS = {
+        subnet: 70,       // Height of subnet blocks
+        eks: 80,          // Height of EKS block
+        rds: 80,          // Height of RDS block
+        // Add new components here: componentName: heightInPixels
+    };
+
+    // Gap and padding configuration
+    // Adjust these to change spacing throughout the diagram
+    const GAPS = {
+        outerPadding: 15,     // Padding from outer container to environment boxes
+        envHeader: 40,        // Space for environment name
+        vpcPadding: 15,       // Padding inside VPC container
+        vpcHeader: 50,        // Space for VPC name and CIDR
+        afterSubnets: 5,      // Gap after subnet blocks
+        betweenComponents: 5, // Gap between components (EKS, RDS, etc.)
+        legendGap: 25,        // Gap between environment boxes and legend (prevents overlap)
+    };
+
+    // Calculate VPC content height dynamically
+    let vpcContentHeight = COMPONENT_HEIGHTS.subnet; // Subnets always present
+
+    // Add additional components
+    if (hasEKS) {
+        vpcContentHeight += GAPS.afterSubnets + COMPONENT_HEIGHTS.eks;
+    }
+    if (hasRDS) {
+        vpcContentHeight += (hasEKS ? GAPS.betweenComponents : GAPS.afterSubnets) + COMPONENT_HEIGHTS.rds;
+    }
+
+    // Calculate total heights
+    const vpcHeight = GAPS.vpcHeader + vpcContentHeight;
+    const envBoxHeight = GAPS.envHeader + vpcHeight + GAPS.vpcPadding * 2;
+    const outerHeight = envBoxHeight + GAPS.outerPadding * 2;
+    const totalHeight = 50 + outerHeight + GAPS.legendGap + 15; // 50 = header, 15 = legend height
 
     // Calculate viewBox width: use consistent calculation for proper proportions
     // For single environment, use container-based width for proper scaling
@@ -602,8 +676,7 @@ function updateDiagram() {
         viewBoxWidth = 260 * envCount + 120;
     }
 
-    // Calculate height based on components - made more compact
-    const height = (hasEKS && hasRDS) ? 530 : (hasEKS || hasRDS) ? 450 : 370;
+    const height = totalHeight;
 
     // Clear existing
     svg.innerHTML = '';
@@ -688,7 +761,6 @@ function updateDiagram() {
     const outerX = outerPadding;
     const outerY = 50; // Increased from 40 to give more space for header
     const outerWidth = viewBoxWidth - outerPadding * 2;
-    const outerHeight = (hasEKS && hasRDS) ? 460 : (hasEKS || hasRDS) ? 380 : 300;
 
     // Draw outer container with provider branding
     addRect(svg, outerX, outerY, outerWidth, outerHeight, 'transparent', colors.border.env, 3);
@@ -752,15 +824,14 @@ function updateDiagram() {
     }
 
     // Draw environments with equal spacing
-    const innerPadding = 15; // Equal padding from outer container to environments
     const envGap = 10; // Gap between environments
-    const availableWidth = outerWidth - innerPadding * 2;
+    const availableWidth = outerWidth - GAPS.outerPadding * 2;
     const totalGaps = Math.max(0, (envCount - 1) * envGap);
     const envWidth = (availableWidth - totalGaps) / envCount;
 
     selectedEnvironments.forEach((env, i) => {
-        const x = outerX + innerPadding + i * (envWidth + envGap);
-        const y = outerY + innerPadding; // Same padding as sides
+        const x = outerX + GAPS.outerPadding + i * (envWidth + envGap);
+        const y = outerY + GAPS.outerPadding; // Same padding as sides
 
         // Get VPC CIDR for this environment
         const vpcCidr = getVPCCIDR(env);
@@ -772,37 +843,34 @@ function updateDiagram() {
         const privateCidr = `${oct1}.${oct2}.48-80/20`;
         const databaseCidr = `${oct1}.${oct2}.96-128/20`;
 
-        // Environment box
-        const boxHeight = (hasEKS && hasRDS) ? 405 : (hasEKS || hasRDS) ? 325 : 240;
+        // Environment box (using dynamically calculated height)
         const envBoxWidth = envWidth; // Use full envWidth without subtraction
-        addRect(svg, x, y, envBoxWidth, boxHeight, env === 'prod' ? colors.envProd : colors.envLight, colors.border.env);
+        addRect(svg, x, y, envBoxWidth, envBoxHeight, env === 'prod' ? colors.envProd : colors.envLight, colors.border.env);
         addText(svg, x + envBoxWidth / 2, y + 20, env.toUpperCase(), 'bold', 'middle', colors.text);
 
-        // VPC with CIDR
-        const vpcY = y + 40;
-        const vpcHeight = (hasEKS && hasRDS) ? 325 : (hasEKS || hasRDS) ? 245 : 160;
-        const vpcPadding = 15;
-        const vpcWidth = envBoxWidth - vpcPadding * 2;
-        addRect(svg, x + vpcPadding, vpcY, vpcWidth, vpcHeight, colors.vpc, colors.border.vpc);
+        // VPC with CIDR (using dynamically calculated height)
+        const vpcY = y + GAPS.envHeader;
+        const vpcWidth = envBoxWidth - GAPS.vpcPadding * 2;
+        addRect(svg, x + GAPS.vpcPadding, vpcY, vpcWidth, vpcHeight, colors.vpc, colors.border.vpc);
         addText(svg, x + envBoxWidth / 2, vpcY + 18, 'VPC', 'normal', 'middle', colors.text);
         addText(svg, x + envBoxWidth / 2, vpcY + 35, vpcCidr, 'tiny', 'middle', colors.textSecondary);
 
         // Subnets with CIDR details (3 subnets: Public, Private, Database)
-        const subnetY = vpcY + 50;
-        const subnetHeight = 70;
+        const subnetY = vpcY + GAPS.vpcHeader;
+        const subnetHeight = COMPONENT_HEIGHTS.subnet;
         const subnetGap = 6;
         const subnetPadding = 18;
         const totalSubnetWidth = vpcWidth - subnetPadding * 2;
         const subnetWidth = (totalSubnetWidth - 2 * subnetGap) / 3;
 
         // Public subnet
-        addRect(svg, x + vpcPadding + subnetPadding, subnetY, subnetWidth, subnetHeight, colors.public, colors.border.public);
-        addText(svg, x + vpcPadding + subnetPadding + subnetWidth / 2, subnetY + 18, 'Public', 'small', 'middle', colors.text);
-        addText(svg, x + vpcPadding + subnetPadding + subnetWidth / 2, subnetY + 36, publicCidr, 'tiny', 'middle', colors.textSecondary);
-        addText(svg, x + vpcPadding + subnetPadding + subnetWidth / 2, subnetY + 53, '3 AZs', 'tiny', 'middle', colors.textSecondary);
+        addRect(svg, x + GAPS.vpcPadding + subnetPadding, subnetY, subnetWidth, subnetHeight, colors.public, colors.border.public);
+        addText(svg, x + GAPS.vpcPadding + subnetPadding + subnetWidth / 2, subnetY + 18, 'Public', 'small', 'middle', colors.text);
+        addText(svg, x + GAPS.vpcPadding + subnetPadding + subnetWidth / 2, subnetY + 36, publicCidr, 'tiny', 'middle', colors.textSecondary);
+        addText(svg, x + GAPS.vpcPadding + subnetPadding + subnetWidth / 2, subnetY + 53, '3 AZs', 'tiny', 'middle', colors.textSecondary);
 
         // Private subnet
-        const privateX = x + vpcPadding + subnetPadding + subnetWidth + subnetGap;
+        const privateX = x + GAPS.vpcPadding + subnetPadding + subnetWidth + subnetGap;
         addRect(svg, privateX, subnetY, subnetWidth, subnetHeight, colors.private, colors.border.private);
         addText(svg, privateX + subnetWidth / 2, subnetY + 18, 'Private', 'small', 'middle', colors.text);
         addText(svg, privateX + subnetWidth / 2, subnetY + 36, privateCidr, 'tiny', 'middle', colors.textSecondary);
@@ -815,24 +883,24 @@ function updateDiagram() {
         addText(svg, databaseX + subnetWidth / 2, subnetY + 36, databaseCidr, 'tiny', 'middle', colors.textSecondary);
         addText(svg, databaseX + subnetWidth / 2, subnetY + 53, '3 AZs', 'tiny', 'middle', colors.textSecondary);
 
-        // EKS if selected
-        let currentY = subnetY + 85;
+        // EKS if selected (using dynamic positioning)
+        let currentY = subnetY + subnetHeight + GAPS.afterSubnets;
         if (hasEKS) {
             const eksY = currentY;
             const eksWidth = vpcWidth - subnetPadding * 2;
-            addRect(svg, x + vpcPadding + subnetPadding, eksY, eksWidth, 80, colors.eks, colors.border.eks);
+            addRect(svg, x + GAPS.vpcPadding + subnetPadding, eksY, eksWidth, COMPONENT_HEIGHTS.eks, colors.eks, colors.border.eks);
             addText(svg, x + envBoxWidth / 2, eksY + 22, 'EKS Cluster', 'normal', 'middle', colors.text);
             addText(svg, x + envBoxWidth / 2, eksY + 40, 'Auto Mode', 'small', 'middle', colors.textSecondary);
             addText(svg, x + envBoxWidth / 2, eksY + 56, 'Automatic Node', 'tiny', 'middle', colors.textSecondary);
             addText(svg, x + envBoxWidth / 2, eksY + 68, 'Provisioning', 'tiny', 'middle', colors.textSecondary);
-            currentY = eksY + 85;
+            currentY = eksY + COMPONENT_HEIGHTS.eks + GAPS.betweenComponents;
         }
 
-        // RDS if selected
+        // RDS if selected (using dynamic positioning)
         if (hasRDS) {
             const rdsY = currentY;
             const rdsWidth = vpcWidth - subnetPadding * 2;
-            addRect(svg, x + vpcPadding + subnetPadding, rdsY, rdsWidth, 80, colors.rds, colors.border.rds);
+            addRect(svg, x + GAPS.vpcPadding + subnetPadding, rdsY, rdsWidth, COMPONENT_HEIGHTS.rds, colors.rds, colors.border.rds);
             addText(svg, x + envBoxWidth / 2, rdsY + 18, 'RDS Aurora', 'normal', 'middle', colors.text);
             addText(svg, x + envBoxWidth / 2, rdsY + 35, 'PostgreSQL', 'small', 'middle', colors.textSecondary);
             addText(svg, x + envBoxWidth / 2, rdsY + 50, 'Serverless v2', 'tiny', 'middle', colors.textSecondary);
@@ -840,8 +908,8 @@ function updateDiagram() {
         }
     });
 
-    // Legend - positioned inside the outer container
-    const legendY = outerY + outerHeight - 15;
+    // Legend - positioned below outer container with proper gap
+    const legendY = outerY + outerHeight + GAPS.legendGap;
     const legendX = outerX + 20; // Start from inside the container
     let legendOffset = 0;
 
