@@ -645,7 +645,7 @@ function updateDiagram() {
         afterLastComponent: 10, // Gap after last component before VPC bottom
         legendHeight: 20,     // Height reserved for legend inside diagram
         legendPadding: 20,    // Padding above legend (space between env blocks and legend)
-        legendBottomPadding: 5, // Minimal padding below legend to outer container bottom
+        legendBottomPadding: 2, // Minimal padding below legend to outer container bottom
     };
 
     // Calculate VPC content height dynamically
