@@ -319,18 +319,16 @@ function setupEventListeners() {
 
     // Project Name - clear errors and update diagram in real-time
     document.getElementById('projectName').addEventListener('input', function() {
-        if (this.classList.contains('error')) {
-            clearError(this);
-        }
+        // Always call clearError - it handles the case when there's no error
+        clearError(this);
         debouncedUpdateDiagram();
     });
 
     // AWS Account ID - clear errors and update diagram in real-time
     if (awsAccountIdInput) {
         awsAccountIdInput.addEventListener('input', function() {
-            if (this.classList.contains('error')) {
-                clearError(this);
-            }
+            // Always call clearError - it handles the case when there's no error
+            clearError(this);
             debouncedUpdateDiagram();
         });
     }

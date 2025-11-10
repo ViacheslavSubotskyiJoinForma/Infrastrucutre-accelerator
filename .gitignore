@@ -52,3 +52,4 @@ __pycache__/
 *.pyo
 .coverage
 htmlcov/
+node_modules/
