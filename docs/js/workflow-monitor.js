@@ -61,14 +61,12 @@ class WorkflowMonitor {
 
         // Start polling with proper error handling to prevent polling from stopping
         // 15s interval helps avoid Chrome's aggressive tab throttling
+        // First check happens at 15s to avoid rapid DOM updates that trigger throttling
         this.pollInterval = setInterval(() => {
             // Fire and forget - don't await to prevent blocking
             // Silently catch errors to prevent console.error from blocking when devtools closed
             this.checkStatus().catch(() => {});
         }, 15000); // Poll every 15 seconds (longer to avoid Chrome throttling)
-
-        // Check immediately (don't await to prevent blocking setInterval)
-        this.checkStatus().catch(() => {});
     }
 
     /**
