@@ -636,7 +636,7 @@ function updateDiagram() {
     // Gap and padding configuration
     // Adjust these to change spacing throughout the diagram
     const GAPS = {
-        outerPadding: 15,     // Padding from outer container to environment boxes
+        outerPadding: 15,     // Padding from outer container to environment boxes (top and sides)
         envHeader: 40,        // Space for environment name
         vpcPadding: 15,       // Padding inside VPC container
         vpcHeader: 50,        // Space for VPC name and CIDR
@@ -644,7 +644,8 @@ function updateDiagram() {
         betweenComponents: 5, // Gap between components (EKS, RDS, etc.)
         afterLastComponent: 10, // Gap after last component before VPC bottom
         legendHeight: 20,     // Height reserved for legend inside diagram
-        legendPadding: 20,    // Padding above legend (increased from 10 to prevent overlap)
+        legendPadding: 20,    // Padding above legend (space between env blocks and legend)
+        legendBottomPadding: 5, // Minimal padding below legend to outer container bottom
     };
 
     // Calculate VPC content height dynamically
@@ -664,7 +665,7 @@ function updateDiagram() {
     // Calculate total heights
     const vpcHeight = GAPS.vpcHeader + vpcContentHeight;
     const envBoxHeight = GAPS.envHeader + vpcHeight + GAPS.vpcPadding * 2;
-    const outerHeight = envBoxHeight + GAPS.outerPadding * 2 + GAPS.legendPadding + GAPS.legendHeight;
+    const outerHeight = envBoxHeight + GAPS.outerPadding + GAPS.legendPadding + GAPS.legendHeight + GAPS.legendBottomPadding;
     const totalHeight = 50 + outerHeight; // 50 = header space
 
     // Calculate viewBox width: use consistent calculation for proper proportions
