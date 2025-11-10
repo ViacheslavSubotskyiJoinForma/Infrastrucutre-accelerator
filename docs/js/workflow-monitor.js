@@ -40,12 +40,13 @@ class WorkflowMonitor {
         this.pollInterval = null;
         this.currentRunId = null;
         this.startTime = null;
-        this.stepsProgress = 0; // Track progress based on workflow steps
+        this.isChecking = false; // Guard to prevent concurrent checkStatus calls
     }
 
     /**
      * Start monitoring a workflow run
-     * Polls GitHub API every 5 seconds for status updates
+     * Polls GitHub API every 10 seconds for status updates
+     * Longer interval (10s vs 5s) prevents Chrome tab throttling issues
      * Updates progress UI and automatically downloads artifacts when complete
      * @param {number} runId - GitHub workflow run ID
      * @returns {Promise<void>}
@@ -53,15 +54,18 @@ class WorkflowMonitor {
     async startMonitoring(runId) {
         this.currentRunId = runId;
         this.startTime = Date.now();
-        this.stepsProgress = 0;
+        this.isChecking = false;
 
         // Show progress modal
         this.showProgressModal();
 
-        // Start polling with arrow function to preserve 'this' context
-        this.pollInterval = setInterval(async () => {
-            await this.checkStatus();
-        }, 5000); // Poll every 5 seconds
+        // Start polling with proper error handling to prevent polling from stopping
+        // Longer 10s interval helps avoid Chrome's aggressive tab throttling
+        this.pollInterval = setInterval(() => {
+            // Fire and forget - don't await to prevent blocking
+            // Silently catch errors to prevent console.error from blocking when devtools closed
+            this.checkStatus().catch(() => {});
+        }, 10000); // Poll every 10 seconds (longer to avoid Chrome throttling)
 
         // Check immediately
         await this.checkStatus();
@@ -80,9 +84,16 @@ class WorkflowMonitor {
 
     /**
      * Check workflow run status via GitHub API
+     * Uses guard to prevent concurrent calls
      * @returns {Promise<void>}
      */
     async checkStatus() {
+        // Guard: skip if already checking to prevent concurrent API calls
+        if (this.isChecking) {
+            return;
+        }
+
+        this.isChecking = true;
         try {
             const response = await fetch(
                 `https://api.github.com/repos/${this.repo}/actions/runs/${this.currentRunId}`,
@@ -100,196 +111,22 @@ class WorkflowMonitor {
 
             const run = await response.json();
 
+            // Always update progress with current workflow status
+            this.updateProgress(run);
+
             // If completed, stop monitoring and handle completion
             if (run.status === WorkflowStatus.COMPLETED) {
                 this.stopMonitoring();
-                this.updateProgress(run);
                 await this.handleCompletion(run);
-            } else {
-                // Fetch jobs for step-based progress calculation
-                await this.updateJobProgress(run);
             }
 
         } catch (error) {
-            console.error('[WorkflowMonitor] Status check error:', error);
+            // Silently fail and retry on next interval
+            // console.error can block execution when devtools are closed
             this.updateProgressMessage('⚠️ Error checking status. Retrying...', 'warning');
-        }
-    }
-
-    /**
-     * Update job progress details
-     * @param {Object} run - Workflow run object from GitHub API
-     * @returns {Promise<void>}
-     */
-    async updateJobProgress(run) {
-        try {
-            const response = await fetch(
-                `https://api.github.com/repos/${this.repo}/actions/runs/${this.currentRunId}/jobs`,
-                {
-                    headers: {
-                        'Authorization': `Bearer ${this.token}`,
-                        'Accept': 'application/vnd.github.v3+json'
-                    }
-                }
-            );
-
-            if (response.ok) {
-                const { jobs } = await response.json();
-
-                // Calculate progress based on steps
-                this.stepsProgress = this.calculateStepsProgress(jobs);
-
-                // Display jobs in UI
-                this.displayJobProgress(jobs);
-
-                // Update progress bar with calculated percentage
-                this.updateProgress(run);
-            }
-        } catch (error) {
-            console.error('[WorkflowMonitor] Job progress error:', error);
-        }
-    }
-
-    /**
-     * Calculate progress percentage based on workflow steps
-     * @param {Array} jobs - Array of job objects with steps from GitHub API
-     * @returns {number} Progress percentage (0-100)
-     */
-    calculateStepsProgress(jobs) {
-        let totalSteps = 0;
-        let completedSteps = 0;
-        let inProgressSteps = 0;
-
-        jobs.forEach(job => {
-            if (job.steps && job.steps.length > 0) {
-                job.steps.forEach(step => {
-                    // Skip setup steps (like "Set up job", "Complete job")
-                    if (!step.name.startsWith('Set up') && !step.name.startsWith('Complete')) {
-                        totalSteps++;
-
-                        if (step.status === 'completed') {
-                            completedSteps++;
-                        } else if (step.status === 'in_progress') {
-                            inProgressSteps++;
-                        }
-                    }
-                });
-            }
-        });
-
-        if (totalSteps === 0) {
-            // No steps yet, use job status as fallback
-            const completedJobs = jobs.filter(j => j.status === 'completed').length;
-            const inProgressJobs = jobs.filter(j => j.status === 'in_progress').length;
-            const totalJobs = jobs.length || 1;
-
-            return Math.round(((completedJobs + inProgressJobs * 0.5) / totalJobs) * 90);
-        }
-
-        // Calculate: completed steps = 100%, in_progress = 50% contribution
-        const weightedCompleted = completedSteps + (inProgressSteps * 0.5);
-        const progress = (weightedCompleted / totalSteps) * 90; // Cap at 90% until workflow completes
-
-        return Math.round(Math.max(10, progress)); // Minimum 10% when started
-    }
-
-    /**
-     * Display job progress in UI
-     * @param {Array} jobs - Array of job objects from GitHub API
-     * @returns {void}
-     */
-    displayJobProgress(jobs) {
-        const jobList = document.getElementById('workflowJobs');
-        if (!jobList) {
-            return;
-        }
-
-        jobList.innerHTML = '';
-        let firstInProgressItem = null;
-
-        jobs.forEach(job => {
-            // Display each step instead of just the job
-            if (job.steps && job.steps.length > 0) {
-                job.steps.forEach(step => {
-                    // Skip setup/teardown steps
-                    if (step.name.startsWith('Set up') || step.name.startsWith('Complete')) {
-                        return;
-                    }
-
-                    const jobItem = document.createElement('div');
-                    jobItem.className = 'job-item';
-
-                    let statusIcon = '⏳';
-                    let statusClass = 'pending';
-
-                    if (step.status === 'completed') {
-                        if (step.conclusion === 'success') {
-                            statusIcon = '✅';
-                            statusClass = 'success';
-                        } else if (step.conclusion === 'failure') {
-                            statusIcon = '❌';
-                            statusClass = 'failure';
-                        } else {
-                            statusIcon = '⚠️';
-                            statusClass = 'warning';
-                        }
-                    } else if (step.status === 'in_progress') {
-                        statusIcon = '⚡';
-                        statusClass = 'in-progress';
-                        // Remember first in-progress item for auto-scroll
-                        if (!firstInProgressItem) {
-                            firstInProgressItem = jobItem;
-                            // Add active class for visual highlight
-                            jobItem.classList.add('active');
-                        }
-                    }
-
-                    jobItem.innerHTML = `
-                        <span class="job-status ${statusClass}">${statusIcon}</span>
-                        <span class="job-name">${Security.escapeHtml(step.name)}</span>
-                    `;
-
-                    jobList.appendChild(jobItem);
-                });
-            } else {
-                // Fallback: show job if no steps available yet
-                const jobItem = document.createElement('div');
-                jobItem.className = 'job-item';
-
-                let statusIcon = '⏳';
-                let statusClass = 'pending';
-
-                if (job.status === 'completed') {
-                    statusIcon = '✅';
-                    statusClass = 'success';
-                } else if (job.status === 'in_progress') {
-                    statusIcon = '⚡';
-                    statusClass = 'in-progress';
-                    if (!firstInProgressItem) {
-                        firstInProgressItem = jobItem;
-                        jobItem.classList.add('active');
-                    }
-                }
-
-                jobItem.innerHTML = `
-                    <span class="job-status ${statusClass}">${statusIcon}</span>
-                    <span class="job-name">${Security.escapeHtml(job.name)}</span>
-                `;
-
-                jobList.appendChild(jobItem);
-            }
-        });
-
-        // Auto-scroll to the first in-progress step
-        if (firstInProgressItem) {
-            // Use setTimeout to ensure DOM is updated before scrolling
-            setTimeout(() => {
-                firstInProgressItem.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'nearest',
-                    inline: 'nearest'
-                });
-            }, 100);
+        } finally {
+            // Always release the guard
+            this.isChecking = false;
         }
     }
 
@@ -310,12 +147,14 @@ class WorkflowMonitor {
         switch (run.status) {
             case WorkflowStatus.QUEUED:
                 message = `⏳ Queued (${timeStr})`;
-                progressPercent = 5;
+                progressPercent = 10;
                 break;
             case WorkflowStatus.IN_PROGRESS:
                 message = `⚡ Generating infrastructure... (${timeStr})`;
-                // Use step-based progress (calculated from jobs/steps)
-                progressPercent = this.stepsProgress || 10;
+                // Simple linear progress based on elapsed time (max 90%)
+                // Estimate: ~3 minutes workflow = 180 seconds
+                const estimatedDuration = 180; // seconds
+                progressPercent = Math.min(90, 10 + Math.floor((elapsed / estimatedDuration) * 80));
                 break;
             case WorkflowStatus.COMPLETED:
                 progressPercent = 100;
@@ -508,11 +347,6 @@ class WorkflowMonitor {
                     </div>
 
                     <p id="progressMessage" class="progress-message">⏳ Starting workflow...</p>
-
-                    <div class="jobs-container">
-                        <h4>Workflow Steps:</h4>
-                        <div id="workflowJobs" class="job-list"></div>
-                    </div>
 
                     <div class="progress-actions">
                         <a id="viewWorkflowLink" href="https://github.com/${this.repo}/actions/runs/${this.currentRunId}" target="_blank" class="btn-secondary">
