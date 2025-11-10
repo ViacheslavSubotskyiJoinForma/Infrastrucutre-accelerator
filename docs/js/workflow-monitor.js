@@ -141,13 +141,14 @@ class WorkflowMonitor {
 
                 // Display jobs in UI
                 this.displayJobProgress(jobs);
-
-                // Update progress bar with calculated percentage
-                this.updateProgress(run);
             }
         } catch (error) {
             console.error('[WorkflowMonitor] Job progress error:', error);
         }
+
+        // Always update progress bar with calculated percentage or fallback
+        // This ensures elapsed time and status message update even if jobs fetch fails
+        this.updateProgress(run);
     }
 
     /**
