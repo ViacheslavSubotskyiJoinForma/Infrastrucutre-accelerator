@@ -75,10 +75,13 @@ class WorkflowMonitor {
      */
     pollNext() {
         if (!this.isMonitoring) {
+            console.log('[WorkflowMonitor] Polling stopped: isMonitoring=false');
             return;
         }
 
+        console.log('[WorkflowMonitor] Scheduling next poll in 5 seconds...');
         this.pollInterval = setTimeout(async () => {
+            console.log('[WorkflowMonitor] Poll triggered');
             await this.checkStatus();
             // Schedule next poll after current one completes
             this.pollNext();
@@ -102,6 +105,7 @@ class WorkflowMonitor {
      * @returns {Promise<void>}
      */
     async checkStatus() {
+        console.log('[WorkflowMonitor] checkStatus() called');
         try {
             const response = await fetch(
                 `https://api.github.com/repos/${this.repo}/actions/runs/${this.currentRunId}`,
@@ -118,6 +122,7 @@ class WorkflowMonitor {
             }
 
             const run = await response.json();
+            console.log(`[WorkflowMonitor] Run status: ${run.status}, conclusion: ${run.conclusion}`);
 
             // If completed, stop monitoring and handle completion
             if (run.status === WorkflowStatus.COMPLETED) {
