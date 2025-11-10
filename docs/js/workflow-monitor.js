@@ -42,6 +42,7 @@ class WorkflowMonitor {
         this.startTime = null;
         this.stepsProgress = 0; // Track progress based on workflow steps
         this.isChecking = false; // Guard to prevent concurrent checkStatus calls
+        this.checkCounter = 0; // Counter to reduce jobs API frequency
     }
 
     /**
@@ -56,6 +57,7 @@ class WorkflowMonitor {
         this.startTime = Date.now();
         this.stepsProgress = 0;
         this.isChecking = false;
+        this.checkCounter = 0;
 
         // Show progress modal
         this.showProgressModal();
@@ -89,6 +91,8 @@ class WorkflowMonitor {
         }
 
         this.isChecking = true;
+        this.checkCounter++;
+
         try {
             const response = await fetch(
                 `https://api.github.com/repos/${this.repo}/actions/runs/${this.currentRunId}`,
@@ -112,8 +116,14 @@ class WorkflowMonitor {
                 this.updateProgress(run);
                 await this.handleCompletion(run);
             } else {
-                // Fetch jobs for progress calculation
-                await this.updateJobProgress(run);
+                // Fetch jobs only every 2nd check (every 20s instead of 10s)
+                // This reduces API load and prevents throttling
+                if (this.checkCounter % 2 === 0) {
+                    await this.updateJobProgress(run);
+                } else {
+                    // Just update progress with current run status
+                    this.updateProgress(run);
+                }
             }
 
         } catch (error) {
