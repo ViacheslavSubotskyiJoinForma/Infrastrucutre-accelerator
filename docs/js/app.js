@@ -971,6 +971,21 @@ function showError(input, message) {
 function clearError(input) {
     input.classList.remove('error');
 
+    // Clear form group error state
+    const formGroup = input.closest('.form-group');
+    if (formGroup) {
+        formGroup.classList.remove('error');
+    }
+
+    // Clear new validation message container
+    const validationId = input.id + 'Validation';
+    const validationMsg = document.getElementById(validationId);
+    if (validationMsg) {
+        validationMsg.textContent = '';
+        validationMsg.className = 'validation-message'; // Remove show and error classes
+    }
+
+    // Clear old error message (fallback)
     const errorMessage = input.parentElement.querySelector('.error-message');
     if (errorMessage) {
         errorMessage.remove();
