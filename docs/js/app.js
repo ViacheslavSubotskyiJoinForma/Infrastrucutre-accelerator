@@ -666,7 +666,7 @@ function updateDiagram() {
     const vpcHeight = GAPS.vpcHeader + vpcContentHeight;
     const envBoxHeight = GAPS.envHeader + vpcHeight + GAPS.vpcPadding * 2;
     const outerHeight = envBoxHeight + GAPS.outerPadding + GAPS.legendPadding + GAPS.legendHeight + GAPS.legendBottomPadding;
-    const totalHeight = 50 + outerHeight - 15; // 50 = header space, -15 to minimize bottom padding
+    const totalHeight = 50 + outerHeight - 5; // 50 = header space, -5 to minimize bottom padding
 
     // Calculate viewBox width: use consistent calculation for proper proportions
     // For single environment, use container-based width for proper scaling
