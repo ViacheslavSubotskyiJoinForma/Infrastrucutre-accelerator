@@ -222,8 +222,10 @@ class WorkflowMonitor {
                 break;
             case WorkflowStatus.IN_PROGRESS:
                 message = `⚡ Generating infrastructure... (${timeStr})`;
-                // Use job-based progress (calculated from jobs API)
-                progressPercent = this.stepsProgress || 10;
+                // Use maximum of step-based and time-based progress
+                // This ensures progress always moves forward even if jobs API is slow/cached
+                const timeBasedProgress = Math.min(90, 10 + Math.floor((elapsed / 180) * 80));
+                progressPercent = Math.max(this.stepsProgress || 10, timeBasedProgress);
                 break;
             case WorkflowStatus.COMPLETED:
                 progressPercent = 100;
