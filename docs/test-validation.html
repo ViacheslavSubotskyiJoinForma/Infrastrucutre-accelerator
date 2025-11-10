@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validation Test - Infrastructure Accelerator</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body {
+            padding: 2rem;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .test-section {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px -1px var(--shadow);
+        }
+        .test-controls {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+        .test-button {
+            padding: 0.5rem 1rem;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+        }
+        .test-button:hover {
+            background: var(--primary-dark);
+        }
+        .test-button.secondary {
+            background: var(--gray-600);
+        }
+        .test-result {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 0.875rem;
+        }
+        .test-result.pass {
+            border-left: 4px solid var(--success);
+        }
+        .test-result.fail {
+            border-left: 4px solid var(--danger);
+        }
+        h1 {
+            margin-bottom: 2rem;
+        }
+        h2 {
+            margin-bottom: 1rem;
+            font-size: 1.25rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Validation Test Suite</h1>
+
+    <div class="test-section">
+        <h2>Test 1: Project Name Validation</h2>
+        <div class="form-group" id="projectNameGroup">
+            <label for="projectName">Project Name</label>
+            <input type="text" id="projectName" placeholder="my-project">
+            <small>Used for naming resources across your infrastructure</small>
+            <div class="validation-message" id="projectNameValidation"></div>
+        </div>
+
+        <div class="test-controls">
+            <button class="test-button" onclick="testShowError()">Show Error</button>
+            <button class="test-button secondary" onclick="testClearError()">Clear Error</button>
+            <button class="test-button secondary" onclick="testTypeInput()">Simulate Typing</button>
+        </div>
+
+        <div id="testResult1" class="test-result" style="display: none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 2: AWS Account ID Validation</h2>
+        <div class="form-group" id="awsAccountIdGroup">
+            <label for="awsAccountId">AWS Account ID</label>
+            <input type="text" id="awsAccountId" placeholder="123456789012">
+            <small>Your 12-digit AWS account number</small>
+            <div class="validation-message" id="awsAccountIdValidation"></div>
+        </div>
+
+        <div class="test-controls">
+            <button class="test-button" onclick="testShowErrorAWS()">Show Error</button>
+            <button class="test-button secondary" onclick="testClearErrorAWS()">Clear Error</button>
+            <button class="test-button secondary" onclick="testTypeInputAWS()">Simulate Typing</button>
+        </div>
+
+        <div id="testResult2" class="test-result" style="display: none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 3: Input Event Listener</h2>
+        <p>Type in the fields above and verify that errors clear immediately.</p>
+        <div id="testResult3" class="test-result">
+            <strong>Manual Test:</strong><br>
+            1. Click "Show Error" on either field<br>
+            2. Start typing in the input field<br>
+            3. Error should disappear immediately<br>
+            <br>
+            <strong>Expected behavior:</strong><br>
+            ✅ Error message disappears on first keystroke<br>
+            ✅ Red border is removed<br>
+            ✅ Small helper text remains visible
+        </div>
+    </div>
+
+    <script src="js/security.js"></script>
+    <script>
+        // Simplified versions of the functions from app.js for testing
+
+        /**
+         * Show validation error for an input field
+         */
+        function showError(input, message) {
+            // Add error class to form group
+            const formGroup = input.closest('.form-group');
+            if (formGroup) {
+                formGroup.classList.add('error');
+                formGroup.classList.remove('success');
+            }
+
+            // Find validation message container
+            const validationId = input.id + 'Validation';
+            const validationMsg = document.getElementById(validationId);
+
+            if (validationMsg) {
+                validationMsg.textContent = message;
+                validationMsg.className = 'validation-message error show';
+            }
+
+            // Focus the input
+            input.focus();
+        }
+
+        /**
+         * Clear validation error for an input field
+         */
+        function clearError(input) {
+            input.classList.remove('error');
+
+            // Clear form group error state
+            const formGroup = input.closest('.form-group');
+            if (formGroup) {
+                formGroup.classList.remove('error');
+            }
+
+            // Clear new validation message container
+            const validationId = input.id + 'Validation';
+            const validationMsg = document.getElementById(validationId);
+            if (validationMsg) {
+                validationMsg.textContent = '';
+                validationMsg.className = 'validation-message'; // Remove show and error classes
+            }
+
+            // Clear old error message (fallback)
+            const errorMessage = input.parentElement.querySelector('.error-message');
+            if (errorMessage) {
+                errorMessage.remove();
+            }
+
+            const smallText = input.parentElement.querySelector('small:not(.error-message)');
+            if (smallText) {
+                smallText.classList.remove('hide');
+            }
+        }
+
+        // Test functions for Project Name
+        function testShowError() {
+            const input = document.getElementById('projectName');
+            showError(input, 'Please enter a project name');
+
+            const result = document.getElementById('testResult1');
+            const formGroup = input.closest('.form-group');
+            const validationMsg = document.getElementById('projectNameValidation');
+
+            const hasFormGroupError = formGroup.classList.contains('error');
+            const hasValidationMessage = validationMsg.textContent !== '';
+            const isVisible = validationMsg.classList.contains('show');
+
+            result.style.display = 'block';
+            if (hasFormGroupError && hasValidationMessage && isVisible) {
+                result.className = 'test-result pass';
+                result.innerHTML = '✅ PASS: Error displayed correctly<br>' +
+                    '- Form group has error class: ' + hasFormGroupError + '<br>' +
+                    '- Validation message shown: ' + hasValidationMessage + '<br>' +
+                    '- Message is visible: ' + isVisible;
+            } else {
+                result.className = 'test-result fail';
+                result.innerHTML = '❌ FAIL: Error not displayed correctly<br>' +
+                    '- Form group has error class: ' + hasFormGroupError + '<br>' +
+                    '- Validation message shown: ' + hasValidationMessage + '<br>' +
+                    '- Message is visible: ' + isVisible;
+            }
+        }
+
+        function testClearError() {
+            const input = document.getElementById('projectName');
+            clearError(input);
+
+            const result = document.getElementById('testResult1');
+            const formGroup = input.closest('.form-group');
+            const validationMsg = document.getElementById('projectNameValidation');
+
+            const noFormGroupError = !formGroup.classList.contains('error');
+            const noValidationMessage = validationMsg.textContent === '';
+            const isHidden = !validationMsg.classList.contains('show');
+
+            result.style.display = 'block';
+            if (noFormGroupError && noValidationMessage && isHidden) {
+                result.className = 'test-result pass';
+                result.innerHTML = '✅ PASS: Error cleared correctly<br>' +
+                    '- Form group has no error class: ' + noFormGroupError + '<br>' +
+                    '- Validation message empty: ' + noValidationMessage + '<br>' +
+                    '- Message is hidden: ' + isHidden;
+            } else {
+                result.className = 'test-result fail';
+                result.innerHTML = '❌ FAIL: Error not cleared correctly<br>' +
+                    '- Form group has no error class: ' + noFormGroupError + '<br>' +
+                    '- Validation message empty: ' + noValidationMessage + '<br>' +
+                    '- Message is hidden: ' + isHidden;
+            }
+        }
+
+        function testTypeInput() {
+            const input = document.getElementById('projectName');
+
+            // First show error
+            showError(input, 'Please enter a project name');
+
+            // Wait a bit, then simulate typing
+            setTimeout(() => {
+                input.value = 't';
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+
+                // Wait for the input event to process
+                setTimeout(() => {
+                    const result = document.getElementById('testResult1');
+                    const formGroup = input.closest('.form-group');
+                    const validationMsg = document.getElementById('projectNameValidation');
+
+                    const noFormGroupError = !formGroup.classList.contains('error');
+                    const noValidationMessage = validationMsg.textContent === '';
+                    const isHidden = !validationMsg.classList.contains('show');
+
+                    result.style.display = 'block';
+                    if (noFormGroupError && noValidationMessage && isHidden) {
+                        result.className = 'test-result pass';
+                        result.innerHTML = '✅ PASS: Error cleared on input event<br>' +
+                            '- Form group has no error class: ' + noFormGroupError + '<br>' +
+                            '- Validation message empty: ' + noValidationMessage + '<br>' +
+                            '- Message is hidden: ' + isHidden;
+                    } else {
+                        result.className = 'test-result fail';
+                        result.innerHTML = '❌ FAIL: Error not cleared on input event<br>' +
+                            '- Form group has no error class: ' + noFormGroupError + '<br>' +
+                            '- Validation message empty: ' + noValidationMessage + '<br>' +
+                            '- Message is hidden: ' + isHidden;
+                    }
+                }, 50);
+            }, 100);
+        }
+
+        // Test functions for AWS Account ID
+        function testShowErrorAWS() {
+            const input = document.getElementById('awsAccountId');
+            showError(input, 'AWS Account ID must be exactly 12 digits');
+
+            const result = document.getElementById('testResult2');
+            const formGroup = input.closest('.form-group');
+            const validationMsg = document.getElementById('awsAccountIdValidation');
+
+            const hasFormGroupError = formGroup.classList.contains('error');
+            const hasValidationMessage = validationMsg.textContent !== '';
+            const isVisible = validationMsg.classList.contains('show');
+
+            result.style.display = 'block';
+            if (hasFormGroupError && hasValidationMessage && isVisible) {
+                result.className = 'test-result pass';
+                result.innerHTML = '✅ PASS: Error displayed correctly';
+            } else {
+                result.className = 'test-result fail';
+                result.innerHTML = '❌ FAIL: Error not displayed correctly';
+            }
+        }
+
+        function testClearErrorAWS() {
+            const input = document.getElementById('awsAccountId');
+            clearError(input);
+
+            const result = document.getElementById('testResult2');
+            const formGroup = input.closest('.form-group');
+            const validationMsg = document.getElementById('awsAccountIdValidation');
+
+            const noFormGroupError = !formGroup.classList.contains('error');
+            const noValidationMessage = validationMsg.textContent === '';
+            const isHidden = !validationMsg.classList.contains('show');
+
+            result.style.display = 'block';
+            if (noFormGroupError && noValidationMessage && isHidden) {
+                result.className = 'test-result pass';
+                result.innerHTML = '✅ PASS: Error cleared correctly';
+            } else {
+                result.className = 'test-result fail';
+                result.innerHTML = '❌ FAIL: Error not cleared correctly';
+            }
+        }
+
+        function testTypeInputAWS() {
+            const input = document.getElementById('awsAccountId');
+
+            // First show error
+            showError(input, 'AWS Account ID must be exactly 12 digits');
+
+            // Wait a bit, then simulate typing
+            setTimeout(() => {
+                input.value = '1';
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+
+                // Wait for the input event to process
+                setTimeout(() => {
+                    const result = document.getElementById('testResult2');
+                    const formGroup = input.closest('.form-group');
+                    const validationMsg = document.getElementById('awsAccountIdValidation');
+
+                    const noFormGroupError = !formGroup.classList.contains('error');
+                    const noValidationMessage = validationMsg.textContent === '';
+                    const isHidden = !validationMsg.classList.contains('show');
+
+                    result.style.display = 'block';
+                    if (noFormGroupError && noValidationMessage && isHidden) {
+                        result.className = 'test-result pass';
+                        result.innerHTML = '✅ PASS: Error cleared on input event';
+                    } else {
+                        result.className = 'test-result fail';
+                        result.innerHTML = '❌ FAIL: Error not cleared on input event';
+                    }
+                }, 50);
+            }, 100);
+        }
+
+        // Setup input event listeners (same as in app.js)
+        document.addEventListener('DOMContentLoaded', () => {
+            const projectNameInput = document.getElementById('projectName');
+            const awsAccountIdInput = document.getElementById('awsAccountId');
+
+            if (projectNameInput) {
+                projectNameInput.addEventListener('input', function() {
+                    // Always call clearError - it handles the case when there's no error
+                    clearError(this);
+                });
+            }
+
+            if (awsAccountIdInput) {
+                awsAccountIdInput.addEventListener('input', function() {
+                    // Always call clearError - it handles the case when there's no error
+                    clearError(this);
+                });
+            }
+
+            console.log('✅ Validation test page loaded');
+            console.log('Event listeners attached to input fields');
+        });
+    </script>
+</body>
+</html>

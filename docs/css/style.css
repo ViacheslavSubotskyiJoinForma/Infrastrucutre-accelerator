@@ -582,26 +582,7 @@ body.dark-mode input[value="github"] ~ .provider-card .provider-icon path {
     display: block;
 }
 
-/* Scroll hint for multiple environments */
-@media (min-width: 768px) {
-    .diagram-container::after {
-        content: '';
-        position: absolute;
-        right: 1rem;
-        top: 50%;
-        transform: translateY(-50%);
-        width: 30px;
-        height: 30px;
-        background: linear-gradient(to right, transparent, var(--diagram-bg));
-        pointer-events: none;
-        opacity: 0;
-        transition: opacity 0.3s ease;
-    }
-
-    .diagram-container[data-scrollable="true"]::after {
-        opacity: 1;
-    }
-}
+/* Scroll hint removed - not needed and caused visual artifacts */
 
 .info-box {
     background: var(--bg-tertiary);
