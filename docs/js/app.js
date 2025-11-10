@@ -644,7 +644,7 @@ function updateDiagram() {
         betweenComponents: 5, // Gap between components (EKS, RDS, etc.)
         afterLastComponent: 10, // Gap after last component before VPC bottom
         legendHeight: 20,     // Height reserved for legend inside diagram
-        legendPadding: 10,    // Padding above legend
+        legendPadding: 20,    // Padding above legend (increased from 10 to prevent overlap)
     };
 
     // Calculate VPC content height dynamically

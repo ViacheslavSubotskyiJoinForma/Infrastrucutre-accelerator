@@ -33,7 +33,9 @@ const GAPS = {
     vpcHeader: 50,        // Space for VPC name and CIDR
     afterSubnets: 5,      // Gap after subnet blocks
     betweenComponents: 5, // Gap between components (EKS, RDS, etc.)
-    legendGap: 25,        // Gap between environment boxes and legend
+    afterLastComponent: 10, // Gap after last component before VPC bottom
+    legendHeight: 20,     // Height reserved for legend
+    legendPadding: 20,    // Padding above legend (space between env blocks and legend)
 };
 ```
 
@@ -54,11 +56,12 @@ totalHeight
                   └─ eks (80px) [if selected]
                   └─ betweenComponents gap (5px)
                   └─ rds (80px) [if selected]
+                  └─ afterLastComponent gap (10px)
               └─ vpcPadding (15px)
           └─ vpcPadding (15px)
       └─ outerPadding (15px)
-  └─ legendGap (25px)
-  └─ 15 (legend height)
+      └─ legendPadding (20px)
+      └─ legendHeight (20px)
 ```
 
 ## Adding New Components
@@ -147,23 +150,35 @@ if (hasElastiCache) {
 ✅ **Automatic spacing** - Gaps calculated based on component presence
 ✅ **Easy maintenance** - Change one value to update all scenarios
 ✅ **Self-documenting** - Configuration objects clearly show all values
-✅ **Consistent spacing** - legendGap ensures no overlap in any scenario
+✅ **Consistent spacing** - legendPadding ensures no overlap in any scenario
 
 ## Examples
 
 ### VPC Only
-- Height: 50 + (15 + (40 + (50 + 70) + 15 + 15) + 15) + 25 + 15 = **340px**
+- vpcContentHeight: 70 (subnet) + 10 (afterLastComponent) = 80
+- vpcHeight: 50 (vpcHeader) + 80 = 130
+- envBoxHeight: 40 (envHeader) + 130 + 15×2 (vpcPadding) = 200
+- outerHeight: 200 + 15×2 (outerPadding) + 20 (legendPadding) + 20 (legendHeight) = 270
+- totalHeight: 50 (header) + 270 = **320px**
 
 ### VPC + EKS
-- Height: 50 + (15 + (40 + (50 + 70 + 5 + 80) + 15 + 15) + 15) + 25 + 15 = **425px**
+- vpcContentHeight: 70 + 5 (afterSubnets) + 80 (eks) + 10 (afterLastComponent) = 165
+- vpcHeight: 50 + 165 = 215
+- envBoxHeight: 40 + 215 + 30 = 285
+- outerHeight: 285 + 30 + 20 + 20 = 355
+- totalHeight: 50 + 355 = **405px**
 
 ### VPC + RDS
-- Height: Same as VPC + EKS = **425px**
+- Same as VPC + EKS = **405px**
 
 ### VPC + EKS + RDS
-- Height: 50 + (15 + (40 + (50 + 70 + 5 + 80 + 5 + 80) + 15 + 15) + 15) + 25 + 15 = **510px**
+- vpcContentHeight: 70 + 5 + 80 + 5 (betweenComponents) + 80 (rds) + 10 = 250
+- vpcHeight: 50 + 250 = 300
+- envBoxHeight: 40 + 300 + 30 = 370
+- outerHeight: 370 + 30 + 20 + 20 = 440
+- totalHeight: 50 + 440 = **490px**
 
-All scenarios maintain a consistent **25px gap** between environment blocks and legend.
+All scenarios maintain a consistent **20px padding** between environment blocks and legend.
 
 ## Testing
 
@@ -178,9 +193,9 @@ After adding a new component:
 
 ### Legend Overlaps with Environment Blocks
 
-Increase `GAPS.legendGap`:
+Increase `GAPS.legendPadding`:
 ```javascript
-legendGap: 30,  // Increased from 25
+legendPadding: 25,  // Increased from 20
 ```
 
 ### Components Too Close Together
@@ -195,6 +210,13 @@ betweenComponents: 10,  // Increased from 5
 Increase `GAPS.vpcPadding`:
 ```javascript
 vpcPadding: 20,  // Increased from 15
+```
+
+### VPC Box Touches Components at Bottom
+
+Increase `GAPS.afterLastComponent`:
+```javascript
+afterLastComponent: 15,  // Increased from 10
 ```
 
 ## Migration Notes
@@ -214,14 +236,20 @@ const vpcHeight = (hasEKS && hasRDS) ? 325 : (hasEKS || hasRDS) ? 245 : 160;
 ### New System (After)
 ```javascript
 const COMPONENT_HEIGHTS = { subnet: 70, eks: 80, rds: 80 };
-const GAPS = { legendGap: 25, ... };
+const GAPS = {
+    outerPadding: 15, envHeader: 40, vpcPadding: 15, vpcHeader: 50,
+    afterSubnets: 5, betweenComponents: 5, afterLastComponent: 10,
+    legendHeight: 20, legendPadding: 20
+};
 
 let vpcContentHeight = COMPONENT_HEIGHTS.subnet;
 if (hasEKS) vpcContentHeight += GAPS.afterSubnets + COMPONENT_HEIGHTS.eks;
 if (hasRDS) vpcContentHeight += GAPS.betweenComponents + COMPONENT_HEIGHTS.rds;
+vpcContentHeight += GAPS.afterLastComponent;
 
 const vpcHeight = GAPS.vpcHeader + vpcContentHeight;
 const envBoxHeight = GAPS.envHeader + vpcHeight + GAPS.vpcPadding * 2;
+const outerHeight = envBoxHeight + GAPS.outerPadding * 2 + GAPS.legendPadding + GAPS.legendHeight;
 ```
 
 **Benefits:**
