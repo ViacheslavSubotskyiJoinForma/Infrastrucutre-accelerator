@@ -41,11 +41,13 @@ class WorkflowMonitor {
         this.currentRunId = null;
         this.startTime = null;
         this.stepsProgress = 0; // Track progress based on workflow steps
+        this.isChecking = false; // Guard to prevent concurrent checkStatus calls
     }
 
     /**
      * Start monitoring a workflow run
-     * Polls GitHub API every 5 seconds for status updates
+     * Polls GitHub API every 10 seconds for status updates
+     * Longer interval (10s vs 5s) prevents Chrome tab throttling issues
      * Updates progress UI and automatically downloads artifacts when complete
      * @param {number} runId - GitHub workflow run ID
      * @returns {Promise<void>}
@@ -54,18 +56,19 @@ class WorkflowMonitor {
         this.currentRunId = runId;
         this.startTime = Date.now();
         this.stepsProgress = 0;
+        this.isChecking = false;
 
         // Show progress modal
         this.showProgressModal();
 
         // Start polling with proper error handling to prevent polling from stopping
-        // Wrap async call to ensure errors don't break the interval
+        // Longer 10s interval helps avoid Chrome's aggressive tab throttling
         this.pollInterval = setInterval(() => {
             // Fire and forget - don't await to prevent blocking
             this.checkStatus().catch(error => {
                 console.error('[WorkflowMonitor] Polling error:', error);
             });
-        }, 5000); // Poll every 5 seconds
+        }, 10000); // Poll every 10 seconds (longer to avoid Chrome throttling)
 
         // Check immediately
         await this.checkStatus();
@@ -84,9 +87,17 @@ class WorkflowMonitor {
 
     /**
      * Check workflow run status via GitHub API
+     * Uses guard to prevent concurrent calls
      * @returns {Promise<void>}
      */
     async checkStatus() {
+        // Guard: skip if already checking to prevent concurrent API calls
+        if (this.isChecking) {
+            console.log('[WorkflowMonitor] Skipping check - already in progress');
+            return;
+        }
+
+        this.isChecking = true;
         try {
             const response = await fetch(
                 `https://api.github.com/repos/${this.repo}/actions/runs/${this.currentRunId}`,
@@ -117,6 +128,9 @@ class WorkflowMonitor {
         } catch (error) {
             console.error('[WorkflowMonitor] Status check error:', error);
             this.updateProgressMessage('⚠️ Error checking status. Retrying...', 'warning');
+        } finally {
+            // Always release the guard
+            this.isChecking = false;
         }
     }
 
