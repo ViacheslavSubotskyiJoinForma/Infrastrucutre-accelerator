@@ -146,11 +146,8 @@ class WorkflowMonitor {
             if (response.ok) {
                 const { jobs } = await response.json();
 
-                // Calculate progress based on jobs
+                // Calculate progress based on steps
                 this.stepsProgress = this.calculateJobsProgress(jobs);
-
-                // Display jobs in UI
-                this.displayJobProgress(jobs);
             }
         } catch (error) {
             // Silently fail
@@ -161,7 +158,7 @@ class WorkflowMonitor {
     }
 
     /**
-     * Calculate progress percentage based on workflow jobs
+     * Calculate progress percentage based on workflow steps
      * @param {Array} jobs - Array of job objects from GitHub API
      * @returns {number} Progress percentage (0-100)
      */
@@ -170,58 +167,38 @@ class WorkflowMonitor {
             return 10;
         }
 
-        const completedJobs = jobs.filter(j => j.status === 'completed').length;
-        const inProgressJobs = jobs.filter(j => j.status === 'in_progress').length;
-        const totalJobs = jobs.length;
-
-        // completed = 100%, in_progress = 50% contribution, max 90% until workflow completes
-        const progress = ((completedJobs + inProgressJobs * 0.5) / totalJobs) * 90;
-        return Math.round(Math.max(10, progress));
-    }
-
-    /**
-     * Display job progress in UI
-     * @param {Array} jobs - Array of job objects from GitHub API
-     * @returns {void}
-     */
-    displayJobProgress(jobs) {
-        const jobList = document.getElementById('workflowJobs');
-        if (!jobList) {
-            return;
-        }
-
-        jobList.innerHTML = '';
+        let totalSteps = 0;
+        let completedSteps = 0;
+        let inProgressSteps = 0;
 
         jobs.forEach(job => {
-            const jobItem = document.createElement('div');
-            jobItem.className = 'job-item';
+            if (job.steps && job.steps.length > 0) {
+                job.steps.forEach(step => {
+                    // Skip setup/teardown steps
+                    if (!step.name.startsWith('Set up') && !step.name.startsWith('Complete')) {
+                        totalSteps++;
 
-            let statusIcon = '⏳';
-            let statusClass = 'pending';
-
-            if (job.status === 'completed') {
-                if (job.conclusion === 'success') {
-                    statusIcon = '✅';
-                    statusClass = 'success';
-                } else if (job.conclusion === 'failure') {
-                    statusIcon = '❌';
-                    statusClass = 'failure';
-                } else {
-                    statusIcon = '⚠️';
-                    statusClass = 'warning';
-                }
-            } else if (job.status === 'in_progress') {
-                statusIcon = '⚡';
-                statusClass = 'in-progress';
+                        if (step.status === 'completed') {
+                            completedSteps++;
+                        } else if (step.status === 'in_progress') {
+                            inProgressSteps++;
+                        }
+                    }
+                });
             }
-
-            jobItem.innerHTML = `
-                <span class="job-status ${statusClass}">${statusIcon}</span>
-                <span class="job-name">${Security.escapeHtml(job.name)}</span>
-            `;
-
-            jobList.appendChild(jobItem);
         });
+
+        if (totalSteps === 0) {
+            // No steps yet, fallback to job-based progress
+            const completedJobs = jobs.filter(j => j.status === 'completed').length;
+            const inProgressJobs = jobs.filter(j => j.status === 'in_progress').length;
+            const totalJobs = jobs.length;
+            return Math.round(((completedJobs + inProgressJobs * 0.5) / totalJobs) * 90);
+        }
+
+        // completed = 100%, in_progress = 50% contribution, max 90% until workflow completes
+        const progress = ((completedSteps + inProgressSteps * 0.5) / totalSteps) * 90;
+        return Math.round(Math.max(10, progress));
     }
 
     /**
@@ -440,11 +417,6 @@ class WorkflowMonitor {
                     </div>
 
                     <p id="progressMessage" class="progress-message">⏳ Starting workflow...</p>
-
-                    <div class="jobs-container">
-                        <h4>Workflow Jobs:</h4>
-                        <div id="workflowJobs" class="job-list"></div>
-                    </div>
 
                     <div class="progress-actions">
                         <a id="viewWorkflowLink" href="https://github.com/${this.repo}/actions/runs/${this.currentRunId}" target="_blank" class="btn-secondary">
