@@ -643,9 +643,9 @@ function updateDiagram() {
         afterSubnets: 5,      // Gap after subnet blocks
         betweenComponents: 5, // Gap between components (EKS, RDS, etc.)
         afterLastComponent: 10, // Gap after last component before VPC bottom
-        legendHeight: 20,     // Height reserved for legend inside diagram
+        legendHeight: 6,      // Height reserved for legend (accounting for text descent)
         legendPadding: 20,    // Padding above legend (space between env blocks and legend)
-        legendBottomPadding: 2, // Minimal padding below legend for border visibility
+        legendBottomPadding: 0, // No padding - text descent provides natural spacing
     };
 
     // Calculate VPC content height dynamically

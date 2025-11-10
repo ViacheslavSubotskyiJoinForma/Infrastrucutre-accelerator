@@ -34,9 +34,9 @@ const GAPS = {
     afterSubnets: 5,      // Gap after subnet blocks
     betweenComponents: 5, // Gap between components (EKS, RDS, etc.)
     afterLastComponent: 10, // Gap after last component before VPC bottom
-    legendHeight: 20,     // Height reserved for legend
+    legendHeight: 6,      // Height reserved for legend (accounts for text descent ~4px)
     legendPadding: 20,    // Padding above legend (space between env blocks and legend)
-    legendBottomPadding: 2, // Minimal padding below legend to outer container bottom
+    legendBottomPadding: 0, // No padding - text descent provides natural ~2px spacing
 };
 ```
 
@@ -61,8 +61,8 @@ totalHeight
               └─ vpcPadding (15px)
           └─ vpcPadding (15px)
       └─ legendPadding (20px)
-      └─ legendHeight (20px)
-      └─ legendBottomPadding (2px) - minimal bottom
+      └─ legendHeight (6px) - accounts for text descent
+      └─ legendBottomPadding (0px) - text descent provides ~2px natural spacing
 ```
 
 ## Adding New Components
@@ -159,27 +159,31 @@ if (hasElastiCache) {
 - vpcContentHeight: 70 (subnet) + 10 (afterLastComponent) = 80
 - vpcHeight: 50 (vpcHeader) + 80 = 130
 - envBoxHeight: 40 (envHeader) + 130 + 15×2 (vpcPadding) = 200
-- outerHeight: 200 + 15 (outerPadding top) + 20 (legendPadding) + 20 (legendHeight) + 2 (legendBottomPadding) = 257
-- totalHeight: 50 (header) + 257 = **307px**
+- outerHeight: 200 + 15 (outerPadding) + 20 (legendPadding) + 6 (legendHeight) + 0 (legendBottomPadding) = 241
+- totalHeight: 50 (header) + 241 = **291px**
+- **Visual bottom gap: 6 + 0 - 4 (text descent) = ~2px** ✓
 
 ### VPC + EKS
 - vpcContentHeight: 70 + 5 (afterSubnets) + 80 (eks) + 10 (afterLastComponent) = 165
 - vpcHeight: 50 + 165 = 215
 - envBoxHeight: 40 + 215 + 30 = 285
-- outerHeight: 285 + 15 + 20 + 20 + 2 = 342
-- totalHeight: 50 + 342 = **392px**
+- outerHeight: 285 + 15 + 20 + 6 + 0 = 326
+- totalHeight: 50 + 326 = **376px**
+- **Visual bottom gap: ~2px** ✓
 
 ### VPC + RDS
-- Same as VPC + EKS = **392px**
+- Same as VPC + EKS = **376px**
+- **Visual bottom gap: ~2px** ✓
 
 ### VPC + EKS + RDS
 - vpcContentHeight: 70 + 5 + 80 + 5 (betweenComponents) + 80 (rds) + 10 = 250
 - vpcHeight: 50 + 250 = 300
 - envBoxHeight: 40 + 300 + 30 = 370
-- outerHeight: 370 + 15 + 20 + 20 + 2 = 427
-- totalHeight: 50 + 427 = **477px**
+- outerHeight: 370 + 15 + 20 + 6 + 0 = 411
+- totalHeight: 50 + 411 = **461px**
+- **Visual bottom gap: ~2px** ✓
 
-All scenarios maintain **20px padding above legend** and **2px minimal padding below**.
+All scenarios maintain **20px padding above legend** and **~2px visual gap below** (via text descent).
 
 ## Testing
 
@@ -240,7 +244,7 @@ const COMPONENT_HEIGHTS = { subnet: 70, eks: 80, rds: 80 };
 const GAPS = {
     outerPadding: 15, envHeader: 40, vpcPadding: 15, vpcHeader: 50,
     afterSubnets: 5, betweenComponents: 5, afterLastComponent: 10,
-    legendHeight: 20, legendPadding: 20, legendBottomPadding: 2
+    legendHeight: 6, legendPadding: 20, legendBottomPadding: 0
 };
 
 let vpcContentHeight = COMPONENT_HEIGHTS.subnet;
