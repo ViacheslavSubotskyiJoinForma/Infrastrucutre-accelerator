@@ -63,9 +63,8 @@ class WorkflowMonitor {
         // Longer 10s interval helps avoid Chrome's aggressive tab throttling
         this.pollInterval = setInterval(() => {
             // Fire and forget - don't await to prevent blocking
-            this.checkStatus().catch(error => {
-                console.error('[WorkflowMonitor] Polling error:', error);
-            });
+            // Silently catch errors to prevent console.error from blocking when devtools closed
+            this.checkStatus().catch(() => {});
         }, 10000); // Poll every 10 seconds (longer to avoid Chrome throttling)
 
         // Check immediately
@@ -91,7 +90,6 @@ class WorkflowMonitor {
     async checkStatus() {
         // Guard: skip if already checking to prevent concurrent API calls
         if (this.isChecking) {
-            console.log('[WorkflowMonitor] Skipping check - already in progress');
             return;
         }
 
@@ -123,7 +121,8 @@ class WorkflowMonitor {
             }
 
         } catch (error) {
-            console.error('[WorkflowMonitor] Status check error:', error);
+            // Silently fail and retry on next interval
+            // console.error can block execution when devtools are closed
             this.updateProgressMessage('⚠️ Error checking status. Retrying...', 'warning');
         } finally {
             // Always release the guard
