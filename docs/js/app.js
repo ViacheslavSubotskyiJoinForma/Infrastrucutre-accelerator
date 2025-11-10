@@ -773,14 +773,14 @@ function updateDiagram() {
         const databaseCidr = `${oct1}.${oct2}.96-128/20`;
 
         // Environment box
-        const boxHeight = (hasEKS && hasRDS) ? 405 : (hasEKS || hasRDS) ? 340 : 240;
+        const boxHeight = (hasEKS && hasRDS) ? 405 : (hasEKS || hasRDS) ? 325 : 240;
         const envBoxWidth = envWidth; // Use full envWidth without subtraction
         addRect(svg, x, y, envBoxWidth, boxHeight, env === 'prod' ? colors.envProd : colors.envLight, colors.border.env);
         addText(svg, x + envBoxWidth / 2, y + 20, env.toUpperCase(), 'bold', 'middle', colors.text);
 
         // VPC with CIDR
         const vpcY = y + 40;
-        const vpcHeight = (hasEKS && hasRDS) ? 325 : (hasEKS || hasRDS) ? 260 : 160;
+        const vpcHeight = (hasEKS && hasRDS) ? 325 : (hasEKS || hasRDS) ? 245 : 160;
         const vpcPadding = 15;
         const vpcWidth = envBoxWidth - vpcPadding * 2;
         addRect(svg, x + vpcPadding, vpcY, vpcWidth, vpcHeight, colors.vpc, colors.border.vpc);
