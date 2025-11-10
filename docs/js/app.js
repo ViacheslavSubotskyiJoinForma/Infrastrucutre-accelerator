@@ -642,7 +642,9 @@ function updateDiagram() {
         vpcHeader: 50,        // Space for VPC name and CIDR
         afterSubnets: 5,      // Gap after subnet blocks
         betweenComponents: 5, // Gap between components (EKS, RDS, etc.)
-        legendGap: 25,        // Gap between environment boxes and legend (prevents overlap)
+        afterLastComponent: 10, // Gap after last component before VPC bottom
+        legendHeight: 20,     // Height reserved for legend inside diagram
+        legendPadding: 10,    // Padding above legend
     };
 
     // Calculate VPC content height dynamically
@@ -656,11 +658,14 @@ function updateDiagram() {
         vpcContentHeight += (hasEKS ? GAPS.betweenComponents : GAPS.afterSubnets) + COMPONENT_HEIGHTS.rds;
     }
 
+    // Add gap after last component (prevents VPC box from touching components)
+    vpcContentHeight += GAPS.afterLastComponent;
+
     // Calculate total heights
     const vpcHeight = GAPS.vpcHeader + vpcContentHeight;
     const envBoxHeight = GAPS.envHeader + vpcHeight + GAPS.vpcPadding * 2;
-    const outerHeight = envBoxHeight + GAPS.outerPadding * 2;
-    const totalHeight = 50 + outerHeight + GAPS.legendGap + 15; // 50 = header, 15 = legend height
+    const outerHeight = envBoxHeight + GAPS.outerPadding * 2 + GAPS.legendPadding + GAPS.legendHeight;
+    const totalHeight = 50 + outerHeight; // 50 = header space
 
     // Calculate viewBox width: use consistent calculation for proper proportions
     // For single environment, use container-based width for proper scaling
@@ -908,9 +913,9 @@ function updateDiagram() {
         }
     });
 
-    // Legend - positioned below outer container with proper gap
-    const legendY = outerY + outerHeight + GAPS.legendGap;
-    const legendX = outerX + 20; // Start from inside the container
+    // Legend - positioned inside outer container at the bottom
+    const legendY = outerY + GAPS.outerPadding + envBoxHeight + GAPS.legendPadding;
+    const legendX = outerX + GAPS.outerPadding; // Align with environment boxes
     let legendOffset = 0;
 
     addText(svg, legendX + legendOffset, legendY, `● ${providerNames[selectedProvider]} VPC`, 'small', 'start', colors.border.vpc);
