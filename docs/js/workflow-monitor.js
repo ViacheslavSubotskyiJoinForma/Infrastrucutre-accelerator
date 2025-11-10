@@ -44,6 +44,9 @@ class WorkflowMonitor {
         this.isMonitoring = false; // Track monitoring state
         this.lastPollTime = 0; // Track last successful poll
         this.visibilityChangeHandler = null; // Store handler for cleanup
+        this.uiUpdateInterval = null; // Separate interval for UI updates (not throttled)
+        this.lastApiProgress = 0; // Last progress from API
+        this.targetProgress = 0; // Target progress to animate towards
     }
 
     /**
@@ -82,6 +85,9 @@ class WorkflowMonitor {
 
         // Start polling using recursive setTimeout (better than setInterval for background tabs)
         this.pollNext();
+
+        // Start smooth UI updates using requestAnimationFrame (immune to throttling)
+        this.startSmoothUIUpdates();
     }
 
     /**
@@ -99,6 +105,44 @@ class WorkflowMonitor {
             // Schedule next poll after current one completes
             this.pollNext();
         }, 3000); // Poll every 3 seconds (faster to combat browser throttling)
+    }
+
+    /**
+     * Start smooth UI updates using requestAnimationFrame
+     * This ensures progress bar updates even when tab is throttled
+     * @returns {void}
+     */
+    startSmoothUIUpdates() {
+        const updateUI = () => {
+            if (!this.isMonitoring) {
+                return;
+            }
+
+            // Smoothly animate progress towards target
+            if (this.lastApiProgress < this.targetProgress) {
+                // Increment by small amount each frame
+                this.lastApiProgress = Math.min(
+                    this.lastApiProgress + 0.5,
+                    this.targetProgress
+                );
+
+                // Update progress bar
+                const progressBar = document.getElementById('progressBar');
+                const progressPercent = document.getElementById('progressPercent');
+                if (progressBar) {
+                    progressBar.style.width = `${this.lastApiProgress}%`;
+                }
+                if (progressPercent) {
+                    progressPercent.textContent = `${Math.round(this.lastApiProgress)}%`;
+                }
+            }
+
+            // Schedule next frame
+            requestAnimationFrame(updateUI);
+        };
+
+        // Start the animation loop
+        requestAnimationFrame(updateUI);
     }
 
     /**
@@ -406,25 +450,30 @@ class WorkflowMonitor {
 
     /**
      * Update progress bar percentage
+     * Sets target progress for smooth animation via requestAnimationFrame
      * @param {number} percent - Progress percentage (0-100)
      * @returns {void}
      */
     updateProgressBar(percent) {
-        console.log('[WorkflowMonitor] Updating progress bar to:', percent, '%');
-        const progressBar = document.getElementById('progressBar');
-        const progressPercent = document.getElementById('progressPercent');
+        console.log('[WorkflowMonitor] Setting target progress to:', percent, '% (current:', this.lastApiProgress, '%)');
 
-        if (progressBar) {
-            progressBar.style.width = `${percent}%`;
-            console.log('[WorkflowMonitor] Progress bar width set to:', progressBar.style.width);
-        } else {
-            console.warn('[WorkflowMonitor] Progress bar element not found');
+        // Set target for smooth animation
+        this.targetProgress = percent;
+
+        // If this is a jump backwards or to 100%, update immediately
+        if (percent <= this.lastApiProgress || percent === 100) {
+            this.lastApiProgress = percent;
+            const progressBar = document.getElementById('progressBar');
+            const progressPercent = document.getElementById('progressPercent');
+
+            if (progressBar) {
+                progressBar.style.width = `${percent}%`;
+            }
+            if (progressPercent) {
+                progressPercent.textContent = `${Math.round(percent)}%`;
+            }
         }
-        if (progressPercent) {
-            progressPercent.textContent = `${Math.round(percent)}%`;
-        } else {
-            console.warn('[WorkflowMonitor] Progress percent element not found');
-        }
+        // Otherwise, let requestAnimationFrame smoothly animate it
     }
 
     /**
@@ -558,6 +607,8 @@ class WorkflowMonitor {
         }
 
         // Reset progress
+        this.lastApiProgress = 0;
+        this.targetProgress = 0;
         this.updateProgressBar(0);
         this.updateProgressMessage('⏳ Starting workflow...', 'queued');
 
