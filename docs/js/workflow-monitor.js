@@ -176,15 +176,20 @@ class WorkflowMonitor {
 
             if (response.ok) {
                 const { jobs } = await response.json();
+                console.log('[WorkflowMonitor] Jobs fetched:', jobs.length, 'jobs');
 
                 // Calculate progress based on steps
-                this.stepsProgress = this.calculateStepsProgress(jobs);
+                const newProgress = this.calculateStepsProgress(jobs);
+                console.log('[WorkflowMonitor] Progress calculated:', this.stepsProgress, '→', newProgress);
+                this.stepsProgress = newProgress;
 
                 // Display jobs in UI
                 this.displayJobProgress(jobs);
 
                 // Update progress bar with calculated percentage
                 this.updateProgress(run);
+            } else {
+                console.warn('[WorkflowMonitor] Jobs API returned non-OK status:', response.status);
             }
         } catch (error) {
             console.error('[WorkflowMonitor] Job progress error:', error);
@@ -218,20 +223,26 @@ class WorkflowMonitor {
             }
         });
 
+        console.log('[WorkflowMonitor] Step counts - total:', totalSteps, 'completed:', completedSteps, 'in_progress:', inProgressSteps);
+
         if (totalSteps === 0) {
             // No steps yet, use job status as fallback
             const completedJobs = jobs.filter(j => j.status === 'completed').length;
             const inProgressJobs = jobs.filter(j => j.status === 'in_progress').length;
             const totalJobs = jobs.length || 1;
 
-            return Math.round(((completedJobs + inProgressJobs * 0.5) / totalJobs) * 90);
+            const fallbackProgress = Math.round(((completedJobs + inProgressJobs * 0.5) / totalJobs) * 90);
+            console.log('[WorkflowMonitor] No steps yet, using job-level fallback:', fallbackProgress, '% (jobs:', completedJobs, '/', totalJobs, ')');
+            return fallbackProgress;
         }
 
         // Calculate: completed steps = 100%, in_progress = 50% contribution
         const weightedCompleted = completedSteps + (inProgressSteps * 0.5);
         const progress = (weightedCompleted / totalSteps) * 90; // Cap at 90% until workflow completes
 
-        return Math.round(Math.max(10, progress)); // Minimum 10% when started
+        const finalProgress = Math.round(Math.max(10, progress));
+        console.log('[WorkflowMonitor] Step-based progress:', finalProgress, '% (weighted:', weightedCompleted, '/', totalSteps, ')');
+        return finalProgress; // Minimum 10% when started
     }
 
     /**
@@ -364,6 +375,8 @@ class WorkflowMonitor {
         let message = '';
         let progressPercent = 0;
 
+        console.log('[WorkflowMonitor] updateProgress called - status:', run.status, 'stepsProgress:', this.stepsProgress);
+
         switch (run.status) {
             case WorkflowStatus.QUEUED:
                 message = `⏳ Queued (${timeStr}) • Updated: ${lastUpdateStr}`;
@@ -373,6 +386,7 @@ class WorkflowMonitor {
                 message = `⚡ Generating infrastructure... (${timeStr}) • Updated: ${lastUpdateStr}`;
                 // Use step-based progress (calculated from jobs/steps)
                 progressPercent = this.stepsProgress || 10;
+                console.log('[WorkflowMonitor] IN_PROGRESS - using progressPercent:', progressPercent);
                 break;
             case WorkflowStatus.COMPLETED:
                 progressPercent = 100;
@@ -396,14 +410,20 @@ class WorkflowMonitor {
      * @returns {void}
      */
     updateProgressBar(percent) {
+        console.log('[WorkflowMonitor] Updating progress bar to:', percent, '%');
         const progressBar = document.getElementById('progressBar');
         const progressPercent = document.getElementById('progressPercent');
 
         if (progressBar) {
             progressBar.style.width = `${percent}%`;
+            console.log('[WorkflowMonitor] Progress bar width set to:', progressBar.style.width);
+        } else {
+            console.warn('[WorkflowMonitor] Progress bar element not found');
         }
         if (progressPercent) {
             progressPercent.textContent = `${Math.round(percent)}%`;
+        } else {
+            console.warn('[WorkflowMonitor] Progress percent element not found');
         }
     }
 
