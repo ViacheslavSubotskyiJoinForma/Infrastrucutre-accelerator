@@ -45,8 +45,8 @@ class WorkflowMonitor {
 
     /**
      * Start monitoring a workflow run
-     * Polls GitHub API every 10 seconds for status updates
-     * Longer interval (10s vs 5s) prevents Chrome tab throttling issues
+     * Polls GitHub API every 15 seconds for status updates
+     * Longer interval (15s) prevents Chrome tab throttling issues
      * Updates progress UI and automatically downloads artifacts when complete
      * @param {number} runId - GitHub workflow run ID
      * @returns {Promise<void>}
@@ -60,12 +60,12 @@ class WorkflowMonitor {
         this.showProgressModal();
 
         // Start polling with proper error handling to prevent polling from stopping
-        // Longer 10s interval helps avoid Chrome's aggressive tab throttling
+        // 15s interval helps avoid Chrome's aggressive tab throttling
         this.pollInterval = setInterval(() => {
             // Fire and forget - don't await to prevent blocking
             // Silently catch errors to prevent console.error from blocking when devtools closed
             this.checkStatus().catch(() => {});
-        }, 10000); // Poll every 10 seconds (longer to avoid Chrome throttling)
+        }, 15000); // Poll every 15 seconds (longer to avoid Chrome throttling)
 
         // Check immediately (don't await to prevent blocking setInterval)
         this.checkStatus().catch(() => {});
