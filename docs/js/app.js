@@ -1035,7 +1035,6 @@ async function handleGenerate() {
 
     const components = selectedComponents.join(',');
     const environments = selectedEnvironments.join(',');
-    const availabilityZones = '3'; // Fixed to 3 AZs for high availability
 
     // Collect VPC CIDRs for selected environments
     const vpcCidrs = {};
@@ -1068,7 +1067,6 @@ async function handleGenerate() {
                 region: region,
                 aws_account_id: awsAccountId,
                 ci_provider: selectedCIProvider,
-                availability_zones: availabilityZones,
                 backend_type: backendType
             };
 
