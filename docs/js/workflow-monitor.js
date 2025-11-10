@@ -42,6 +42,8 @@ class WorkflowMonitor {
         this.startTime = null;
         this.stepsProgress = 0; // Track progress based on workflow steps
         this.isMonitoring = false; // Track monitoring state
+        this.lastPollTime = 0; // Track last successful poll
+        this.visibilityChangeHandler = null; // Store handler for cleanup
     }
 
     /**
@@ -57,9 +59,23 @@ class WorkflowMonitor {
         this.startTime = Date.now();
         this.stepsProgress = 0;
         this.isMonitoring = true;
+        this.lastPollTime = Date.now();
 
         // Show progress modal
         this.showProgressModal();
+
+        // Setup Page Visibility API handler to resume polling when tab becomes visible
+        this.visibilityChangeHandler = async () => {
+            if (!document.hidden && this.isMonitoring) {
+                const timeSinceLastPoll = Date.now() - this.lastPollTime;
+
+                // If more than 6 seconds passed, poll immediately
+                if (timeSinceLastPoll > 6000) {
+                    await this.checkStatus();
+                }
+            }
+        };
+        document.addEventListener('visibilitychange', this.visibilityChangeHandler);
 
         // Check immediately on start
         await this.checkStatus();
@@ -75,13 +91,10 @@ class WorkflowMonitor {
      */
     pollNext() {
         if (!this.isMonitoring) {
-            console.log('[WorkflowMonitor] Polling stopped: isMonitoring=false');
             return;
         }
 
-        console.log('[WorkflowMonitor] Scheduling next poll in 5 seconds...');
         this.pollInterval = setTimeout(async () => {
-            console.log('[WorkflowMonitor] Poll triggered');
             await this.checkStatus();
             // Schedule next poll after current one completes
             this.pollNext();
@@ -98,6 +111,11 @@ class WorkflowMonitor {
             clearTimeout(this.pollInterval);
             this.pollInterval = null;
         }
+        // Remove visibility change listener
+        if (this.visibilityChangeHandler) {
+            document.removeEventListener('visibilitychange', this.visibilityChangeHandler);
+            this.visibilityChangeHandler = null;
+        }
     }
 
     /**
@@ -105,7 +123,7 @@ class WorkflowMonitor {
      * @returns {Promise<void>}
      */
     async checkStatus() {
-        console.log('[WorkflowMonitor] checkStatus() called');
+        this.lastPollTime = Date.now();
         try {
             const response = await fetch(
                 `https://api.github.com/repos/${this.repo}/actions/runs/${this.currentRunId}`,
@@ -122,7 +140,6 @@ class WorkflowMonitor {
             }
 
             const run = await response.json();
-            console.log(`[WorkflowMonitor] Run status: ${run.status}, conclusion: ${run.conclusion}`);
 
             // If completed, stop monitoring and handle completion
             if (run.status === WorkflowStatus.COMPLETED) {
@@ -159,8 +176,6 @@ class WorkflowMonitor {
 
             if (response.ok) {
                 const { jobs } = await response.json();
-
-                console.log(`[WorkflowMonitor] Fetched ${jobs.length} jobs`);
 
                 // Calculate progress based on steps
                 this.stepsProgress = this.calculateStepsProgress(jobs);
@@ -209,18 +224,14 @@ class WorkflowMonitor {
             const inProgressJobs = jobs.filter(j => j.status === 'in_progress').length;
             const totalJobs = jobs.length || 1;
 
-            const fallbackProgress = Math.round(((completedJobs + inProgressJobs * 0.5) / totalJobs) * 90);
-            console.log(`[WorkflowMonitor] No steps yet. Using job fallback: ${completedJobs} completed, ${inProgressJobs} in progress, ${totalJobs} total = ${fallbackProgress}%`);
-            return fallbackProgress;
+            return Math.round(((completedJobs + inProgressJobs * 0.5) / totalJobs) * 90);
         }
 
         // Calculate: completed steps = 100%, in_progress = 50% contribution
         const weightedCompleted = completedSteps + (inProgressSteps * 0.5);
         const progress = (weightedCompleted / totalSteps) * 90; // Cap at 90% until workflow completes
-        const finalProgress = Math.round(Math.max(10, progress));
 
-        console.log(`[WorkflowMonitor] Steps: ${completedSteps} completed, ${inProgressSteps} in progress, ${totalSteps} total = ${finalProgress}%`);
-        return finalProgress; // Minimum 10% when started
+        return Math.round(Math.max(10, progress)); // Minimum 10% when started
     }
 
     /**
