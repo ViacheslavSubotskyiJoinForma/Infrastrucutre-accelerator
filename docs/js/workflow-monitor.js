@@ -61,6 +61,9 @@ class WorkflowMonitor {
         // Show progress modal
         this.showProgressModal();
 
+        // Check immediately on start
+        await this.checkStatus();
+
         // Start polling using recursive setTimeout (better than setInterval for background tabs)
         this.pollNext();
     }
