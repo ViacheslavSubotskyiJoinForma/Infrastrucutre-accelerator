@@ -155,6 +155,8 @@ class WorkflowMonitor {
             if (response.ok) {
                 const { jobs } = await response.json();
 
+                console.log(`[WorkflowMonitor] Fetched ${jobs.length} jobs`);
+
                 // Calculate progress based on steps
                 this.stepsProgress = this.calculateStepsProgress(jobs);
 
@@ -202,14 +204,18 @@ class WorkflowMonitor {
             const inProgressJobs = jobs.filter(j => j.status === 'in_progress').length;
             const totalJobs = jobs.length || 1;
 
-            return Math.round(((completedJobs + inProgressJobs * 0.5) / totalJobs) * 90);
+            const fallbackProgress = Math.round(((completedJobs + inProgressJobs * 0.5) / totalJobs) * 90);
+            console.log(`[WorkflowMonitor] No steps yet. Using job fallback: ${completedJobs} completed, ${inProgressJobs} in progress, ${totalJobs} total = ${fallbackProgress}%`);
+            return fallbackProgress;
         }
 
         // Calculate: completed steps = 100%, in_progress = 50% contribution
         const weightedCompleted = completedSteps + (inProgressSteps * 0.5);
         const progress = (weightedCompleted / totalSteps) * 90; // Cap at 90% until workflow completes
+        const finalProgress = Math.round(Math.max(10, progress));
 
-        return Math.round(Math.max(10, progress)); // Minimum 10% when started
+        console.log(`[WorkflowMonitor] Steps: ${completedSteps} completed, ${inProgressSteps} in progress, ${totalSteps} total = ${finalProgress}%`);
+        return finalProgress; // Minimum 10% when started
     }
 
     /**
@@ -225,6 +231,18 @@ class WorkflowMonitor {
 
         jobList.innerHTML = '';
         let firstInProgressItem = null;
+
+        // Show waiting message if no jobs yet
+        if (!jobs || jobs.length === 0) {
+            const waitingItem = document.createElement('div');
+            waitingItem.className = 'job-item';
+            waitingItem.innerHTML = `
+                <span class="job-status pending">⏳</span>
+                <span class="job-name">Waiting for workflow to start...</span>
+            `;
+            jobList.appendChild(waitingItem);
+            return;
+        }
 
         jobs.forEach(job => {
             // Display each step instead of just the job
