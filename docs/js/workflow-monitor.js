@@ -40,7 +40,6 @@ class WorkflowMonitor {
         this.pollInterval = null;
         this.currentRunId = null;
         this.startTime = null;
-        this.stepsProgress = 0; // Track progress based on workflow steps
         this.isChecking = false; // Guard to prevent concurrent checkStatus calls
     }
 
@@ -55,7 +54,6 @@ class WorkflowMonitor {
     async startMonitoring(runId) {
         this.currentRunId = runId;
         this.startTime = Date.now();
-        this.stepsProgress = 0;
         this.isChecking = false;
 
         // Show progress modal
@@ -115,14 +113,13 @@ class WorkflowMonitor {
 
             const run = await response.json();
 
+            // Always update progress with current workflow status
+            this.updateProgress(run);
+
             // If completed, stop monitoring and handle completion
             if (run.status === WorkflowStatus.COMPLETED) {
                 this.stopMonitoring();
-                this.updateProgress(run);
                 await this.handleCompletion(run);
-            } else {
-                // Fetch jobs for step-based progress calculation
-                await this.updateJobProgress(run);
             }
 
         } catch (error) {
@@ -329,12 +326,14 @@ class WorkflowMonitor {
         switch (run.status) {
             case WorkflowStatus.QUEUED:
                 message = `⏳ Queued (${timeStr})`;
-                progressPercent = 5;
+                progressPercent = 10;
                 break;
             case WorkflowStatus.IN_PROGRESS:
                 message = `⚡ Generating infrastructure... (${timeStr})`;
-                // Use step-based progress (calculated from jobs/steps)
-                progressPercent = this.stepsProgress || 10;
+                // Simple linear progress based on elapsed time (max 90%)
+                // Estimate: ~3 minutes workflow = 180 seconds
+                const estimatedDuration = 180; // seconds
+                progressPercent = Math.min(90, 10 + Math.floor((elapsed / estimatedDuration) * 80));
                 break;
             case WorkflowStatus.COMPLETED:
                 progressPercent = 100;
