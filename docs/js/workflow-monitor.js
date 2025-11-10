@@ -58,9 +58,13 @@ class WorkflowMonitor {
         // Show progress modal
         this.showProgressModal();
 
-        // Start polling with arrow function to preserve 'this' context
-        this.pollInterval = setInterval(async () => {
-            await this.checkStatus();
+        // Start polling with proper error handling to prevent polling from stopping
+        // Wrap async call to ensure errors don't break the interval
+        this.pollInterval = setInterval(() => {
+            // Fire and forget - don't await to prevent blocking
+            this.checkStatus().catch(error => {
+                console.error('[WorkflowMonitor] Polling error:', error);
+            });
         }, 5000); // Poll every 5 seconds
 
         // Check immediately
