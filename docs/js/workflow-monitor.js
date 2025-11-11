@@ -38,15 +38,16 @@ class WorkflowMonitor {
         this.token = token;
         this.repo = repo;
         this.pollInterval = null;
+        this.jobsTimeout = null; // Timer for delayed jobs API call
         this.currentRunId = null;
         this.startTime = null;
+        this.stepsProgress = 0; // Track progress based on workflow steps
         this.isChecking = false; // Guard to prevent concurrent checkStatus calls
     }
 
     /**
      * Start monitoring a workflow run
      * Polls GitHub API every 10 seconds for status updates
-     * Longer interval (10s vs 5s) prevents Chrome tab throttling issues
      * Updates progress UI and automatically downloads artifacts when complete
      * @param {number} runId - GitHub workflow run ID
      * @returns {Promise<void>}
@@ -54,21 +55,17 @@ class WorkflowMonitor {
     async startMonitoring(runId) {
         this.currentRunId = runId;
         this.startTime = Date.now();
+        this.stepsProgress = 0;
         this.isChecking = false;
+        this.jobsTimeout = null;
 
-        // Show progress modal
-        this.showProgressModal();
+        // Call checkStatus immediately (T+5s from dispatch)
+        await this.checkStatus().catch(() => {});
 
-        // Start polling with proper error handling to prevent polling from stopping
-        // Longer 10s interval helps avoid Chrome's aggressive tab throttling
+        // Start polling - subsequent checks every 10 seconds
         this.pollInterval = setInterval(() => {
-            // Fire and forget - don't await to prevent blocking
-            // Silently catch errors to prevent console.error from blocking when devtools closed
             this.checkStatus().catch(() => {});
-        }, 10000); // Poll every 10 seconds (longer to avoid Chrome throttling)
-
-        // Check immediately
-        await this.checkStatus();
+        }, 10000); // Poll every 10 seconds
     }
 
     /**
@@ -79,6 +76,10 @@ class WorkflowMonitor {
         if (this.pollInterval) {
             clearInterval(this.pollInterval);
             this.pollInterval = null;
+        }
+        if (this.jobsTimeout) {
+            clearTimeout(this.jobsTimeout);
+            this.jobsTimeout = null;
         }
     }
 
@@ -94,7 +95,9 @@ class WorkflowMonitor {
         }
 
         this.isChecking = true;
+
         try {
+            // First: fetch runs API
             const response = await fetch(
                 `https://api.github.com/repos/${this.repo}/actions/runs/${this.currentRunId}`,
                 {
@@ -111,13 +114,25 @@ class WorkflowMonitor {
 
             const run = await response.json();
 
-            // Always update progress with current workflow status
+            // Update progress immediately with current run status
             this.updateProgress(run);
 
             // If completed, stop monitoring and handle completion
             if (run.status === WorkflowStatus.COMPLETED) {
                 this.stopMonitoring();
                 await this.handleCompletion(run);
+            } else if (run.status === WorkflowStatus.IN_PROGRESS) {
+                // Cancel any pending jobs API call from previous cycle
+                if (this.jobsTimeout) {
+                    clearTimeout(this.jobsTimeout);
+                }
+
+                // After 5 seconds, fetch jobs API to update step-based progress
+                // This ensures runs and jobs API calls never happen simultaneously
+                this.jobsTimeout = setTimeout(() => {
+                    this.updateJobProgressDelayed(run).catch(() => {});
+                    this.jobsTimeout = null;
+                }, 5000);
             }
 
         } catch (error) {
@@ -128,6 +143,81 @@ class WorkflowMonitor {
             // Always release the guard
             this.isChecking = false;
         }
+    }
+
+    /**
+     * Update job progress with delay to avoid concurrent API calls
+     * @param {Object} run - Workflow run object from GitHub API
+     * @returns {Promise<void>}
+     */
+    async updateJobProgressDelayed(run) {
+        try {
+            const response = await fetch(
+                `https://api.github.com/repos/${this.repo}/actions/runs/${this.currentRunId}/jobs`,
+                {
+                    headers: {
+                        'Authorization': `Bearer ${this.token}`,
+                        'Accept': 'application/vnd.github.v3+json'
+                    }
+                }
+            );
+
+            if (response.ok) {
+                const { jobs } = await response.json();
+
+                // Calculate progress based on steps
+                this.stepsProgress = this.calculateJobsProgress(jobs);
+
+                // Update progress UI with new step-based progress
+                this.updateProgress(run);
+            }
+        } catch (error) {
+            // Silently fail
+        }
+    }
+
+    /**
+     * Calculate progress percentage based on workflow steps
+     * @param {Array} jobs - Array of job objects from GitHub API
+     * @returns {number} Progress percentage (0-100)
+     */
+    calculateJobsProgress(jobs) {
+        if (!jobs || jobs.length === 0) {
+            return 10;
+        }
+
+        let totalSteps = 0;
+        let completedSteps = 0;
+        let inProgressSteps = 0;
+
+        jobs.forEach(job => {
+            if (job.steps && job.steps.length > 0) {
+                job.steps.forEach(step => {
+                    // Skip setup/teardown steps
+                    if (!step.name.startsWith('Set up') && !step.name.startsWith('Complete')) {
+                        totalSteps++;
+
+                        if (step.status === 'completed') {
+                            completedSteps++;
+                        } else if (step.status === 'in_progress') {
+                            inProgressSteps++;
+                        }
+                    }
+                });
+            }
+        });
+
+        if (totalSteps === 0) {
+            // No steps yet, fallback to job-based progress
+            const completedJobs = jobs.filter(j => j.status === 'completed').length;
+            const inProgressJobs = jobs.filter(j => j.status === 'in_progress').length;
+            const totalJobs = jobs.length;
+            return Math.round(((completedJobs + inProgressJobs * 0.5) / totalJobs) * 90);
+        }
+
+        // completed = 100%, in_progress = 50% contribution, max 90% until workflow completes
+        const progress = ((completedSteps + inProgressSteps * 0.5) / totalSteps) * 90;
+        return Math.round(Math.max(10, progress));
     }
 
     /**
@@ -151,10 +241,10 @@ class WorkflowMonitor {
                 break;
             case WorkflowStatus.IN_PROGRESS:
                 message = `⚡ Generating infrastructure... (${timeStr})`;
-                // Simple linear progress based on elapsed time (max 90%)
-                // Estimate: ~3 minutes workflow = 180 seconds
-                const estimatedDuration = 180; // seconds
-                progressPercent = Math.min(90, 10 + Math.floor((elapsed / estimatedDuration) * 80));
+                // Use maximum of step-based and time-based progress
+                // This ensures progress always moves forward even if jobs API is slow/cached
+                const timeBasedProgress = Math.min(90, 10 + Math.floor((elapsed / 180) * 80));
+                progressPercent = Math.max(this.stepsProgress || 10, timeBasedProgress);
                 break;
             case WorkflowStatus.COMPLETED:
                 progressPercent = 100;
@@ -174,6 +264,7 @@ class WorkflowMonitor {
 
     /**
      * Update progress bar percentage
+     * Direct DOM manipulation without requestAnimationFrame for better reliability
      * @param {number} percent - Progress percentage (0-100)
      * @returns {void}
      */
@@ -183,6 +274,8 @@ class WorkflowMonitor {
 
         if (progressBar) {
             progressBar.style.width = `${percent}%`;
+            // Force reflow to ensure browser processes the change
+            void progressBar.offsetHeight;
         }
         if (progressPercent) {
             progressPercent.textContent = `${Math.round(percent)}%`;
@@ -191,6 +284,7 @@ class WorkflowMonitor {
 
     /**
      * Update progress message
+     * Direct DOM manipulation without requestAnimationFrame for better reliability
      * @param {string} message - Status message
      * @param {string} status - Status type (queued, in_progress, completed)
      * @returns {void}
@@ -201,6 +295,8 @@ class WorkflowMonitor {
         if (messageEl) {
             messageEl.textContent = message;
             messageEl.className = `progress-message ${status}`;
+            // Force reflow to ensure browser processes the change
+            void messageEl.offsetHeight;
         }
     }
 
@@ -322,11 +418,6 @@ class WorkflowMonitor {
         // Reset progress
         this.updateProgressBar(0);
         this.updateProgressMessage('⏳ Starting workflow...', 'queued');
-
-        const jobList = document.getElementById('workflowJobs');
-        if (jobList) {
-            jobList.innerHTML = '';
-        }
     }
 
     /**
