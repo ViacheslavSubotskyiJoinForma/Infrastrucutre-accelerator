@@ -223,6 +223,7 @@ jobs:
     timeout-minutes: 30
     needs: generate-and-validate
     if: inputs.run_apply == true
+    environment: testing
 
     strategy:
       matrix:
@@ -249,13 +250,10 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-region: ${{ inputs.region }}
-          # Option 1: Use static credentials (stored in GitHub Secrets)
+          aws-region: ${{ secrets.AWS_REGION }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          # Option 2: Use OIDC (uncomment if configured)
-          # role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          # role-session-name: github-actions-${{ github.run_id }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
 
       - name: Create tfvars file
         working-directory: generated-infra/infra/config
@@ -325,6 +323,7 @@ jobs:
     timeout-minutes: 60
     needs: [generate-and-validate, plan]
     if: inputs.run_apply == true
+    environment: testing
 
     strategy:
       matrix:
@@ -358,9 +357,10 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-region: ${{ inputs.region }}
+          aws-region: ${{ secrets.AWS_REGION }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
 
       - name: Terraform Init
         working-directory: generated-infra/infra/${{ matrix.component }}
@@ -407,6 +407,7 @@ jobs:
     timeout-minutes: 60
     needs: [generate-and-validate, apply]
     if: inputs.run_apply == true && inputs.auto_destroy == true
+    environment: testing
 
     strategy:
       matrix:
@@ -434,9 +435,10 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-region: ${{ inputs.region }}
+          aws-region: ${{ secrets.AWS_REGION }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
 
       - name: Create tfvars file
         working-directory: generated-infra/infra/config
