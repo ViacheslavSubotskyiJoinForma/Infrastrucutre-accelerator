@@ -1,9 +1,17 @@
 data "terraform_remote_state" "vpc" {
-  backend = "local"
+  backend = "{% if backend_type == 's3' %}s3{% else %}local{% endif %}"
 
+{% if backend_type == 's3' %}
+  config = {
+    bucket = "{{ state_bucket }}"
+    key    = "{{ project_name }}/vpc/${var.env}/terraform.tfstate"
+    region = "{{ region }}"
+  }
+{% else %}
   config = {
     path = "../vpc/terraform.tfstate"
   }
+{% endif %}
 }
 
 data "aws_rds_engine_version" "postgresql" {
