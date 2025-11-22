@@ -263,6 +263,7 @@ jobs:
           project_name = "${{ inputs.project_name }}"
           region = "${{ inputs.region }}"
           aws_account_id = "${{ inputs.aws_account_id }}"
+          account = "${{ inputs.aws_account_id }}"
 
           # Component-specific configuration
           # Add more variables as needed for your components
@@ -463,6 +464,7 @@ jobs:
           project_name = "${{ inputs.project_name }}"
           region = "${{ inputs.region }}"
           aws_account_id = "${{ inputs.aws_account_id }}"
+          account = "${{ inputs.aws_account_id }}"
           EOF
 
       - name: Terraform Init
