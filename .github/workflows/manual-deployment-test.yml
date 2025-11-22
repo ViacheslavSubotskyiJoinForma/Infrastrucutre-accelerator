@@ -862,7 +862,7 @@ jobs:
   final-summary:
     name: Final Summary
     runs-on: ubuntu-latest
-    needs: [generate-and-validate, plan, apply, destroy]
+    needs: [generate-and-validate, apply-foundational, apply-dependent, destroy-foundational, destroy-dependent]
     if: always()
 
     steps:
