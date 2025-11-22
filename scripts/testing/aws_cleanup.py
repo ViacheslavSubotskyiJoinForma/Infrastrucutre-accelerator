@@ -40,6 +40,7 @@ class AWSCleaner:
             'route_tables': 0,
             'subnets': 0,
             'vpcs': 0,
+            'db_subnet_groups': 0,
             's3_buckets': 0,
             'log_groups': 0,
             'cloudformation_stacks': 0,
@@ -261,6 +262,50 @@ class AWSCleaner:
             self.stats['errors'].append(f"vpcs: {e}")
             return False
 
+    def cleanup_db_subnet_groups(self) -> bool:
+        """Delete RDS DB Subnet Groups"""
+        self.log("Cleaning up DB subnet groups...", 'INFO')
+
+        try:
+            test_tags = self.get_test_tags()
+
+            # List all DB subnet groups
+            response = self.rds.describe_db_subnet_groups()
+
+            for db_subnet_group in response['DBSubnetGroups']:
+                db_subnet_group_name = db_subnet_group['DBSubnetGroupName']
+
+                # Get tags for this DB subnet group
+                try:
+                    tags_response = self.rds.list_tags_for_resource(
+                        ResourceName=db_subnet_group['DBSubnetGroupArn']
+                    )
+                    tags = {tag['Key']: tag['Value'] for tag in tags_response.get('TagList', [])}
+
+                    # Check if tags match
+                    matches = all(tags.get(k) == v for k, v in test_tags.items())
+
+                    if matches and not self.dry_run:
+                        self.rds.delete_db_subnet_group(
+                            DBSubnetGroupName=db_subnet_group_name
+                        )
+                        self.stats['db_subnet_groups'] += 1
+                        self.log(f"Deleted DB subnet group: {db_subnet_group_name}", 'SUCCESS')
+                    elif matches and self.dry_run:
+                        self.log(f"Would delete DB subnet group: {db_subnet_group_name}", 'INFO')
+                        self.stats['db_subnet_groups'] += 1
+
+                except ClientError as e:
+                    # Skip if can't get tags or delete
+                    if 'DBSubnetGroupNotFoundFault' not in str(e):
+                        self.log(f"Warning: Could not process DB subnet group {db_subnet_group_name}: {e}", 'WARNING')
+
+            return True
+        except ClientError as e:
+            self.log(f"Error cleaning DB subnet groups: {e}", 'ERROR')
+            self.stats['errors'].append(f"db_subnet_groups: {e}")
+            return False
+
     def cleanup_s3_buckets(self) -> bool:
         """Delete S3 buckets with versioning support"""
         self.log("Cleaning up S3 buckets...", 'INFO')
@@ -429,6 +474,7 @@ class AWSCleaner:
             ("ENIs", self.cleanup_enis),
             ("NAT Gateways", self.cleanup_nat_gateways),
             ("VPCs", self.cleanup_vpcs),
+            ("DB Subnet Groups", self.cleanup_db_subnet_groups),
             ("S3 Buckets", self.cleanup_s3_buckets),
             ("CloudFormation Stacks", self.cleanup_cloudformation_stacks),
             ("CloudWatch Log Groups", self.cleanup_log_groups),
@@ -450,6 +496,7 @@ class AWSCleaner:
         self.log(f"Route Tables deleted: {self.stats['route_tables']}", 'SUCCESS')
         self.log(f"Subnets deleted: {self.stats['subnets']}", 'SUCCESS')
         self.log(f"VPCs deleted: {self.stats['vpcs']}", 'SUCCESS')
+        self.log(f"DB Subnet Groups deleted: {self.stats['db_subnet_groups']}", 'SUCCESS')
         self.log(f"S3 Buckets deleted: {self.stats['s3_buckets']}", 'SUCCESS')
         self.log(f"CloudFormation Stacks deleted: {self.stats['cloudformation_stacks']}", 'SUCCESS')
         self.log(f"CloudWatch Log Groups deleted: {self.stats['log_groups']}", 'SUCCESS')
