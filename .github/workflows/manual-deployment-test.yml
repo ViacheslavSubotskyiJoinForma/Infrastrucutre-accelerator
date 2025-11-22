@@ -395,6 +395,14 @@ jobs:
           path: generated-infra/infra/${{ matrix.component }}/outputs.json
           retention-days: 7
 
+      - name: Upload state file
+        if: inputs.backend_type == 'local'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfstate-${{ matrix.component }}-${{ matrix.env }}-${{ github.run_id }}
+          path: generated-infra/infra/${{ matrix.component }}/terraform.tfstate*
+          retention-days: 7
+
       - name: Apply summary
         run: |
           echo "### 🚀 Apply Complete: ${{ matrix.env }}/${{ matrix.component }}" >> $GITHUB_STEP_SUMMARY
@@ -439,6 +447,13 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+
+      - name: Download state file
+        if: inputs.backend_type == 'local'
+        uses: actions/download-artifact@v4
+        with:
+          name: tfstate-${{ matrix.component }}-${{ matrix.env }}-${{ github.run_id }}
+          path: generated-infra/infra/${{ matrix.component }}
 
       - name: Create tfvars file
         working-directory: generated-infra/infra/config
