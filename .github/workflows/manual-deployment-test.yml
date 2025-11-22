@@ -173,11 +173,45 @@ jobs:
         id: parse-components
         run: |
           # Convert comma-separated components to JSON array
+          # Sort by dependency: terraform-backend, vpc, then others
           components="${{ inputs.components }}"
-          # Remove spaces and split by comma
-          components_array=$(echo "$components" | tr -d ' ' | tr ',' '\n' | jq -R . | jq -sc .)
+
+          # Split components and sort by dependency order
+          IFS=',' read -ra COMP_ARRAY <<< "$(echo "$components" | tr -d ' ')"
+
+          # Define dependency order
+          declare -a ORDERED_COMPONENTS
+
+          # First: terraform-backend (if present)
+          for comp in "${COMP_ARRAY[@]}"; do
+            if [ "$comp" = "terraform-backend" ]; then
+              ORDERED_COMPONENTS+=("$comp")
+            fi
+          done
+
+          # Second: vpc (if present)
+          for comp in "${COMP_ARRAY[@]}"; do
+            if [ "$comp" = "vpc" ]; then
+              ORDERED_COMPONENTS+=("$comp")
+            fi
+          done
+
+          # Third: all others (eks-auto, rds, etc.)
+          for comp in "${COMP_ARRAY[@]}"; do
+            if [ "$comp" != "terraform-backend" ] && [ "$comp" != "vpc" ]; then
+              ORDERED_COMPONENTS+=("$comp")
+            fi
+          done
+
+          # Convert to JSON array
+          components_array=$(printf '%s\n' "${ORDERED_COMPONENTS[@]}" | jq -R . | jq -sc .)
           echo "components_list=$components_array" >> $GITHUB_OUTPUT
-          echo "Components to deploy: $components_array"
+          echo "Components to deploy (ordered by dependencies): $components_array"
+
+          # Create reversed list for destroy (destroy in reverse dependency order)
+          components_reversed=$(printf '%s\n' "${ORDERED_COMPONENTS[@]}" | tac | jq -R . | jq -sc .)
+          echo "components_list_reversed=$components_reversed" >> $GITHUB_OUTPUT
+          echo "Components to destroy (reverse order): $components_reversed"
 
       - name: Parse environments for matrix
         id: parse-environments
@@ -421,9 +455,9 @@ jobs:
     strategy:
       matrix:
         env: ${{ fromJson(needs.generate-and-validate.outputs.environments_list) }}
-        component: ${{ fromJson(needs.generate-and-validate.outputs.components_list) }}
+        component: ${{ fromJson(needs.generate-and-validate.outputs.components_list_reversed) }}
       fail-fast: false
-      max-parallel: 1
+      max-parallel: 1  # Destroy one component at a time, in reverse order
 
     permissions:
       contents: read
