@@ -173,11 +173,79 @@ jobs:
         id: parse-components
         run: |
           # Convert comma-separated components to JSON array
+          # Sort by dependency: terraform-backend, vpc, then others
           components="${{ inputs.components }}"
-          # Remove spaces and split by comma
-          components_array=$(echo "$components" | tr -d ' ' | tr ',' '\n' | jq -R . | jq -sc .)
+
+          # Split components and sort by dependency order
+          IFS=',' read -ra COMP_ARRAY <<< "$(echo "$components" | tr -d ' ')"
+
+          # Define dependency order
+          declare -a ORDERED_COMPONENTS
+
+          # First: terraform-backend (if present)
+          for comp in "${COMP_ARRAY[@]}"; do
+            if [ "$comp" = "terraform-backend" ]; then
+              ORDERED_COMPONENTS+=("$comp")
+            fi
+          done
+
+          # Second: vpc (if present)
+          for comp in "${COMP_ARRAY[@]}"; do
+            if [ "$comp" = "vpc" ]; then
+              ORDERED_COMPONENTS+=("$comp")
+            fi
+          done
+
+          # Third: all others (eks-auto, rds, etc.)
+          for comp in "${COMP_ARRAY[@]}"; do
+            if [ "$comp" != "terraform-backend" ] && [ "$comp" != "vpc" ]; then
+              ORDERED_COMPONENTS+=("$comp")
+            fi
+          done
+
+          # Convert to JSON array
+          components_array=$(printf '%s\n' "${ORDERED_COMPONENTS[@]}" | jq -R . | jq -sc .)
           echo "components_list=$components_array" >> $GITHUB_OUTPUT
-          echo "Components to deploy: $components_array"
+          echo "Components to deploy (ordered by dependencies): $components_array"
+
+          # Create reversed list for destroy (destroy in reverse dependency order)
+          components_reversed=$(printf '%s\n' "${ORDERED_COMPONENTS[@]}" | tac | jq -R . | jq -sc .)
+          echo "components_list_reversed=$components_reversed" >> $GITHUB_OUTPUT
+          echo "Components to destroy (reverse order): $components_reversed"
+
+          # Split into foundational (vpc, terraform-backend) and dependent (rds, eks-auto, etc)
+          declare -a FOUNDATIONAL_COMPONENTS
+          declare -a DEPENDENT_COMPONENTS
+
+          for comp in "${ORDERED_COMPONENTS[@]}"; do
+            if [ "$comp" = "vpc" ] || [ "$comp" = "terraform-backend" ]; then
+              FOUNDATIONAL_COMPONENTS+=("$comp")
+            else
+              DEPENDENT_COMPONENTS+=("$comp")
+            fi
+          done
+
+          # Output foundational components (or empty array if none)
+          if [ ${#FOUNDATIONAL_COMPONENTS[@]} -eq 0 ]; then
+            echo "foundational_components=[]" >> $GITHUB_OUTPUT
+            echo "has_foundational=false" >> $GITHUB_OUTPUT
+          else
+            foundational_array=$(printf '%s\n' "${FOUNDATIONAL_COMPONENTS[@]}" | jq -R . | jq -sc .)
+            echo "foundational_components=$foundational_array" >> $GITHUB_OUTPUT
+            echo "has_foundational=true" >> $GITHUB_OUTPUT
+            echo "Foundational components: $foundational_array"
+          fi
+
+          # Output dependent components (or empty array if none)
+          if [ ${#DEPENDENT_COMPONENTS[@]} -eq 0 ]; then
+            echo "dependent_components=[]" >> $GITHUB_OUTPUT
+            echo "has_dependent=false" >> $GITHUB_OUTPUT
+          else
+            dependent_array=$(printf '%s\n' "${DEPENDENT_COMPONENTS[@]}" | jq -R . | jq -sc .)
+            echo "dependent_components=$dependent_array" >> $GITHUB_OUTPUT
+            echo "has_dependent=true" >> $GITHUB_OUTPUT
+            echo "Dependent components: $dependent_array"
+          fi
 
       - name: Parse environments for matrix
         id: parse-environments
@@ -217,18 +285,21 @@ jobs:
             echo "- ℹ️ Terraform apply is disabled - validation only" >> $GITHUB_STEP_SUMMARY
           fi
 
-  plan:
-    name: Plan (${{ matrix.env }}/${{ matrix.component }})
+  # Plan foundational components (VPC, terraform-backend) - these run first
+  plan-foundational:
+    name: Plan Foundational (${{ matrix.env }}/${{ matrix.component }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: generate-and-validate
-    if: inputs.run_apply == true
+    if: inputs.run_apply == true && needs.generate-and-validate.outputs.has_foundational == 'true'
+    environment: testing
 
     strategy:
       matrix:
         env: ${{ fromJson(needs.generate-and-validate.outputs.environments_list) }}
-        component: ${{ fromJson(needs.generate-and-validate.outputs.components_list) }}
+        component: ${{ fromJson(needs.generate-and-validate.outputs.foundational_components) }}
       fail-fast: false
+      max-parallel: 1  # Deploy foundational components sequentially
 
     permissions:
       contents: read
@@ -249,13 +320,10 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-region: ${{ inputs.region }}
-          # Option 1: Use static credentials (stored in GitHub Secrets)
+          aws-region: ${{ secrets.AWS_REGION }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          # Option 2: Use OIDC (uncomment if configured)
-          # role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          # role-session-name: github-actions-${{ github.run_id }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
 
       - name: Create tfvars file
         working-directory: generated-infra/infra/config
@@ -265,6 +333,7 @@ jobs:
           project_name = "${{ inputs.project_name }}"
           region = "${{ inputs.region }}"
           aws_account_id = "${{ inputs.aws_account_id }}"
+          account = "${{ inputs.aws_account_id }}"
 
           # Component-specific configuration
           # Add more variables as needed for your components
@@ -319,19 +388,21 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "✅ Terraform plan completed successfully" >> $GITHUB_STEP_SUMMARY
 
-  apply:
-    name: Apply (${{ matrix.env }}/${{ matrix.component }})
+  # Apply foundational components
+  apply-foundational:
+    name: Apply Foundational (${{ matrix.env }}/${{ matrix.component }})
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    needs: [generate-and-validate, plan]
-    if: inputs.run_apply == true
+    needs: [generate-and-validate, plan-foundational]
+    if: inputs.run_apply == true && needs.generate-and-validate.outputs.has_foundational == 'true'
+    environment: testing
 
     strategy:
       matrix:
         env: ${{ fromJson(needs.generate-and-validate.outputs.environments_list) }}
-        component: ${{ fromJson(needs.generate-and-validate.outputs.components_list) }}
+        component: ${{ fromJson(needs.generate-and-validate.outputs.foundational_components) }}
       fail-fast: false
-      max-parallel: 1  # Deploy one component at a time
+      max-parallel: 1  # Deploy foundational components sequentially
 
     permissions:
       contents: read
@@ -358,9 +429,10 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-region: ${{ inputs.region }}
+          aws-region: ${{ secrets.AWS_REGION }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
 
       - name: Terraform Init
         working-directory: generated-infra/infra/${{ matrix.component }}
@@ -395,25 +467,38 @@ jobs:
           path: generated-infra/infra/${{ matrix.component }}/outputs.json
           retention-days: 7
 
+      - name: Upload state file
+        if: inputs.backend_type == 'local'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfstate-${{ matrix.component }}-${{ matrix.env }}-${{ github.run_id }}
+          path: generated-infra/infra/${{ matrix.component }}/terraform.tfstate*
+          retention-days: 7
+
       - name: Apply summary
         run: |
           echo "### 🚀 Apply Complete: ${{ matrix.env }}/${{ matrix.component }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "✅ Infrastructure deployed successfully" >> $GITHUB_STEP_SUMMARY
 
-  destroy:
-    name: Destroy (${{ matrix.env }}/${{ matrix.component }})
+  # Plan dependent components (RDS, EKS-Auto, etc) - these run after foundational
+  plan-dependent:
+    name: Plan Dependent (${{ matrix.env }}/${{ matrix.component }})
     runs-on: ubuntu-latest
-    timeout-minutes: 60
-    needs: [generate-and-validate, apply]
-    if: inputs.run_apply == true && inputs.auto_destroy == true
+    timeout-minutes: 30
+    needs: [generate-and-validate, apply-foundational]
+    if: |
+      always() &&
+      inputs.run_apply == true &&
+      needs.generate-and-validate.outputs.has_dependent == 'true' &&
+      (needs.apply-foundational.result == 'success' || needs.apply-foundational.result == 'skipped')
+    environment: testing
 
     strategy:
       matrix:
         env: ${{ fromJson(needs.generate-and-validate.outputs.environments_list) }}
-        component: ${{ fromJson(needs.generate-and-validate.outputs.components_list) }}
+        component: ${{ fromJson(needs.generate-and-validate.outputs.dependent_components) }}
       fail-fast: false
-      max-parallel: 1
 
     permissions:
       contents: read
@@ -434,9 +519,303 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-region: ${{ inputs.region }}
+          aws-region: ${{ secrets.AWS_REGION }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+
+      - name: Create tfvars file
+        working-directory: generated-infra/infra/${{ matrix.component }}
+        run: |
+          cat > ${{ matrix.env }}.tfvars << EOF
+          env = "${{ matrix.env }}"
+          project_name = "${{ inputs.project_name }}"
+          region = "${{ inputs.region }}"
+          aws_account_id = "${{ inputs.aws_account_id }}"
+          account = "${{ inputs.aws_account_id }}"
+
+          # Component-specific configuration
+          # Add more variables as needed for your components
+          EOF
+
+          echo "✅ Created tfvars file for ${{ matrix.env }}"
+
+      - name: Terraform Init
+        working-directory: generated-infra/infra/${{ matrix.component }}
+        run: |
+          echo "Initializing ${{ matrix.component }} for ${{ matrix.env }}..."
+
+          if [ "${{ inputs.backend_type }}" = "s3" ]; then
+            terraform init \
+              -backend-config="bucket=${{ inputs.state_bucket }}" \
+              -backend-config="key=${{ inputs.project_name }}/${{ matrix.component }}/${{ matrix.env }}/terraform.tfstate" \
+              -backend-config="region=${{ inputs.region }}"
+          else
+            terraform init
+          fi
+
+      - name: Terraform Plan
+        working-directory: generated-infra/infra/${{ matrix.component }}
+        run: |
+          echo "Planning ${{ matrix.component }} for ${{ matrix.env }}..."
+
+          terraform plan \
+            -var-file=../config/${{ matrix.env }}.tfvars \
+            -out=${{ matrix.component }}-${{ matrix.env }}.tfplan \
+            -detailed-exitcode || export PLAN_EXIT_CODE=$?
+
+          # Exit code 0: no changes, 1: error, 2: changes present
+          if [ "${PLAN_EXIT_CODE:-0}" -eq 1 ]; then
+            echo "❌ Terraform plan failed"
+            exit 1
+          fi
+
+          echo "✅ Plan completed for ${{ matrix.component }} (${{ matrix.env }})"
+
+      - name: Upload plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ matrix.component }}-${{ matrix.env }}-${{ github.run_id }}
+          path: generated-infra/infra/${{ matrix.component }}/${{ matrix.component }}-${{ matrix.env }}.tfplan
+          retention-days: 7
+
+      - name: Plan summary
+        run: |
+          echo "### 📋 Plan Summary: ${{ matrix.env }}/${{ matrix.component }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Terraform plan completed successfully" >> $GITHUB_STEP_SUMMARY
+
+  # Apply dependent components
+  apply-dependent:
+    name: Apply Dependent (${{ matrix.env }}/${{ matrix.component }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: [generate-and-validate, plan-dependent]
+    if: inputs.run_apply == true && needs.generate-and-validate.outputs.has_dependent == 'true'
+    environment: testing
+
+    strategy:
+      matrix:
+        env: ${{ fromJson(needs.generate-and-validate.outputs.environments_list) }}
+        component: ${{ fromJson(needs.generate-and-validate.outputs.dependent_components) }}
+      fail-fast: false
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Download generated infrastructure
+        uses: actions/download-artifact@v4
+        with:
+          name: generated-infra-${{ github.run_id }}
+          path: generated-infra
+
+      - name: Download plan
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-${{ matrix.component }}-${{ matrix.env }}-${{ github.run_id }}
+          path: generated-infra/infra/${{ matrix.component }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+
+      - name: Terraform Init
+        working-directory: generated-infra/infra/${{ matrix.component }}
+        run: |
+          if [ "${{ inputs.backend_type }}" = "s3" ]; then
+            terraform init \
+              -backend-config="bucket=${{ inputs.state_bucket }}" \
+              -backend-config="key=${{ inputs.project_name }}/${{ matrix.component }}/${{ matrix.env }}/terraform.tfstate" \
+              -backend-config="region=${{ inputs.region }}"
+          else
+            terraform init
+          fi
+
+      - name: Terraform Apply
+        working-directory: generated-infra/infra/${{ matrix.component }}
+        run: |
+          echo "🚀 Applying ${{ matrix.component }} for ${{ matrix.env }}..."
+          terraform apply -auto-approve ${{ matrix.component }}-${{ matrix.env }}.tfplan
+          echo "✅ Apply completed for ${{ matrix.component }} (${{ matrix.env }})"
+
+      - name: Terraform Output
+        working-directory: generated-infra/infra/${{ matrix.component }}
+        run: |
+          echo "📤 Outputs for ${{ matrix.component }}:"
+          terraform output -json > outputs.json
+          terraform output
+
+      - name: Upload outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: outputs-${{ matrix.component }}-${{ matrix.env }}-${{ github.run_id }}
+          path: generated-infra/infra/${{ matrix.component }}/outputs.json
+          retention-days: 7
+
+      - name: Upload state file
+        if: inputs.backend_type == 'local'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfstate-${{ matrix.component }}-${{ matrix.env }}-${{ github.run_id }}
+          path: generated-infra/infra/${{ matrix.component }}/terraform.tfstate*
+          retention-days: 7
+
+      - name: Apply summary
+        run: |
+          echo "### 🚀 Apply Complete: ${{ matrix.env }}/${{ matrix.component }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Infrastructure deployed successfully" >> $GITHUB_STEP_SUMMARY
+
+  # Destroy dependent components first (in reverse order)
+  destroy-dependent:
+    name: Destroy Dependent (${{ matrix.env }}/${{ matrix.component }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: [generate-and-validate, apply-dependent]
+    if: |
+      always() &&
+      inputs.run_apply == true &&
+      inputs.auto_destroy == true &&
+      needs.generate-and-validate.outputs.has_dependent == 'true' &&
+      (needs.apply-dependent.result == 'success' || needs.apply-dependent.result == 'skipped')
+    environment: testing
+
+    strategy:
+      matrix:
+        env: ${{ fromJson(needs.generate-and-validate.outputs.environments_list) }}
+        component: ${{ fromJson(needs.generate-and-validate.outputs.dependent_components) }}
+      fail-fast: false
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Download generated infrastructure
+        uses: actions/download-artifact@v4
+        with:
+          name: generated-infra-${{ github.run_id }}
+          path: generated-infra
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Download state file
+        if: inputs.backend_type == 'local'
+        uses: actions/download-artifact@v4
+        with:
+          name: tfstate-${{ matrix.component }}-${{ matrix.env }}-${{ github.run_id }}
+          path: generated-infra/infra/${{ matrix.component }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+
+      - name: Create tfvars file
+        working-directory: generated-infra/infra/${{ matrix.component }}
+        run: |
+          cat > ${{ matrix.env }}.tfvars << EOF
+          env = "${{ matrix.env }}"
+          project_name = "${{ inputs.project_name }}"
+          region = "${{ inputs.region }}"
+          aws_account_id = "${{ inputs.aws_account_id }}"
+          account = "${{ inputs.aws_account_id }}"
+          EOF
+
+      - name: Terraform Init
+        working-directory: generated-infra/infra/${{ matrix.component }}
+        run: |
+          if [ "${{ inputs.backend_type }}" = "s3" ]; then
+            terraform init \
+              -backend-config="bucket=${{ inputs.state_bucket }}" \
+              -backend-config="key=${{ inputs.project_name }}/${{ matrix.component }}/${{ matrix.env }}/terraform.tfstate" \
+              -backend-config="region=${{ inputs.region }}"
+          else
+            terraform init
+          fi
+
+      - name: Terraform Destroy
+        working-directory: generated-infra/infra/${{ matrix.component }}
+        run: |
+          echo "🧹 Destroying ${{ matrix.component }} for ${{ matrix.env }}..."
+          terraform destroy -auto-approve -var-file=../config/${{ matrix.env }}.tfvars
+          echo "✅ Destroy completed for ${{ matrix.component }} (${{ matrix.env }})"
+
+      - name: Destroy summary
+        run: |
+          echo "### 🧹 Destroy Complete: ${{ matrix.env }}/${{ matrix.component }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Infrastructure destroyed successfully" >> $GITHUB_STEP_SUMMARY
+
+  # Destroy foundational components last
+  destroy-foundational:
+    name: Destroy Foundational (${{ matrix.env }}/${{ matrix.component }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: [generate-and-validate, apply-foundational, destroy-dependent]
+    if: |
+      always() &&
+      inputs.run_apply == true &&
+      inputs.auto_destroy == true &&
+      needs.generate-and-validate.outputs.has_foundational == 'true' &&
+      (needs.apply-foundational.result == 'success' || needs.apply-foundational.result == 'skipped') &&
+      (needs.destroy-dependent.result == 'success' || needs.destroy-dependent.result == 'skipped')
+    environment: testing
+
+    strategy:
+      matrix:
+        env: ${{ fromJson(needs.generate-and-validate.outputs.environments_list) }}
+        component: ${{ fromJson(needs.generate-and-validate.outputs.foundational_components) }}
+      fail-fast: false
+      max-parallel: 1  # Destroy foundational components sequentially, in reverse order
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Download generated infrastructure
+        uses: actions/download-artifact@v4
+        with:
+          name: generated-infra-${{ github.run_id }}
+          path: generated-infra
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+
+      - name: Download state file
+        if: inputs.backend_type == 'local'
+        uses: actions/download-artifact@v4
+        with:
+          name: tfstate-${{ matrix.component }}-${{ matrix.env }}-${{ github.run_id }}
+          path: generated-infra/infra/${{ matrix.component }}
 
       - name: Create tfvars file
         working-directory: generated-infra/infra/config
@@ -446,6 +825,7 @@ jobs:
           project_name = "${{ inputs.project_name }}"
           region = "${{ inputs.region }}"
           aws_account_id = "${{ inputs.aws_account_id }}"
+          account = "${{ inputs.aws_account_id }}"
           EOF
 
       - name: Terraform Init

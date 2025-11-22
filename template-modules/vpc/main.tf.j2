@@ -37,7 +37,8 @@ module "vpc" {
   flow_log_max_aggregation_interval               = var.enable_flow_logs ? 60 : null
   flow_log_traffic_type                           = var.enable_flow_logs ? "ALL" : null
 
-  tags = local.tags
+  # Tags are inherited from provider's default_tags - no need to pass explicitly
+  # This avoids duplicate tag key conflicts (case-insensitive) with IAM resources
   public_subnet_tags = {
     "kubernetes.io/cluster/${local.cluster_name}" = "shared"
     "kubernetes.io/role/elb"                      = "1"

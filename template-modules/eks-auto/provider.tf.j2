@@ -10,8 +10,10 @@ terraform {
 }
 
 provider "aws" {
-  region  = var.region
-  profile = var.aws_profile
+  region = var.region
+
+  # Profile is optional - will use AWS credentials from environment if not set
+  # This allows CI/CD to work with AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
 
   default_tags {
     tags = {
