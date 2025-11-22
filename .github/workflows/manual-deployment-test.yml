@@ -529,7 +529,7 @@ jobs:
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
 
       - name: Create tfvars file
-        working-directory: generated-infra/infra/${{ matrix.component }}
+        working-directory: generated-infra/infra/config
         run: |
           cat > ${{ matrix.env }}.tfvars << EOF
           env = "${{ matrix.env }}"
@@ -733,7 +733,7 @@ jobs:
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
 
       - name: Create tfvars file
-        working-directory: generated-infra/infra/${{ matrix.component }}
+        working-directory: generated-infra/infra/config
         run: |
           cat > ${{ matrix.env }}.tfvars << EOF
           env = "${{ matrix.env }}"
