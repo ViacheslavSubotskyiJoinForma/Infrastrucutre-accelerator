@@ -23,12 +23,12 @@ class AWSCleaner:
         # AWS clients
         self.ec2 = boto3.client('ec2', region_name=region)
         self.elbv2 = boto3.client('elbv2', region_name=region)
-        self.s3 = boto3.client('s3')
+        self.s3 = boto3.client('s3', region_name=region)
         self.rds = boto3.client('rds', region_name=region)
         self.eks = boto3.client('eks', region_name=region)
         self.logs = boto3.client('logs', region_name=region)
         self.cf = boto3.client('cloudformation', region_name=region)
-        self.iam = boto3.client('iam')
+        self.iam = boto3.client('iam', region_name=region)
 
         # Statistics
         self.stats = {
@@ -62,9 +62,10 @@ class AWSCleaner:
 
     def get_test_tags(self) -> Dict[str, str]:
         """Get tag filters for test resources"""
-        tags = {'ManagedBy': 'AutomatedTesting'}
+        tags = {}
         if self.test_id:
-            tags['TestID'] = self.test_id
+            # Use Project tag which is set by Terraform templates
+            tags['Project'] = self.test_id
         return tags
 
     def cleanup_load_balancers(self) -> bool:
