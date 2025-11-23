@@ -1121,13 +1121,15 @@ jobs:
     name: Destroy Bootstrap (${{ matrix.env }}/${{ matrix.component }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: [generate-and-validate, apply-bootstrap, destroy-foundational]
+    needs: [generate-and-validate, apply-bootstrap, apply-foundational, apply-dependent, destroy-foundational]
     if: |
       always() &&
       inputs.run_apply == true &&
       inputs.auto_destroy == true &&
       needs.generate-and-validate.outputs.has_bootstrap == 'true' &&
-      (needs.apply-bootstrap.result == 'success' || needs.apply-bootstrap.result == 'skipped') &&
+      needs.apply-bootstrap.result == 'success' &&
+      (needs.apply-foundational.result == 'success' || needs.apply-foundational.result == 'skipped') &&
+      (needs.apply-dependent.result == 'success' || needs.apply-dependent.result == 'skipped') &&
       (needs.destroy-foundational.result == 'success' || needs.destroy-foundational.result == 'skipped')
     environment: testing
 
