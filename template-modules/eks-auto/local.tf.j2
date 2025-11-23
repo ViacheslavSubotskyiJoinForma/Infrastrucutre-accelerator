@@ -1,13 +1,7 @@
 locals {
   cluster_name = "${var.project_name}-${var.env}-eks"
 
-  tags = merge(
-    var.tags,
-    {
-      Project     = var.project_name
-      Environment = var.env
-      Component   = "eks-auto"
-      ManagedBy   = "Terraform"
-    }
-  )
+  # Tags - Component tag is inherited from provider default_tags
+  # Only add extra tags from var.tags if needed
+  tags = var.tags
 }
