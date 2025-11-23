@@ -1,9 +1,9 @@
 # S3 Bucket for Terraform State
 resource "aws_s3_bucket" "terraform_state" {
-  bucket = "${var.project_name}-terraform-state-${var.account}"
+  bucket = "${var.project_name}-backend-terraform-state-${var.account}"
 
   tags = {
-    Name        = "${var.project_name}-terraform-state"
+    Name        = "${var.project_name}-backend-terraform-state"
     Environment = var.env
     ManagedBy   = "Terraform"
     Purpose     = "Terraform State Storage"
