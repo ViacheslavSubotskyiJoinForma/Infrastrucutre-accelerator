@@ -1,8 +1,6 @@
 locals {
   tags = {
-    env        = var.env
-    project    = var.project_name
-    component  = "rds"
-    managed_by = "terraform"
+    Environment = var.env
+    Component   = "rds"
   }
 }
