@@ -350,7 +350,10 @@ jobs:
         run: |
           echo "Initializing ${{ matrix.component }} for ${{ matrix.env }}..."
 
-          if [ "${{ inputs.backend_type }}" = "s3" ]; then
+          # terraform-backend is a bootstrap component and always uses local backend
+          if [ "${{ matrix.component }}" = "terraform-backend" ]; then
+            terraform init
+          elif [ "${{ inputs.backend_type }}" = "s3" ]; then
             # Initialize with S3 backend
             terraform init \
               -backend-config="bucket=${{ inputs.state_bucket }}" \
@@ -441,7 +444,10 @@ jobs:
       - name: Terraform Init
         working-directory: generated-infra/infra/${{ matrix.component }}
         run: |
-          if [ "${{ inputs.backend_type }}" = "s3" ]; then
+          # terraform-backend is a bootstrap component and always uses local backend
+          if [ "${{ matrix.component }}" = "terraform-backend" ]; then
+            terraform init
+          elif [ "${{ inputs.backend_type }}" = "s3" ]; then
             terraform init \
               -backend-config="bucket=${{ inputs.state_bucket }}" \
               -backend-config="key=${{ inputs.project_name }}/${{ matrix.component }}/${{ matrix.env }}/terraform.tfstate" \
@@ -637,7 +643,10 @@ jobs:
       - name: Terraform Init
         working-directory: generated-infra/infra/${{ matrix.component }}
         run: |
-          if [ "${{ inputs.backend_type }}" = "s3" ]; then
+          # terraform-backend is a bootstrap component and always uses local backend
+          if [ "${{ matrix.component }}" = "terraform-backend" ]; then
+            terraform init
+          elif [ "${{ inputs.backend_type }}" = "s3" ]; then
             terraform init \
               -backend-config="bucket=${{ inputs.state_bucket }}" \
               -backend-config="key=${{ inputs.project_name }}/${{ matrix.component }}/${{ matrix.env }}/terraform.tfstate" \
@@ -746,7 +755,10 @@ jobs:
       - name: Terraform Init
         working-directory: generated-infra/infra/${{ matrix.component }}
         run: |
-          if [ "${{ inputs.backend_type }}" = "s3" ]; then
+          # terraform-backend is a bootstrap component and always uses local backend
+          if [ "${{ matrix.component }}" = "terraform-backend" ]; then
+            terraform init
+          elif [ "${{ inputs.backend_type }}" = "s3" ]; then
             terraform init \
               -backend-config="bucket=${{ inputs.state_bucket }}" \
               -backend-config="key=${{ inputs.project_name }}/${{ matrix.component }}/${{ matrix.env }}/terraform.tfstate" \
@@ -835,7 +847,10 @@ jobs:
       - name: Terraform Init
         working-directory: generated-infra/infra/${{ matrix.component }}
         run: |
-          if [ "${{ inputs.backend_type }}" = "s3" ]; then
+          # terraform-backend is a bootstrap component and always uses local backend
+          if [ "${{ matrix.component }}" = "terraform-backend" ]; then
+            terraform init
+          elif [ "${{ inputs.backend_type }}" = "s3" ]; then
             terraform init \
               -backend-config="bucket=${{ inputs.state_bucket }}" \
               -backend-config="key=${{ inputs.project_name }}/${{ matrix.component }}/${{ matrix.env }}/terraform.tfstate" \
