@@ -187,6 +187,95 @@ class AWSCleaner:
             self.stats['errors'].append(f"nat_gateways: {e}")
             return False
 
+    def cleanup_security_groups(self) -> bool:
+        """Delete orphaned security groups (not tied to VPC cleanup)"""
+        self.log("Cleaning up orphaned security groups...", 'INFO')
+
+        try:
+            test_tags = self.get_test_tags()
+            filters = [{'Name': f'tag:{k}', 'Values': [v]} for k, v in test_tags.items()]
+
+            response = self.ec2.describe_security_groups(Filters=filters)
+
+            # Collect security groups, excluding default groups
+            security_groups = [
+                sg for sg in response['SecurityGroups']
+                if sg['GroupName'] != 'default'
+            ]
+
+            if not security_groups:
+                self.log("No orphaned security groups found", 'INFO')
+                return True
+
+            # First pass: remove all rules from security groups to break dependencies
+            for sg in security_groups:
+                sg_id = sg['GroupId']
+                sg_name = sg['GroupName']
+
+                if not self.dry_run:
+                    try:
+                        # Revoke ingress rules
+                        if sg['IpPermissions']:
+                            self.ec2.revoke_security_group_ingress(
+                                GroupId=sg_id,
+                                IpPermissions=sg['IpPermissions']
+                            )
+                            self.log(f"Revoked ingress rules from {sg_name} ({sg_id})", 'INFO')
+
+                        # Revoke egress rules
+                        if sg['IpPermissionsEgress']:
+                            self.ec2.revoke_security_group_egress(
+                                GroupId=sg_id,
+                                IpPermissions=sg['IpPermissionsEgress']
+                            )
+                            self.log(f"Revoked egress rules from {sg_name} ({sg_id})", 'INFO')
+                    except ClientError as e:
+                        self.log(f"Warning: Error revoking rules for {sg_id}: {e}", 'WARNING')
+
+            # Second pass: delete security groups (retry with backoff for dependency violations)
+            max_retries = 3
+            for retry in range(max_retries):
+                remaining_groups = []
+
+                for sg in security_groups:
+                    sg_id = sg['GroupId']
+                    sg_name = sg['GroupName']
+
+                    try:
+                        if not self.dry_run:
+                            self.ec2.delete_security_group(GroupId=sg_id)
+                            self.stats['security_groups'] += 1
+                            self.log(f"Deleted security group: {sg_name} ({sg_id})", 'SUCCESS')
+                        else:
+                            self.log(f"Would delete security group: {sg_name} ({sg_id})", 'INFO')
+                            self.stats['security_groups'] += 1
+                    except ClientError as e:
+                        if 'DependencyViolation' in str(e):
+                            self.log(f"Security group {sg_id} has dependencies, will retry...", 'WARNING')
+                            remaining_groups.append(sg)
+                        elif 'InvalidGroup.NotFound' in str(e):
+                            # Already deleted
+                            pass
+                        else:
+                            self.log(f"Error deleting security group {sg_id}: {e}", 'WARNING')
+
+                if not remaining_groups:
+                    break
+
+                if retry < max_retries - 1:
+                    self.log(f"Retrying {len(remaining_groups)} security groups (attempt {retry + 2}/{max_retries})...", 'INFO')
+                    time.sleep(5)
+                    security_groups = remaining_groups
+
+            if remaining_groups:
+                self.log(f"Warning: {len(remaining_groups)} security groups could not be deleted due to persistent dependencies", 'WARNING')
+
+            return True
+        except ClientError as e:
+            self.log(f"Error cleaning security groups: {e}", 'ERROR')
+            self.stats['errors'].append(f"security_groups: {e}")
+            return False
+
     def cleanup_vpcs(self) -> bool:
         """Delete VPCs and associated resources"""
         self.log("Cleaning up VPCs...", 'INFO')
@@ -473,8 +562,9 @@ class AWSCleaner:
             ("Load Balancers", self.cleanup_load_balancers),
             ("ENIs", self.cleanup_enis),
             ("NAT Gateways", self.cleanup_nat_gateways),
-            ("VPCs", self.cleanup_vpcs),
             ("DB Subnet Groups", self.cleanup_db_subnet_groups),
+            ("Security Groups", self.cleanup_security_groups),
+            ("VPCs", self.cleanup_vpcs),
             ("S3 Buckets", self.cleanup_s3_buckets),
             ("CloudFormation Stacks", self.cleanup_cloudformation_stacks),
             ("CloudWatch Log Groups", self.cleanup_log_groups),
