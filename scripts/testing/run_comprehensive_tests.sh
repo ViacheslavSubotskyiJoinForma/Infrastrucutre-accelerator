@@ -15,7 +15,7 @@ NC='\033[0m' # No Color
 
 # Configuration
 PROJECT_BASE="test-infra"
-AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-156041409155}"  # Default from credentials
+AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-123456789012}"  # Default from credentials
 REGION="us-east-1"
 BRANCH="infrastructure-testing-20251117"
 
