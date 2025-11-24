@@ -100,6 +100,10 @@ jobs:
     outputs:
       components_list: ${{ steps.parse-components.outputs.components_list }}
       environments_list: ${{ steps.parse-environments.outputs.environments_list }}
+      has_foundational: ${{ steps.parse-components.outputs.has_foundational }}
+      has_dependent: ${{ steps.parse-components.outputs.has_dependent }}
+      foundational_components: ${{ steps.parse-components.outputs.foundational_components }}
+      dependent_components: ${{ steps.parse-components.outputs.dependent_components }}
 
     steps:
       - name: Checkout repository
