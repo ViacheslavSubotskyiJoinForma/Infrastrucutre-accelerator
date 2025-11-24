@@ -15,21 +15,27 @@ from botocore.exceptions import ClientError
 class AWSCleaner:
     """AWS resource cleanup automation"""
 
-    def __init__(self, region: str, test_id: str = None, dry_run: bool = False, bucket_name: str = None):
+    def __init__(self, region: str, test_id: str = None, dry_run: bool = False, bucket_name: str = None, profile_name: str = None):
         self.region = region
         self.test_id = test_id
         self.dry_run = dry_run
         self.bucket_name = bucket_name
 
+        # Create AWS session with profile if specified
+        if profile_name:
+            session = boto3.Session(profile_name=profile_name)
+        else:
+            session = boto3.Session()
+
         # AWS clients
-        self.ec2 = boto3.client('ec2', region_name=region)
-        self.elbv2 = boto3.client('elbv2', region_name=region)
-        self.s3 = boto3.client('s3', region_name=region)
-        self.rds = boto3.client('rds', region_name=region)
-        self.eks = boto3.client('eks', region_name=region)
-        self.logs = boto3.client('logs', region_name=region)
-        self.cf = boto3.client('cloudformation', region_name=region)
-        self.iam = boto3.client('iam', region_name=region)
+        self.ec2 = session.client('ec2', region_name=region)
+        self.elbv2 = session.client('elbv2', region_name=region)
+        self.s3 = session.client('s3', region_name=region)
+        self.rds = session.client('rds', region_name=region)
+        self.eks = session.client('eks', region_name=region)
+        self.logs = session.client('logs', region_name=region)
+        self.cf = session.client('cloudformation', region_name=region)
+        self.iam = session.client('iam', region_name=region)
 
         # Statistics
         self.stats = {
@@ -557,6 +563,10 @@ def main():
         '--bucket-name',
         help='Specific S3 bucket name to clean up (bypasses tag filtering)'
     )
+    parser.add_argument(
+        '--profile',
+        help='AWS profile name to use for authentication'
+    )
 
     args = parser.parse_args()
 
@@ -580,7 +590,8 @@ def main():
         region=args.region,
         test_id=args.test_id,
         dry_run=args.dry_run,
-        bucket_name=args.bucket_name
+        bucket_name=args.bucket_name,
+        profile_name=args.profile
     )
 
     success = cleaner.run_cleanup()
