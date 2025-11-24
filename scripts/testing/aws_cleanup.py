@@ -15,10 +15,11 @@ from botocore.exceptions import ClientError
 class AWSCleaner:
     """AWS resource cleanup automation"""
 
-    def __init__(self, region: str, test_id: str = None, dry_run: bool = False):
+    def __init__(self, region: str, test_id: str = None, dry_run: bool = False, bucket_name: str = None):
         self.region = region
         self.test_id = test_id
         self.dry_run = dry_run
+        self.bucket_name = bucket_name
 
         # AWS clients
         self.ec2 = boto3.client('ec2', region_name=region)
@@ -311,12 +312,15 @@ class AWSCleaner:
         self.log("Cleaning up S3 buckets...", 'INFO')
 
         try:
-            test_tags = self.get_test_tags()
+            # If specific bucket name provided, clean only that bucket
+            if self.bucket_name:
+                bucket_list = [{'Name': self.bucket_name}]
+            else:
+                # List all buckets
+                bucket_list = self.s3.list_buckets()['Buckets']
+                test_tags = self.get_test_tags()
 
-            # List all buckets
-            buckets = self.s3.list_buckets()['Buckets']
-
-            for bucket in buckets:
+            for bucket in bucket_list:
                 bucket_name = bucket['Name']
 
                 # Skip if not in our region (for regional cleanup)
@@ -328,63 +332,70 @@ class AWSCleaner:
                 except ClientError:
                     continue
 
-                # Check tags
-                try:
-                    tags_response = self.s3.get_bucket_tagging(Bucket=bucket_name)
-                    tags = {tag['Key']: tag['Value'] for tag in tags_response['TagSet']}
+                # Check tags (skip if specific bucket name provided)
+                should_delete = False
+                if self.bucket_name:
+                    should_delete = True
+                else:
+                    try:
+                        tags_response = self.s3.get_bucket_tagging(Bucket=bucket_name)
+                        tags = {tag['Key']: tag['Value'] for tag in tags_response['TagSet']}
 
-                    if all(tags.get(k) == v for k, v in test_tags.items()):
-                        self.log(f"Deleting S3 bucket: {bucket_name}", 'INFO')
+                        if all(tags.get(k) == v for k, v in test_tags.items()):
+                            should_delete = True
+                    except ClientError as e:
+                        if 'NoSuchTagSet' not in str(e):
+                            self.log(f"Error checking bucket {bucket_name}: {e}", 'WARNING')
 
-                        if not self.dry_run:
-                            # Delete all versions
-                            try:
-                                versioning = self.s3.get_bucket_versioning(Bucket=bucket_name)
-                                if versioning.get('Status') == 'Enabled':
-                                    self.log(f"Cleaning versioned objects in {bucket_name}...", 'INFO')
+                if should_delete:
+                    self.log(f"Deleting S3 bucket: {bucket_name}", 'INFO')
 
-                                    # Delete all versions and delete markers
-                                    paginator = self.s3.get_paginator('list_object_versions')
-                                    for page in paginator.paginate(Bucket=bucket_name):
-                                        # Delete versions
-                                        versions = page.get('Versions', [])
-                                        for version in versions:
-                                            self.s3.delete_object(
-                                                Bucket=bucket_name,
-                                                Key=version['Key'],
-                                                VersionId=version['VersionId']
-                                            )
+                    if not self.dry_run:
+                        # Delete all versions
+                        try:
+                            versioning = self.s3.get_bucket_versioning(Bucket=bucket_name)
+                            if versioning.get('Status') == 'Enabled':
+                                self.log(f"Cleaning versioned objects in {bucket_name}...", 'INFO')
 
-                                        # Delete delete markers
-                                        delete_markers = page.get('DeleteMarkers', [])
-                                        for marker in delete_markers:
-                                            self.s3.delete_object(
-                                                Bucket=bucket_name,
-                                                Key=marker['Key'],
-                                                VersionId=marker['VersionId']
-                                            )
-                            except ClientError as e:
-                                if 'NoSuchBucket' not in str(e):
-                                    self.log(f"Error cleaning versions: {e}", 'WARNING')
-
-                            # Delete all objects (non-versioned)
-                            paginator = self.s3.get_paginator('list_objects_v2')
-                            for page in paginator.paginate(Bucket=bucket_name):
-                                if 'Contents' in page:
-                                    for obj in page['Contents']:
+                                # Delete all versions and delete markers
+                                paginator = self.s3.get_paginator('list_object_versions')
+                                for page in paginator.paginate(Bucket=bucket_name):
+                                    # Delete versions
+                                    versions = page.get('Versions', [])
+                                    for version in versions:
                                         self.s3.delete_object(
                                             Bucket=bucket_name,
-                                            Key=obj['Key']
+                                            Key=version['Key'],
+                                            VersionId=version['VersionId']
                                         )
 
-                            # Delete bucket
-                            self.s3.delete_bucket(Bucket=bucket_name)
-                            self.stats['s3_buckets'] += 1
+                                    # Delete delete markers
+                                    delete_markers = page.get('DeleteMarkers', [])
+                                    for marker in delete_markers:
+                                        self.s3.delete_object(
+                                            Bucket=bucket_name,
+                                            Key=marker['Key'],
+                                            VersionId=marker['VersionId']
+                                        )
+                        except ClientError as e:
+                            if 'NoSuchBucket' not in str(e):
+                                self.log(f"Error cleaning versions: {e}", 'WARNING')
 
-                        self.log(f"Deleted S3 bucket: {bucket_name}", 'SUCCESS')
-                except ClientError as e:
-                    if 'NoSuchTagSet' not in str(e):
-                        self.log(f"Error checking bucket {bucket_name}: {e}", 'WARNING')
+                        # Delete all objects (non-versioned)
+                        paginator = self.s3.get_paginator('list_objects_v2')
+                        for page in paginator.paginate(Bucket=bucket_name):
+                            if 'Contents' in page:
+                                for obj in page['Contents']:
+                                    self.s3.delete_object(
+                                        Bucket=bucket_name,
+                                        Key=obj['Key']
+                                    )
+
+                        # Delete bucket
+                        self.s3.delete_bucket(Bucket=bucket_name)
+                        self.stats['s3_buckets'] += 1
+
+                    self.log(f"Deleted S3 bucket: {bucket_name}", 'SUCCESS')
 
             return True
         except ClientError as e:
@@ -534,13 +545,19 @@ def main():
         action='store_true',
         help='Force cleanup without confirmation'
     )
+    parser.add_argument(
+        '--bucket-name',
+        help='Specific S3 bucket name to clean up (bypasses tag filtering)'
+    )
 
     args = parser.parse_args()
 
     # Confirmation prompt (unless --force or --dry-run)
     if not args.force and not args.dry_run:
         print("\n⚠️  WARNING: This will delete AWS resources!")
-        if args.test_id:
+        if args.bucket_name:
+            print(f"Target: S3 bucket '{args.bucket_name}' in region {args.region}")
+        elif args.test_id:
             print(f"Target: Test ID {args.test_id} in region {args.region}")
         else:
             print(f"Target: ALL test resources in region {args.region}")
@@ -554,7 +571,8 @@ def main():
     cleaner = AWSCleaner(
         region=args.region,
         test_id=args.test_id,
-        dry_run=args.dry_run
+        dry_run=args.dry_run,
+        bucket_name=args.bucket_name
     )
 
     success = cleaner.run_cleanup()
