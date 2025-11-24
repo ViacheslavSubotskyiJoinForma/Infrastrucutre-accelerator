@@ -1,0 +1,30 @@
+locals {
+  # Dynamic subnet creation based on availability_zone_count
+  # Optimized /16 split: Each subnet gets /20 (4096 IPs) for better utilization
+
+  # Public subnets: .0.0/20, .16.0/20, .32.0/20
+  public_subnets = [
+    for i in range(var.availability_zone_count) :
+    "${var.cidr[var.env]}.${i * 16}.0/20"
+  ]
+
+  # Private subnets: .48.0/20, .64.0/20, .80.0/20
+  private_subnets = [
+    for i in range(var.availability_zone_count) :
+    "${var.cidr[var.env]}.${48 + i * 16}.0/20"
+  ]
+
+  # Database subnets: .96.0/20, .112.0/20, .128.0/20
+  database_subnets = [
+    for i in range(var.availability_zone_count) :
+    "${var.cidr[var.env]}.${96 + i * 16}.0/20"
+  ]
+
+  cluster_name = "test-format-check_${upper(var.env)}"
+
+  tags = {
+    env                      = var.env
+    project                  = "test-format-check"
+    "karpenter.sh/discovery" = local.cluster_name
+  }
+}

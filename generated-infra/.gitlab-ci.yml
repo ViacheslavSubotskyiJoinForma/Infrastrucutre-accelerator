@@ -1,0 +1,61 @@
+# GitLab CI/CD Configuration (MVP with local state)
+# Note: This configuration uses local state backend for simplicity
+# For production use, consider using S3 backend with state locking
+
+stages:
+  - Validate
+  - Plan
+  - Apply
+
+image:
+  name: hashicorp/terraform:1.5.4
+  entrypoint: [""]
+
+variables:
+  TF_CLI_ARGS: "-no-color"
+
+.terraform_base_vpc:
+  before_script:
+    - cd infra/vpc
+    - terraform init
+
+Validate_vpc:
+  stage: Validate
+  extends: .terraform_base_vpc
+  script:
+    - terraform fmt -check
+    - terraform validate
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - infra/vpc/**/*
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+Plan_vpc_dev:
+  stage: Plan
+  extends: .terraform_base_vpc
+  script:
+    - terraform plan -var-file=../config/dev.tfvars -out=tfplan-dev
+  artifacts:
+    paths:
+      - infra/vpc/tfplan-dev
+    expire_in: 2 hrs
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - infra/vpc/**/*
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+
+Apply_vpc_dev:
+  stage: Apply
+  extends: .terraform_base_vpc
+  when: manual
+  script:
+    - terraform apply -auto-approve tfplan-dev
+  needs:
+    - Plan_vpc_dev
+  dependencies:
+    - Plan_vpc_dev
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

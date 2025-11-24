@@ -30,7 +30,7 @@ gh auth status
 export AWS_ACCESS_KEY_ID="..."
 export AWS_SECRET_ACCESS_KEY="..."
 export AWS_SESSION_TOKEN="..."  # If using temporary credentials
-export AWS_ACCOUNT_ID="156041409155"
+export AWS_ACCOUNT_ID="123456789012"
 
 # 3. Python 3.8+ with boto3
 pip install boto3
@@ -187,7 +187,7 @@ Use when automatic cleanup fails or for emergency cleanup:
 echo "your-bucket-name" > reports/test-run-*/state_bucket.txt
 
 # Or skip T2.1 and create bucket manually
-aws s3 mb s3://test-infra-terraform-state-156041409155 --region us-east-1
+aws s3 mb s3://test-infra-terraform-state-123456789012 --region us-east-1
 ```
 
 ### Issue 4: Test Failure Mid-Run

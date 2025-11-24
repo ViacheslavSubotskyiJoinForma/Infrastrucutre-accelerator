@@ -25,7 +25,7 @@
 - [x] All scripts executable
 
 ### AWS Configuration
-- **Account ID**: `156041409155`
+- **Account ID**: `123456789012`
 - **Region**: `us-east-1`
 - **Credentials Type**: Temporary (with SESSION_TOKEN)
 - **⚠️ Expiry**: Monitor - typical lifetime 1-12 hours
@@ -127,7 +127,7 @@ Project name: test-infra-t1.1
 Components: vpc
 Environments: dev
 Region: us-east-1
-AWS Account ID: 156041409155
+AWS Account ID: 123456789012
 Backend type: local
 State bucket: (leave empty)
 Run apply: true
