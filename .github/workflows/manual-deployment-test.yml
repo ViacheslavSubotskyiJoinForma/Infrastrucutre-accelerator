@@ -515,6 +515,14 @@ jobs:
           name: generated-infra-${{ github.run_id }}
           path: generated-infra
 
+      # Download VPC state file for dependent components (needed for terraform_remote_state)
+      - name: Download VPC state file
+        if: inputs.backend_type == 'local'
+        uses: actions/download-artifact@v4
+        with:
+          name: tfstate-vpc-${{ matrix.env }}-${{ github.run_id }}
+          path: generated-infra/infra/vpc
+
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
         with:
@@ -614,6 +622,14 @@ jobs:
         with:
           name: generated-infra-${{ github.run_id }}
           path: generated-infra
+
+      # Download VPC state file for dependent components (needed for terraform_remote_state)
+      - name: Download VPC state file
+        if: inputs.backend_type == 'local'
+        uses: actions/download-artifact@v4
+        with:
+          name: tfstate-vpc-${{ matrix.env }}-${{ github.run_id }}
+          path: generated-infra/infra/vpc
 
       - name: Download plan
         uses: actions/download-artifact@v4
@@ -723,6 +739,14 @@ jobs:
         with:
           name: tfstate-${{ matrix.component }}-${{ matrix.env }}-${{ github.run_id }}
           path: generated-infra/infra/${{ matrix.component }}
+
+      # Download VPC state file for dependent components (needed for terraform_remote_state)
+      - name: Download VPC state file
+        if: inputs.backend_type == 'local'
+        uses: actions/download-artifact@v4
+        with:
+          name: tfstate-vpc-${{ matrix.env }}-${{ github.run_id }}
+          path: generated-infra/infra/vpc
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
