@@ -841,6 +841,8 @@ jobs:
           fi
 
       - name: Terraform Destroy
+        id: terraform_destroy
+        continue-on-error: true
         working-directory: generated-infra/infra/${{ matrix.component }}
         run: |
           echo "🧹 Destroying ${{ matrix.component }} for ${{ matrix.env }}..."
@@ -848,6 +850,41 @@ jobs:
             -var-file=../config/${{ matrix.env }}.tfvars \
             -auto-approve
           echo "✅ Destroy completed for ${{ matrix.component }} (${{ matrix.env }})"
+
+      - name: Cleanup S3 bucket (if terraform destroy failed)
+        if: |
+          steps.terraform_destroy.outcome == 'failure' &&
+          matrix.component == 'terraform-backend'
+        run: |
+          echo "🧹 Terraform destroy failed for terraform-backend, attempting S3 bucket cleanup..."
+
+          BUCKET_NAME="${{ inputs.project_name }}-backend-terraform-state-${{ inputs.aws_account_id }}"
+          echo "Target bucket: $BUCKET_NAME"
+
+          # Delete all versions and delete markers
+          echo "Deleting all object versions and delete markers..."
+          aws s3api list-object-versions \
+            --bucket "$BUCKET_NAME" \
+            --region "${{ inputs.region }}" \
+            --output json | \
+          jq -r '.Versions[]?, .DeleteMarkers[]? | "--version-id \(.VersionId) --key \(.Key)"' | \
+          while read -r args; do
+            aws s3api delete-object --bucket "$BUCKET_NAME" --region "${{ inputs.region }}" $args
+            echo "Deleted: $args"
+          done
+
+          # Delete bucket
+          echo "Deleting bucket..."
+          aws s3api delete-bucket --bucket "$BUCKET_NAME" --region "${{ inputs.region }}"
+          echo "✅ S3 bucket cleanup completed successfully"
+
+      - name: Fail job if destroy failed and not terraform-backend
+        if: |
+          steps.terraform_destroy.outcome == 'failure' &&
+          matrix.component != 'terraform-backend'
+        run: |
+          echo "❌ Terraform destroy failed for ${{ matrix.component }}"
+          exit 1
 
       - name: Destroy summary
         run: |
