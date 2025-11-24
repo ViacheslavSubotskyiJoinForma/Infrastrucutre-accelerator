@@ -326,8 +326,9 @@ class AWSCleaner:
                 # Skip if not in our region (for regional cleanup)
                 try:
                     location = self.s3.get_bucket_location(Bucket=bucket_name)
-                    bucket_region = location.get('LocationConstraint', 'us-east-1')
-                    if bucket_region != self.region and bucket_region is not None:
+                    # LocationConstraint is None for us-east-1
+                    bucket_region = location.get('LocationConstraint') or 'us-east-1'
+                    if bucket_region != self.region:
                         continue
                 except ClientError:
                     continue
@@ -351,32 +352,39 @@ class AWSCleaner:
                     self.log(f"Deleting S3 bucket: {bucket_name}", 'INFO')
 
                     if not self.dry_run:
-                        # Delete all versions
+                        # Delete all versions and delete markers (if any exist)
                         try:
-                            versioning = self.s3.get_bucket_versioning(Bucket=bucket_name)
-                            if versioning.get('Status') == 'Enabled':
-                                self.log(f"Cleaning versioned objects in {bucket_name}...", 'INFO')
+                            # Always attempt to list versions - bucket may have versions
+                            # even if versioning is not currently enabled
+                            paginator = self.s3.get_paginator('list_object_versions')
+                            has_versions = False
 
-                                # Delete all versions and delete markers
-                                paginator = self.s3.get_paginator('list_object_versions')
-                                for page in paginator.paginate(Bucket=bucket_name):
-                                    # Delete versions
-                                    versions = page.get('Versions', [])
-                                    for version in versions:
-                                        self.s3.delete_object(
-                                            Bucket=bucket_name,
-                                            Key=version['Key'],
-                                            VersionId=version['VersionId']
-                                        )
+                            for page in paginator.paginate(Bucket=bucket_name):
+                                # Delete versions
+                                versions = page.get('Versions', [])
+                                if versions and not has_versions:
+                                    has_versions = True
+                                    self.log(f"Cleaning versioned objects in {bucket_name}...", 'INFO')
 
-                                    # Delete delete markers
-                                    delete_markers = page.get('DeleteMarkers', [])
-                                    for marker in delete_markers:
-                                        self.s3.delete_object(
-                                            Bucket=bucket_name,
-                                            Key=marker['Key'],
-                                            VersionId=marker['VersionId']
-                                        )
+                                for version in versions:
+                                    self.s3.delete_object(
+                                        Bucket=bucket_name,
+                                        Key=version['Key'],
+                                        VersionId=version['VersionId']
+                                    )
+
+                                # Delete delete markers
+                                delete_markers = page.get('DeleteMarkers', [])
+                                if delete_markers and not has_versions:
+                                    has_versions = True
+                                    self.log(f"Cleaning versioned objects in {bucket_name}...", 'INFO')
+
+                                for marker in delete_markers:
+                                    self.s3.delete_object(
+                                        Bucket=bucket_name,
+                                        Key=marker['Key'],
+                                        VersionId=marker['VersionId']
+                                    )
                         except ClientError as e:
                             if 'NoSuchBucket' not in str(e):
                                 self.log(f"Error cleaning versions: {e}", 'WARNING')
