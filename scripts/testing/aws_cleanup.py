@@ -42,6 +42,7 @@ class AWSCleaner:
             'load_balancers': 0,
             'enis': 0,
             'nat_gateways': 0,
+            'elastic_ips': 0,
             'internet_gateways': 0,
             'security_groups': 0,
             'route_tables': 0,
@@ -192,6 +193,50 @@ class AWSCleaner:
         except ClientError as e:
             self.log(f"Error cleaning NAT gateways: {e}", 'ERROR')
             self.stats['errors'].append(f"nat_gateways: {e}")
+            return False
+
+    def cleanup_elastic_ips(self) -> bool:
+        """Delete unassociated Elastic IPs from test resources"""
+        self.log("Cleaning up Elastic IPs...", 'INFO')
+
+        try:
+            test_tags = self.get_test_tags()
+            response = self.ec2.describe_addresses()
+
+            for address in response['Addresses']:
+                allocation_id = address.get('AllocationId')
+                public_ip = address.get('PublicIp')
+                association_id = address.get('AssociationId')
+
+                # Skip if associated (in use)
+                if association_id:
+                    continue
+
+                # Check tags
+                tags = {tag['Key']: tag['Value'] for tag in address.get('Tags', [])}
+                name_tag = tags.get('Name', '')
+
+                # Match test resources by tag or by naming convention
+                matches_tags = all(tags.get(k) == v for k, v in test_tags.items()) if test_tags else False
+                is_test_eip = (
+                    'test-' in name_tag.lower() or
+                    name_tag.startswith('vpc-') or
+                    not name_tag  # Untagged, unassociated EIPs are likely orphaned
+                )
+
+                if matches_tags or is_test_eip:
+                    self.log(f"Deleting EIP: {allocation_id} ({public_ip}) - Name: {name_tag or 'untagged'}", 'INFO')
+
+                    if not self.dry_run:
+                        self.ec2.release_address(AllocationId=allocation_id)
+                        self.stats['elastic_ips'] += 1
+
+                    self.log(f"Released EIP: {allocation_id}", 'SUCCESS')
+
+            return True
+        except ClientError as e:
+            self.log(f"Error cleaning Elastic IPs: {e}", 'ERROR')
+            self.stats['errors'].append(f"elastic_ips: {e}")
             return False
 
     def cleanup_vpcs(self) -> bool:
@@ -593,6 +638,7 @@ class AWSCleaner:
             ("Load Balancers", self.cleanup_load_balancers),
             ("ENIs", self.cleanup_enis),
             ("NAT Gateways", self.cleanup_nat_gateways),
+            ("Elastic IPs", self.cleanup_elastic_ips),
             ("RDS Clusters", self.cleanup_rds_clusters),
             ("VPCs", self.cleanup_vpcs),
             ("DB Subnet Groups", self.cleanup_db_subnet_groups),
@@ -612,6 +658,7 @@ class AWSCleaner:
         self.log(f"Load Balancers deleted: {self.stats['load_balancers']}", 'SUCCESS')
         self.log(f"ENIs deleted: {self.stats['enis']}", 'SUCCESS')
         self.log(f"NAT Gateways deleted: {self.stats['nat_gateways']}", 'SUCCESS')
+        self.log(f"Elastic IPs released: {self.stats['elastic_ips']}", 'SUCCESS')
         self.log(f"RDS Clusters deleted: {self.stats.get('rds_clusters', 0)}", 'SUCCESS')
         self.log(f"Internet Gateways deleted: {self.stats['internet_gateways']}", 'SUCCESS')
         self.log(f"Security Groups deleted: {self.stats['security_groups']}", 'SUCCESS')
