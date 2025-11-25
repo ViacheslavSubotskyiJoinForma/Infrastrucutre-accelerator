@@ -269,6 +269,101 @@ class AWSCleaner:
             self.stats['errors'].append(f"vpcs: {e}")
             return False
 
+    def cleanup_rds_clusters(self) -> bool:
+        """Delete RDS Aurora clusters and instances"""
+        self.log("Cleaning up RDS clusters...", 'INFO')
+
+        try:
+            test_tags = self.get_test_tags()
+
+            # List all DB clusters
+            response = self.rds.describe_db_clusters()
+
+            for cluster in response['DBClusters']:
+                cluster_id = cluster['DBClusterIdentifier']
+
+                # Get tags for this cluster
+                try:
+                    tags_response = self.rds.list_tags_for_resource(
+                        ResourceName=cluster['DBClusterArn']
+                    )
+                    tags = {tag['Key']: tag['Value'] for tag in tags_response.get('TagList', [])}
+
+                    # Check if tags match OR if cluster name starts with test prefix
+                    matches = all(tags.get(k) == v for k, v in test_tags.items())
+                    is_test_cluster = cluster_id.startswith('test-') or '-test-' in cluster_id
+
+                    if matches or is_test_cluster:
+                        self.log(f"Found RDS cluster to delete: {cluster_id}", 'INFO')
+
+                        if not self.dry_run:
+                            # Disable deletion protection first
+                            if cluster.get('DeletionProtection', False):
+                                self.log(f"Disabling deletion protection for: {cluster_id}", 'INFO')
+                                try:
+                                    self.rds.modify_db_cluster(
+                                        DBClusterIdentifier=cluster_id,
+                                        DeletionProtection=False,
+                                        ApplyImmediately=True
+                                    )
+                                    time.sleep(5)  # Wait for modification to apply
+                                except ClientError as e:
+                                    self.log(f"Error disabling deletion protection: {e}", 'WARNING')
+
+                            # First delete all instances in the cluster
+                            for member in cluster.get('DBClusterMembers', []):
+                                instance_id = member['DBInstanceIdentifier']
+                                self.log(f"Deleting RDS instance: {instance_id}", 'INFO')
+                                try:
+                                    self.rds.delete_db_instance(
+                                        DBInstanceIdentifier=instance_id,
+                                        SkipFinalSnapshot=True,
+                                        DeleteAutomatedBackups=True
+                                    )
+                                except ClientError as e:
+                                    if 'DBInstanceNotFound' not in str(e):
+                                        self.log(f"Error deleting instance {instance_id}: {e}", 'WARNING')
+
+                            # Wait for instances to be deleted
+                            self.log(f"Waiting for instances to be deleted...", 'INFO')
+                            for member in cluster.get('DBClusterMembers', []):
+                                instance_id = member['DBInstanceIdentifier']
+                                try:
+                                    waiter = self.rds.get_waiter('db_instance_deleted')
+                                    waiter.wait(
+                                        DBInstanceIdentifier=instance_id,
+                                        WaiterConfig={'Delay': 30, 'MaxAttempts': 60}
+                                    )
+                                except Exception as e:
+                                    self.log(f"Waiter error for {instance_id}: {e}", 'WARNING')
+
+                            # Now delete the cluster
+                            self.log(f"Deleting RDS cluster: {cluster_id}", 'INFO')
+                            try:
+                                self.rds.delete_db_cluster(
+                                    DBClusterIdentifier=cluster_id,
+                                    SkipFinalSnapshot=True,
+                                    DeleteAutomatedBackups=True
+                                )
+                                self.stats['rds_clusters'] = self.stats.get('rds_clusters', 0) + 1
+                                self.log(f"Deleted RDS cluster: {cluster_id}", 'SUCCESS')
+                            except ClientError as e:
+                                if 'DBClusterNotFoundFault' not in str(e):
+                                    self.log(f"Error deleting cluster {cluster_id}: {e}", 'WARNING')
+                        else:
+                            self.log(f"Would delete RDS cluster: {cluster_id}", 'INFO')
+                            self.stats['rds_clusters'] = self.stats.get('rds_clusters', 0) + 1
+
+                except ClientError as e:
+                    if 'DBClusterNotFoundFault' not in str(e):
+                        self.log(f"Warning: Could not process cluster {cluster_id}: {e}", 'WARNING')
+
+            return True
+        except ClientError as e:
+            self.log(f"Error cleaning RDS clusters: {e}", 'ERROR')
+            self.stats['errors'].append(f"rds_clusters: {e}")
+            return False
+
     def cleanup_db_subnet_groups(self) -> bool:
         """Delete RDS DB Subnet Groups"""
         self.log("Cleaning up DB subnet groups...", 'INFO')
@@ -498,6 +593,7 @@ class AWSCleaner:
             ("Load Balancers", self.cleanup_load_balancers),
             ("ENIs", self.cleanup_enis),
             ("NAT Gateways", self.cleanup_nat_gateways),
+            ("RDS Clusters", self.cleanup_rds_clusters),
             ("VPCs", self.cleanup_vpcs),
             ("DB Subnet Groups", self.cleanup_db_subnet_groups),
             ("S3 Buckets", self.cleanup_s3_buckets),
@@ -516,6 +612,7 @@ class AWSCleaner:
         self.log(f"Load Balancers deleted: {self.stats['load_balancers']}", 'SUCCESS')
         self.log(f"ENIs deleted: {self.stats['enis']}", 'SUCCESS')
         self.log(f"NAT Gateways deleted: {self.stats['nat_gateways']}", 'SUCCESS')
+        self.log(f"RDS Clusters deleted: {self.stats.get('rds_clusters', 0)}", 'SUCCESS')
         self.log(f"Internet Gateways deleted: {self.stats['internet_gateways']}", 'SUCCESS')
         self.log(f"Security Groups deleted: {self.stats['security_groups']}", 'SUCCESS')
         self.log(f"Route Tables deleted: {self.stats['route_tables']}", 'SUCCESS')

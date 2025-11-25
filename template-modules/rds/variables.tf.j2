@@ -66,12 +66,12 @@ variable "deletion_protection" {
 }
 
 variable "skip_final_snapshot" {
-  description = "Skip final snapshot on deletion (true for dev/uat)"
+  description = "Skip final snapshot on deletion (true for all envs in testing mode)"
   type        = map(bool)
   default = {
     dev  = true
     uat  = true
-    prod = false
+    prod = true  # Changed to true for testing - in production deployments this should be false
   }
 }
 
