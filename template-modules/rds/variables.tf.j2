@@ -56,12 +56,12 @@ variable "backup_retention_period" {
 }
 
 variable "deletion_protection" {
-  description = "Enable deletion protection for production"
+  description = "Enable deletion protection (false for all envs in testing mode)"
   type        = map(bool)
   default = {
     dev  = false
     uat  = false
-    prod = true
+    prod = false  # Changed to false for testing - in production deployments this should be true
   }
 }
 
